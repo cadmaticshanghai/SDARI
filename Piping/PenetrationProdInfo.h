@@ -11,7 +11,7 @@
 #define	Maximum_Thickness			20
 
 #define	Tag_Spool_Name              "PSA"                          /*1.¹Ü¶ÎÃû³Æ*/
-
+#define	Tag_Spool_PlanningUnit      "PS1"                          /*2.ÍÐÅÌ´úºÅ*/
 
 
 
