@@ -1,0 +1,56 @@
+/* $Id: ModifyElecEquiSeat.mac,v1.0.0 2018/09/27 Wallis.liu $ */
+
+/*
+**	这个程序用于修改电气设备基座.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/dw.h"
+#include "include/PmDirectionUtils.h"
+#include "include/quants.h"
+
+#include "$MarineToolkit/ElectricalEquipmentSeat/ElecEquiSeat.h"
+
+main()
+{
+    tmp = 0;
+    picked_object_handle = PM_PICK_OBJECT("请选择电气设备基座", tmp, "STRUCTCMP","BEAM","STANDCMP");
+	if (!ISINT(picked_object_handle)){	   
+        /*get name of seat*/
+        group_handle = PM_GET_OBJECT_GROUP(picked_object_handle, Group_Type_I);
+        if (ISINT(group_handle)){
+            U_CONFIRM("此零件不属于任何电气设备基座");	
+            return(0);
+        }			  
+		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
+        /* check type of seat */
+        type = PM_GET_OBJDATA(group_handle, 0, SeatType);
+        if(ISINT(type)){
+            U_CONFIRM("此零件不属于任何电气设备基座");	
+            return(0);	      
+        }	
+        else{
+            check = STRINGTERM(type,"_");
+            if(check != "EES"){
+                U_CONFIRM("此零件不属于任何电气设备基座");	
+                return(0);		         
+            }
+        }   	
+        type = SEARCH(type,"_");      		
+		/*call the corresponding script*/	
+        path = SYS_GETENV("MarineToolkit") + "/ElectricalEquipmentSeat/ElecEquiSeat" + type + ".mac";	
+        PM_CALL_SCRIPT(path,"main",group_name);			
+    } 
+    else{
+        return(0);
+    } 
+    return(0);
+}

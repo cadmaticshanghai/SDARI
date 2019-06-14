@@ -1,0 +1,1033 @@
+/* $Id: PenetrationProdInfo.mac,v1.0.0 2018/12/20 Wallis.liu $ */
+
+/*
+**  This script use to manage the production information of pipe penetration
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/cos.h"
+#include "include/geoutils.h"
+#include "include/quants.h"
+#include "include/dm_cos_schema.h"
+
+#include "$MarineToolkit/Piping/PenetrationProdInfo.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/String_Utility.h"
+#include "$MarineToolkit/Include/Grid_Utility.h"
+#include "$MarineToolkit/Include/license.h"
+
+/*
+**It seem that there isn't method to get the size of a array, define a global var to store the number of production information
+*/
+#define  Column_Number 8
+
+global handle W_Block_Name, W_System_Name, W_Planning_Unit;
+global handle W_Data_Grid;
+global handle NULL_HANDLE = 0;
+global int    Grid_SelectedItem = 0;
+global int    Grid_SortColumn = -1;
+global int    Grid_SortDirection = 1;
+global handle Object_List;          	          		/*pipe penetration handle array*/
+global handle Tag_Array, Tag_Description_Array;
+global handle Object_Info;				          	/*pipe penetration production information array*/
+global int    Object_Number = 0;				  		/*pipe penetration number*/
+global int    Model_Add_Mode = 1;						/*search object mode 0 - replace，1 - append*/
+global handle High_Light_List;                    	/*highlighted object array*/
+global handle Selected_Objects;
+global int    Selected_Objects_Number = 0;
+global int    AutoScale = 0;
+global int    AutoHighLight = 1;
+global handle MainWindow;
+global int    Maximum_Object_Number = 1000;
+
+global handle	W_Search_Object;
+global string	Icon_My_Check_Out		= "$Cadmatic_Toolkit/ICONS/mycheckout.ico";
+global string	Icon_Other_Check_Out	= "$Cadmatic_Toolkit/ICONS/checkout.ico";
+global string	Icon_Local_Server		= "$Cadmatic_Toolkit/ICONS/local_server.ico";
+global string	Icon_Replica_Check_Out	= "$Cadmatic_Toolkit/ICONS/replica_checkout.ico";
+global string	Icon_Replica_Server		= "$Cadmatic_Toolkit/ICONS/replica.ico";
+global string	Icon_Error				= "$Cadmatic_Toolkit/ICONS/error.ico";
+global handle	Access_List;
+
+/*
+**initiate script
+*/
+init()
+{
+	Tag_Array = A_ALLOC(Column_Number, "STRING");
+	A_PUT(Tag_Array,0,"Order");						/*序号*/
+	A_PUT(Tag_Array,1,"Name");						/*复板所属管段的名称*/
+	A_PUT(Tag_Array,2,Tag_Penetration_FabDn);		/*复板的制作图号    */
+	A_PUT(Tag_Array,3,Tag_Penetration_WeldType);	/*复板的焊接类型，默认为外场焊接*/
+	A_PUT(Tag_Array,4,"Material");					/*复板材料*/
+	A_PUT(Tag_Array,5,"Thickness");					/*复板厚度*/
+	A_PUT(Tag_Array,6,"Weight");					/*复板重量*/
+	A_PUT(Tag_Array,7,Tag_Penetration_Remark);		/*复板备注*/
+
+	Tag_Description_Array = A_ALLOC(Column_Number, "STRING");
+	A_PUT(Tag_Description_Array,0,"序号");
+	A_PUT(Tag_Description_Array,1,"名称");
+	A_PUT(Tag_Description_Array,2,"型号规格及标准号");
+	A_PUT(Tag_Description_Array,3,"焊接类型");
+	A_PUT(Tag_Description_Array,4,"材质");
+	A_PUT(Tag_Description_Array,5,"厚度");
+	A_PUT(Tag_Description_Array,6,"重量");
+	A_PUT(Tag_Description_Array,7,"备注");
+	
+	Object_Info = alloc_2darray(1,1);
+	Access_List = A_ALLOC(1);
+	Object_List = PM_INIT_SET();
+	High_Light_List  = PM_INIT_SET();
+	Selected_Objects = PM_INIT_SET();
+}
+
+model_list_mode(item, event_type, selection)
+{
+	if (selection == 0){
+		Model_Add_Mode = 0;
+	}
+	else{
+		Model_Add_Mode = 1;
+	}
+	return(0);
+}
+
+/*
+**get pipe penetrations production information and store in array
+*/
+get_penetration_info()
+{
+	A_FREE(Object_Info);
+	Object_Info = alloc_2darray(Object_Number,Column_Number);
+	A_FREE(Access_List);
+	Access_List = A_ALLOC(Object_Number);
+	penetration_data = A_ALLOC(Column_Number);
+	for (i = 0; i < Object_Number; i = i + 1;){
+		object_prod_info = "";
+		object = PM_GET_MEMBER_IN_SET(Object_List, i);
+		datas = A_ALLOC(Column_Number);
+		res = get_penetration_data(object, Tag_Array, Column_Number,datas);
+		for (n = 0; n < Column_Number; n = n + 1;){
+			info = A_GET(datas, n);
+			put_2darray(Object_Info, i, n, info);
+		}
+		access = Get_Object_Access_Status(object);
+		A_PUT(Access_List,i,access);
+		A_FREE(datas);
+	}
+	A_FREE(penetration_data);
+	return 0;
+}
+
+
+/* 抽取指定的复板信息 */
+get_penetration_data(obj_h, tags, tags_number,datas)
+{
+	double_plate = get_double_plate(obj_h);		/* 获取复板的object handle*/	
+	nth = 0;
+	for(i=0;i<tags_number;i=i+1;){
+		tag = A_GET(tags,i);
+		if(tag == "Order"){						/* 复板序号默认为0 */ 
+			data = "0";
+			A_PUT(datas,0,data);
+		}
+		else if(tag == "Name"){					/* 抽取复板的名称，如果未赋名称给复板，则根据规则给复板赋名称 */
+			data = get_penetration_name(double_plate);
+			A_PUT(datas,1,data);				
+		}
+		else if(tag == Tag_Penetration_FabDn){	/* 抽取复板的制作图名，如果尚未赋图号，则根据规则赋给默认的图号 */
+			data = get_fabrication_DrawingNumber(double_plate);			
+			A_PUT(datas,2,data);			
+		}
+		else if(tag == Tag_Penetration_WeldType){	/* 抽取复板的焊接类型，如果未赋焊接类型，则根据规则赋给默认的焊接类型 */		
+			data = get_welding_type(double_plate);
+			A_PUT(datas,3,data);
+		}	
+		else if(tag == "Material"){				/* 抽取复板的焊接类型，如果未赋焊接类型，则根据规则赋给默认的焊接类型 */
+			data = get_materail(double_plate);
+			A_PUT(datas,4,data);
+		}
+		else if(tag == "Thickness"){
+			data = get_thickness(double_plate);
+			A_PUT(datas,5,data);
+		}
+		else if(tag == "Weight"){
+			data = get_weight(double_plate);
+			A_PUT(datas,6,data);
+		}
+		else if(tag == Tag_Penetration_Remark){
+			data = get_remark(double_plate);
+			A_PUT(datas,7,data);
+		}
+		A_PUT(datas,i,data);
+	}
+	return(0);
+}
+
+get_materail(double_plate)
+{
+	nth = 0;
+	part_id = PM_GET_OBJDATA(double_plate, nth, "pid");
+	material = DM_PARTID_DATA(part_id,"MC");
+	if(ISSTRING(material)){
+		return(material);	
+	}
+	else{	
+		return("Q235A");
+	}
+}
+
+
+get_thickness(double_plate)
+{
+	nth = 0;
+	part_id = PM_GET_OBJDATA(double_plate, nth, "pid");
+	thickness = DM_PARTID_DATA(part_id,"DD");
+	if(ISSTRING(thickness)){
+		thickness = SEARCH(STRINGTERM(thickness,"mm"),"=");
+		thickness = TAIL(thickness,STRLEN(thickness)-1);
+		return(thickness);	
+	}
+	else{	
+		return("0.00");
+	}
+}
+
+get_weight(double_plate)
+{
+	nth = 0;
+	weight = PM_GET_OBJDATA(double_plate, nth, "MAS");
+	if(ISSTRING(weight)){
+		return(weight);	
+	}
+	else{	
+		return("0.00");
+	}
+}
+
+get_remark(double_plate)
+{
+	nth = 0;
+	remark = PM_GET_OBJDATA(double_plate, nth, Tag_Penetration_Remark);
+	if(ISSTRING(remark)){
+		return(remark);	
+	}
+	else{	
+		return("");
+	}
+}
+
+/* 抽取复板的焊接类型信息，如果值为空，值赋一个初始值 */
+get_welding_type(obj_h)
+{
+	nth = 0;
+	welding_type = PM_GET_OBJDATA(obj_h,nth,Tag_Penetration_WeldType);
+	/* 抽取复板的焊接类型并根据返回值做相应处理 */
+	if(ISSTRING(welding_type)){
+		/* 复板已经具有有效的焊接类型信息 */
+		if(welding_type != ""){
+			return(welding_type);		
+		}
+		/* 复板焊接类型信息为空 */
+		else{
+			/*检查用户权限并做出相应处理*/
+			access = Get_Object_Access_Status(obj_h);
+			if(access == "CheckOutByMe"){
+				Set_Attribute_Value(obj_h,Tag_Penetration_WeldType,"外场焊");
+				return("外场焊");
+			}
+			else{
+				return("未定义");
+			}
+		}	
+	}
+	/* 尚未给复板添加焊接类型信息 */
+	else{
+		/*检查用户权限并做出相应处理*/
+		access = Get_Object_Access_Status(obj_h);
+		if(access == "CheckOutByMe"){
+			Set_Attribute_Value(obj_h,Tag_Penetration_WeldType,"外场焊");
+			return("外场焊");
+		}
+		else{
+			return("未定义");
+		}		
+	}
+	return("外场焊");
+}
+
+
+/* 抽取复板的制作图号信息，如果值为空，值赋一个初始值 */
+get_fabrication_DrawingNumber(obj_h)
+{
+	value1 = "FD0000001";
+	value2 = "000000000";
+	nth = 0;
+	drawing_number = PM_GET_OBJDATA(obj_h,nth,Tag_Penetration_FabDn);
+	/* 抽取复板的制作图号并根据返回值做相应处理 */
+	if(ISSTRING(drawing_number)){
+		/* 复板已经具有有效的制作图号信息 */
+		if(drawing_number != ""){
+			return(drawing_number);		
+		}
+		/* 复板制作图号信息为空 */
+		else{
+			/*检查用户权限并做出相应处理*/
+			access = Get_Object_Access_Status(obj_h);
+			if(access == "CheckOutByMe"){
+				Set_Attribute_Value(obj_h,Tag_Penetration_FabDn,value1);
+				return(value1);
+			}
+			else{
+				return(value2);
+			}
+		}	
+	}
+	/* 尚未给复板添加制作图号信息 */
+	else{
+		/*检查用户权限并做出相应处理*/
+		access = Get_Object_Access_Status(obj_h);
+		if(access == "CheckOutByMe"){
+			Set_Attribute_Value(obj_h,Tag_Penetration_FabDn,value1);
+			return(value1);
+		}
+		else{
+			return(value2);
+		}		
+	}
+	return(value1);
+}
+
+/* 复板的名称为其所属的管段的名称 */
+get_penetration_name(obj_h)
+{
+	block_name = get_block_name(obj_h);
+	nth = 0;
+	xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+	res = PM_GET_BBOX_OF_OBJECT(obj_h, xmin, xmax, ymin, ymax, zmin, zmax); 
+	obj_type = 3;
+	pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,obj_type);
+	if(ISINT(pipes)){
+		name = "PB" + block_name + "-XXXXX-XX";	
+	}
+	else{
+		pipe = PM_GET_MEMBER_IN_SET(pipes,0);
+		spool_handle = PM_GET_OBJECT_GROUP(pipe,0);	/* 获取管段的handle */
+		if(ISINT(spool_handle)){						/* 如果无法获取管段的handle，则管路尚未生成管段，返回管线名称 */
+			pipe_line = PM_GET_OBJDATA(pipe,nth,"pli");
+			if(ISSTRING(pipe_line)){
+				name = "PB" + block_name + "-" + pipe_line + "-XX";				
+			}
+			else{
+				name = "PB" + block_name + "-XXXXX-XX";		
+			}	
+		}
+		else{
+			spool_name = PM_GET_OBJDATA(pipe,nth,Tag_Spool_Name);	/* 抽取管段的管段名*/
+			if(!ISSTRING(spool_name)){
+				spool_number = PM_GET_OBJDATA(pipe,nth,"spn");
+				if(ISSTRING(spool_number)){
+					pipe_line = PM_GET_OBJDATA(pipe,nth,"pli");
+					name = "PB" + block_name + "-" + pipe_line + "-" + spool_number;								
+				}
+				else{
+					pipe_line = PM_GET_OBJDATA(pipe,nth,"pli");
+					name = "PB" + block_name + "-" + pipe_line + "-XX";					
+				}		
+			}
+			else{
+				name = "PB" + spool_name;	
+			}
+		}
+	}
+	return(name);	
+}
+
+/*
+**Create Top frame
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+    W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE,      "复板生产信息",  
+                                W_FRAME_RESIZABLE,  W_RESIZE_HORIZONTALLY);
+	return(mainform);
+}
+
+/*
+**Create grid(multi column list) for display production information of structure
+*/
+create_grid(main_form)
+{
+	wobj = W_ADD_WINDOW(main_form, W_MULTISELECT, "W_Data_Grid");
+
+	W_REALIZE_WINDOW(wobj,  W_FRAME_RIGHT_OF,       "W_Block_Name",
+						    W_FRAME_BELOW,          "panel_upperpart",
+						    W_LISTW_COLUMNS,        Column_Number,
+						    W_FRAME_SCROLLBAR,      W_SCROLLBAR_RIGHTEDGE,
+						    W_LISTW_HEADER_MODE,    W_LISTW_HEADER_BUTTONS,
+						    W_FRAME_RESIZABLE,      W_RESIZE_HORIZONTALLY,
+						    W_LISTW_MODE_REPORT,    0,
+						    W_FRAME_COLS,           73, 
+						    W_FRAME_ROWS,           17,
+						    W_LISTW_CALLBACK,       1);
+	W_SET_WINDOW_HANDLER(wobj, "grid_handler");
+
+	/*
+	**set the column title of grid
+	*/
+	Set_Column_Title(wobj, Tag_Description_Array, Column_Number);
+	return(wobj);
+}
+
+
+quit_handler(item, event_type, button_value)
+{
+	exit();
+	U_MESSAGE("退出复板生产信息窗口");
+	return(99);
+}
+
+
+grid_handler(window, event_type, row, column, item_id)
+{
+	if (event_type == W_EVENT_ITEM_SELECTED) {
+		/* handle list sort */
+		if (row < 0 & column >= 0) {
+			sort_grid(column,window);
+		}
+		else if(row >= 0 & column == 0){
+			Get_Selected_Items(W_Data_Grid,Object_List,Selected_Objects,Selected_Objects_Number);
+			Auto_Highlight(AutoHighLight, High_Light_List, Selected_Objects);
+			Auto_Scale_Model(AutoScale, Selected_Objects);
+		}
+	}
+	/* handle double click event */
+	else if (event_type == W_EVENT_ITEM_DOUBLECLICKED) {
+		Get_Selected_Items(W_Data_Grid,Object_List,Selected_Objects,Selected_Objects_Number);
+		Auto_Highlight(AutoHighLight, High_Light_List, Selected_Objects);
+		Auto_Scale_Model(AutoScale, Selected_Objects);
+		modify_info_handler(0, 0, 0);
+	}
+	return(0);
+}
+
+sort_grid(column,window)
+{
+	/* A column header was clicked; sort the items */
+	if (Grid_SortColumn == column) {
+		if (Grid_SortDirection == 0) {
+			Grid_SortDirection = 1;
+		}
+		else {
+			Grid_SortDirection = 0;
+		}
+	}
+	else {
+		Grid_SortDirection = 1;
+	}
+	Grid_SortColumn = column;
+	W_SET_WINDOW_ARGS(window, W_LISTW_COLUMN, column, W_LISTW_SORT, Grid_SortDirection);
+}
+
+/*
+**Modify selected items.
+*/
+modify_info_handler(item, event_type, button_value)
+{
+	/* check if already select objects in list */
+	penetration_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (penetration_number <= 0){
+		U_CONFIRM("请先选择管段");
+		return(0);
+	}
+	/*定义菜单信息*/   
+	tag_number = 3;
+	tag_description = A_ALLOC(3);
+	A_PUT(tag_description,0,"型号规格及标准号");
+	A_PUT(tag_description,1,"焊接类型");
+	A_PUT(tag_description,2,"备注");
+	
+	tags = A_ALLOC(3);
+	A_PUT(tags,0,Tag_Penetration_FabDn);
+	A_PUT(tags,1,Tag_Penetration_WeldType);
+	A_PUT(tags,2,Tag_Penetration_Remark);
+	
+	/* get column number of item that will be modified */
+	si = 1;
+	s = DM_CALL_SCRIPT("macro/Select.mac","U_Select","选择要修改的生产信息",tag_number,tag_description,si);
+	if ( s < 0 ){
+		return(0);
+	}
+
+	attribute_tag = A_GET( tags, s);
+	attribute_name = A_GET( tag_description, s);
+
+	/* get new value */
+	U_INIT_DIALOG(" 请输入新的属性值 ");
+	dialog_handle = U_SET_STR(attribute_name,"",25);
+	if( U_DIALOG() < 0 ){
+		U_CONFIRM("取消");
+		return(0);
+	}
+	new_val = U_GET_STR(dialog_handle);
+	if (new_val == ""){
+		U_CONFIRM("输入为空值");
+		return(0);
+	}
+
+	/* assign new value to selected objects */
+	for (i = 0; i < penetration_number; i = i + 1){
+		penetration = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+		double_plate = get_double_plate(penetration);
+		penetration_name = 	get_penetration_name(double_plate);
+		access = Get_Object_Access_Status(double_plate);
+		if(access == "CheckOutByMe"){
+			Set_Attribute_Value(double_plate, attribute_tag, new_val);		
+		}
+		else{
+			mess = "你没有复板<" + penetration_name + ">的修改权限";
+			U_CONFIRM(mess);		
+		}
+	}
+	
+	/* refresh data grid */
+	get_penetration_info();
+	publish_penetration_info();
+	/*
+	Publish_Data(W_Data_Grid,Object_Number,Column_Number,Grid_SortColumn,Grid_SortDirection,Object_Info);
+	*/
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
+}
+
+
+model_browsing_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);
+	selected_model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	if (selected_model_number > 0){
+		part = PM_GET_MEMBER_IN_SET(High_Light_List, 0);
+		x0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGX);
+		y0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGY);
+		z0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGZ);
+		x = SCAN_QUANT(1,x0);
+		y = SCAN_QUANT(1,y0);
+		z = SCAN_QUANT(1,z0);
+		PM_SET_CURRENT_LOC(x, y, z);
+	}    
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);
+}
+
+
+search_objects(item, event_type, button_value)
+{
+	/* query all model groups*/
+	query = PM_INIT_QUERY("GROUP");
+	groups = PM_EXECUTE_QUERY(query);
+
+	/* Get the pipe penetration group */
+	temp_list = PM_INIT_SET();
+
+	if (!ISINT(groups)){
+		group_number = PM_NR_MEMBERS_IN_SET(groups);
+		for (i = 0; i < group_number; i = i + 1;){
+			group_handle = PM_GET_MEMBER_IN_SET(groups, i);
+			group_type = PM_GET_OBJDATA(group_handle, 0, MMT_TAG_GROUPTYPE);
+			/* Get rid of other type group*/
+ 			if (group_type == "19"){
+				/* Get rid of group that contain nothing */
+				models = PM_GET_OBJECTS_IN_GROUP(group_handle);
+				if (models != 0){
+					model_number = PM_NR_MEMBERS_IN_SET(models);
+					if (model_number !=0){
+						/*检查是否为复板（如果是护圈则去掉）*/
+						if(is_double_plate(group_handle)){
+							result = PM_ADD_OBJECT_TO_SET(group_handle,temp_list);
+						}							
+					}
+				}
+			}
+		}
+	}
+
+	penetration_number = PM_NR_MEMBERS_IN_SET(temp_list);
+	if (penetration_number <= 0){
+		return 0;
+	}
+   
+	filter_model(temp_list);
+
+	/* add the search result to the result set according to the  */
+	if (Model_Add_Mode == 0){
+		PM_SETOP_OR(Object_List,temp_list);
+	}
+
+	if (Model_Add_Mode == 1){
+        PM_FREE_SET(Object_List);
+        Object_List = PM_INIT_SET();
+		Object_List = PM_COPY_SET(temp_list);
+	}
+
+	Object_Number = PM_NR_MEMBERS_IN_SET(Object_List);
+
+	if (Object_Number <= 0){
+		PM_FREE_SET(temp_list);
+		return 0;
+	}
+
+	PM_FREE_SET(temp_list);
+	/* get pipe penetration production information */
+	get_penetration_info();
+	publish_penetration_info();
+}
+
+is_double_plate(penetration)
+{
+	members = PM_GET_OBJECTS_IN_GROUP(penetration);
+	members_number = PM_NR_MEMBERS_IN_SET(members);
+	for(i=0;i<members_number;i=i+1;){
+		member = PM_GET_MEMBER_IN_SET(members,i);
+		nth = 0;
+		type = PM_GET_OBJDATA(member,nth,MMT_TAG_OBJTYPE);
+		if(type == "4"){
+        
+            /* 护圈的计量单位为个数，没有面积的属性 */
+			area = 1.0 * PM_GET_OBJDATA(member,nth,MMT_TAG_BOM_AREA);
+			if(area > 0){
+				return(1);
+			}		
+		}	
+	}
+	return(0);
+}
+
+get_double_plate(penetration)
+{
+	members = PM_GET_OBJECTS_IN_GROUP(penetration);
+	members_number = PM_NR_MEMBERS_IN_SET(members);
+	for(i=0;i<members_number;i=i+1;){
+		member = PM_GET_MEMBER_IN_SET(members,i);
+		nth = 0;
+		type = PM_GET_OBJDATA(member,nth,MMT_TAG_OBJTYPE);
+		if(type == "4"){
+			return(member);
+		}	
+	}
+	return(0);
+}
+
+publish_penetration_info()
+{
+	/* Delete all the data in grid */	
+	W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0);
+	W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_DELETEROWS, -1);
+	/* display part information in grid*/ 
+	for (i = 0; i < Object_Number; i = i + 1;){
+	    /* set current row and column*/
+		W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0);
+		W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_INSERTROWS, 1);
+		/*set access status flag of group*/
+		flag = A_GET(Access_List,i);
+		icon = Icon_My_Check_Out;
+		if(flag == "Local"){
+		   icon = Icon_Local_Server;
+		}
+		else if(flag == "CheckOutByMe"){
+		   icon = Icon_My_Check_Out;
+		}
+		else if(flag == "CheckOutByOther"){
+		   icon = Icon_Other_Check_Out;
+		}
+		else if(flag == "Replica"){
+		   icon = Icon_Replica_Server;
+		}
+		else if(flag == "CheckOutByReplicaUser"){
+		   icon = Icon_Replica_Check_Out;
+		}
+		else{
+		   icon = Icon_Error;
+		}
+		W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0, W_LISTW_COLUMN, 0, W_LISTW_ICON, icon );
+		for ( j = 0; j < Column_Number; j = j + 1;){
+			if(j==0){
+				W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, ITOASCII(Object_Number-i));
+			}
+			else{
+				Value = get_2darray(Object_Info,i,j);
+				if (ISSTRING(Value)){
+					W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, Value);
+				}
+				else if(ISFLOAT(Value)){
+					W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, FTOASCII(Value));
+				}
+				else if(ISINT(Value)){
+					W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, ITOASCII(Value));
+				}			
+			}
+		}		
+		W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ITEMID, i);		
+	}
+	
+	W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 1);
+	
+	/* Adjust the width of column automatically*/
+	for (i=0; i < Column_Number; i = i + 1;){
+		W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_COLUMN, i, W_LISTW_COLUMNWIDTH, -1);
+	}
+	
+	/* sort grid */
+	/*W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_COLUMN, Grid_SortColumn, W_LISTW_SORT, Grid_SortDirection);*/
+}
+
+filter_model( penetrations )
+{
+	/* Get filter conditions*/
+	block_name = W_GET_PANELITEM_ARG(W_Block_Name,W_PANEL_VALUE);
+	
+	temp = PM_INIT_SET();
+
+	penetration_number = PM_NR_MEMBERS_IN_SET(penetrations);
+	for (i = 0; i < penetration_number; i = i + 1;){
+		penetration_handle = PM_GET_MEMBER_IN_SET(penetrations, i);
+		models = PM_GET_OBJECTS_IN_GROUP(penetration_handle);
+		model_number = PM_NR_MEMBERS_IN_SET(models);
+		find = 0;
+		sequence = 0;
+		while(!find){												/* 遍历贯通件中的模型，找出复板模型 */
+			model = PM_GET_MEMBER_IN_SET(models,sequence);
+			model_type = PM_GET_OBJDATA(model,0,MMT_TAG_OBJTYPE);
+			if(model_type == "4"){
+				find=1;
+			}
+			sequence = sequence + 1;
+		}
+		
+		if(find){													/* 如果贯通中包含复板，则将贯通加入临时集合 */
+			model = PM_GET_MEMBER_IN_SET(models,sequence-1);
+			model_block_name = get_block_name(model);
+							
+			if(PATTERN_MATCH(model_block_name,block_name)){
+				PM_ADD_OBJECT_TO_SET(penetration_handle,temp);
+			}			
+		}
+
+	}
+	PM_SETOP_SUB(models,models);
+	PM_SETOP_OR(models,temp);
+	PM_FREE_SET(temp);
+	return(0);
+}
+
+get_block_name(obj_h)
+{
+	block_name = PM_GET_OBJDATA(obj_h,0,Tag_Block);				/*抽取复板的分段名称*/
+	if(ISINT(block_name)){										/*如果抽取不到复板的分段名称，则抽取其总段名称*/
+		block_name = PM_GET_OBJDATA(obj_h,0,Tag_SupperBlock);	/*抽取复板的总段名称*/
+		if(ISINT(block_name)){									/*如果抽取不到复板的总段名称，则返回默认分段名999 */
+			return("999");		
+		}
+		else if(block_name == ""){								/* 如果总段名称为空字符串，返回默认分段名999 */
+			return("999");
+		}
+		else{
+			return(block_name);
+		}
+	}
+	else if(block_name == ""){									/* 如果分段名称为空字符串，返回默认分段名999 */
+		return("999");
+	}
+	else{
+		return(block_name);
+	}
+}
+
+pick_objects(item, event_type, button_value)
+{
+ 	tmp = 0;
+	flag = TRUE;
+	temp = PM_INIT_SET();
+	while(flag){
+		pick_part = PM_PICK_OBJECT("请选择复板", tmp, "PIPE","STRUCTCMP");
+		if (pick_part != 0){
+			groups_handle = PM_GET_OBJECT_GROUP(pick_part, 19);
+			if (!ISINT(groups_handle)){
+				PM_ADD_OBJECT_TO_SET(groups_handle,temp);
+				Highlight_Object(groups_handle,TRUE);
+			}
+			else{
+				PM_RM_OBJECT_FROM_SET(groups_handle,temp);
+				Highlight_Object(groups_handle,FALSE);
+			}
+		}
+		else{
+			flag = FALSE;
+		}
+	}
+
+	if (Model_Add_Mode == 0){
+		PM_SETOP_OR(Object_List,temp);
+	}
+
+	if (Model_Add_Mode == 1){
+	   PM_FREE_SET(Object_List);
+		Object_List = PM_INIT_SET();
+		Object_List = PM_COPY_SET(temp);
+	}
+
+	PM_FREE_SET(temp);
+
+	Object_Number = PM_NR_MEMBERS_IN_SET(Object_List);
+	if (Object_Number <= 0){
+		return 0;
+	}
+
+	/* 获取并发布生产信息 */
+	get_penetration_info();
+	publish_penetration_info();
+	/*
+	Publish_Data(W_Data_Grid,Object_Number,Column_Number,Grid_SortColumn,Grid_SortDirection,Object_Info);
+	*/
+	for (i = 0; i < Object_Number; i = i + 1;){
+		group = PM_GET_MEMBER_IN_SET(Object_List, i);
+		Highlight_Object(group,FALSE);
+	}
+
+	return(0);
+}
+
+options_selected(item, event_type, dummy)
+{
+	s = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+	if ( s == "00" ){
+		AutoHighLight = 0;
+		AutoScale = 0;
+		/* 将已经加亮的模型恢复原来的颜色 */
+		penetration_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < penetration_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			Highlight_Object(model,FALSE);
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);
+		PM_FREE_SET(temp);
+	}
+	else if( s == "10"){
+		AutoHighLight = 1;
+		AutoScale = 0;
+	}
+	else if( s == "11"){
+		AutoHighLight = 1;
+		AutoScale = 1;
+	}
+	else if( s == "01"){
+		AutoHighLight = 0;
+		AutoScale = 1;
+		/* 将已经加亮的模型恢复原来的颜色 */
+		penetration_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < penetration_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			Highlight_Object(model,FALSE);
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);
+		PM_FREE_SET(temp);
+	}
+	return(0);
+}
+
+clean_info_handler(item, event_type, button_value)
+{
+	W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0);
+	W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_DELETEROWS, -1);
+	Object_Number = 0;
+	Object_List = PM_INIT_SET();
+}
+
+create_panel_upperpart(mainform)
+{
+	panel_upperpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_upperpart");
+	W_REALIZE_WINDOW(panel_upperpart,   W_FRAME_X,     0,
+							            W_FRAME_Y,     0,
+							            W_FRAME_ROWS,  2,
+							            W_FRAME_COLS,  70);
+
+	W_Block_Name = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "W_Block_Name");
+	W_REALIZE_PANELITEM(W_Block_Name,  W_PANEL_ROW,      0, 
+	                                   W_PANEL_COL,      0,
+							           W_PANEL_LABEL,    "分段名称:     ",
+							           W_PANEL_LENGTH,   15,
+                                       W_PANEL_SENSITIVITY,	0,
+							           W_PANEL_VALUE,    "*",
+							           W_PANEL_CALLBACK, 1);
+
+	W_System_Name = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "W_System_Name");
+	W_REALIZE_PANELITEM(W_System_Name, 	W_PANEL_ROW,      		0, 
+										W_PANEL_COL,      		28,
+										W_PANEL_LABEL,    		"系统名称:     ",
+										W_PANEL_LENGTH,   		15,
+										W_PANEL_VALUE,    		"*",
+										W_PANEL_SENSITIVITY,	0,
+										W_PANEL_CALLBACK, 		2);
+
+	W_Search_Object = W_ADD_PANELITEM(panel_upperpart, W_PANEL_BUTTON, "W_Search_Object");
+	W_REALIZE_PANELITEM(W_Search_Object,	W_PANEL_ROW, 	      0, 
+											W_PANEL_COL,         55,
+											W_PANEL_BUTTONIMAGE, "查找",
+											W_PANEL_WIDTH,       15,
+											W_PANEL_BUTTONVALUE, 210,
+											W_PANEL_CALLBACK,    1,
+											W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+
+	W_Planning_Unit = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "W_Planning_Unit");
+	W_REALIZE_PANELITEM(W_Planning_Unit,	W_PANEL_ROW,      		1, 
+											W_PANEL_COL,      		0,
+											W_PANEL_LABEL,    		"托盘编号:     ",
+											W_PANEL_LENGTH,   		15,
+											W_PANEL_VALUE,    		"*",
+											W_PANEL_SENSITIVITY,	1,
+											W_PANEL_CALLBACK, 		3);
+
+	Pick_Object = W_ADD_PANELITEM(panel_upperpart, W_PANEL_BUTTON, "Pick_Object");
+	W_REALIZE_PANELITEM(Pick_Object, W_PANEL_ROW, 	      1, 
+	                                 W_PANEL_COL,         55,
+							         W_PANEL_BUTTONIMAGE, "点选",
+							         W_PANEL_WIDTH,       15,
+							         W_PANEL_BUTTONVALUE, 210,
+							         W_PANEL_CALLBACK,    1,
+							         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+
+	element_add_flag = W_ADD_PANELITEM(panel_upperpart, W_PANEL_CHOICE, "element_add_flag");
+	W_REALIZE_PANELITEM(element_add_flag,  W_PANEL_ROW,            2, 
+	                                       W_PANEL_COL,            0,
+							               W_PANEL_LABEL,          "模型信息列表模式:      ",
+							               W_PANEL_CHOICESTRING,   "追加  ",
+							               W_PANEL_CHOICESTRING,   "替换  ",
+							               W_PANEL_ORDINALVALUE,   1,
+							               W_PANEL_CHOICESTYLE,	   W_STYLE_PUSHBUTTONS,
+							               W_PANEL_CALLBACK,       1);
+
+	Options = W_ADD_PANELITEM(panel_upperpart, W_PANEL_TOGGLE, "options");
+	W_REALIZE_PANELITEM(Options,  W_PANEL_ROW,            2, 
+	                              W_PANEL_COL,            50,
+							      W_PANEL_LABEL,          "",
+							      W_PANEL_CHOICESTRING,   "自动加亮    ",
+							      W_PANEL_CHOICESTRING,   "自动缩放    ",
+							      W_PANEL_VALUE,          "10",
+							      W_PANEL_CHOICESTYLE,	   W_STYLE_PUSHBUTTONS,
+							      W_PANEL_CALLBACK,       1);
+
+	W_SET_PANELITEM_HANDLER(W_Search_Object, "search_objects");
+	W_SET_PANELITEM_HANDLER(Pick_Object, "pick_objects");
+	W_SET_PANELITEM_HANDLER(element_add_flag, "model_list_mode");
+	W_SET_PANELITEM_HANDLER(Options, "options_selected");
+
+	return(panel_upperpart);
+}
+
+create_panel_underpart(mainform)
+{
+	panel_underpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_underpart");
+	W_REALIZE_WINDOW(panel_underpart,   W_FRAME_X, 0,
+							            W_FRAME_Y, 0);
+
+	modify_info = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "modify_info");
+	W_REALIZE_PANELITEM(modify_info, W_PANEL_ROW,         21, 
+	                                 W_PANEL_COL,         0,
+							         W_PANEL_BUTTONIMAGE, "修改信息", 
+							         W_PANEL_WIDTH,       10,
+							         W_PANEL_BUTTONVALUE, 200,
+							         W_PANEL_CALLBACK,    1,
+							         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+
+	restore_default = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "restore_default");
+	W_REALIZE_PANELITEM(restore_default,   W_PANEL_ROW, 	      21, 
+	                                       W_PANEL_COL,         12,
+							               W_PANEL_BUTTONIMAGE, "恢复默认值", 
+							               W_PANEL_WIDTH,       10,
+							               W_PANEL_BUTTONVALUE, 201,
+							               W_PANEL_CALLBACK,    1,
+							               W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+
+	clean_info = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "clean_info");
+	W_REALIZE_PANELITEM(clean_info,  W_PANEL_ROW, 	      21, 
+	                                 W_PANEL_COL,         24,
+							         W_PANEL_BUTTONIMAGE, "清空信息", 
+							         W_PANEL_WIDTH,       10,
+							         W_PANEL_BUTTONVALUE, 202,
+							         W_PANEL_CALLBACK,    1,
+							         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+
+	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
+	W_REALIZE_PANELITEM(model_browsing,    W_PANEL_ROW, 	      21, 
+	                                       W_PANEL_COL,         36,
+							               W_PANEL_BUTTONIMAGE, "模型浏览", 
+							               W_PANEL_WIDTH,       10,
+							               W_PANEL_BUTTONVALUE, 202,
+							               W_PANEL_CALLBACK,    1,
+							               W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+							                     
+							                     
+	quit = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "quit");
+	W_REALIZE_PANELITEM(quit,  W_PANEL_ROW, 	      21, 
+	                           W_PANEL_COL,         61,
+							   W_PANEL_BUTTONIMAGE, "退出", 
+							   W_PANEL_WIDTH,       10,
+							   W_PANEL_BUTTONVALUE, 207,
+							   W_PANEL_CALLBACK,    1,
+							   W_PANEL_CLOSEBUTTON, 1,
+							   W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+							           							          
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	W_SET_PANELITEM_HANDLER(modify_info, "modify_info_handler");
+	W_SET_PANELITEM_HANDLER(restore_default, "restore_default_handler");
+	W_SET_PANELITEM_HANDLER(clean_info, "clean_info_handler");
+	W_SET_PANELITEM_HANDLER(model_browsing, "model_browsing_handler");
+ 
+
+	return(panel_underpart);
+}
+
+main()
+{
+	if(!license()){
+	    return(0);
+	}
+	init();
+	mainform  = create_top_frame();
+	Panel_upperpart = create_panel_upperpart(mainform);
+	W_Data_Grid  = create_grid(mainform);
+	Panel_underpart = create_panel_underpart(mainform);
+
+	MainWindow = mainform;
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
+
+exit()
+{
+	/* restore color of highlighted objects */
+	penetration_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	for (i = 0 ; i < penetration_number; i = i + 1){
+		model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+		Highlight_Object(model,FALSE);
+	}
+	PM_FREE_SET(Object_List);
+	PM_FREE_SET(High_Light_List);
+	PM_FREE_SET(Selected_Objects);
+	A_FREE(Tag_Array);
+	A_FREE(Tag_Description_Array);
+	A_FREE(Access_List);
+}

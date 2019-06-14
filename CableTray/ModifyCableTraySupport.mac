@@ -1,0 +1,56 @@
+/* $Id: ModifyCableTraySupport.mac,v1.0.0 2018/08/17 Wallis.liu $ */
+
+/*
+**	这个程序用于修改电缆桥架的支架.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/dw.h"
+#include "include/PmDirectionUtils.h"
+#include "include/quants.h"
+
+#include "$MarineToolkit/CableTray/CableTraySupport.h"
+
+main()
+{
+    tmp = 0;
+    picked_object_handle = PM_PICK_OBJECT("请选择电缆托架支吊架", tmp, "STRUCTCMP","BEAM");
+	if (!ISINT(picked_object_handle)){	   
+        /*get name of support*/
+        group_handle = PM_GET_OBJECT_GROUP(picked_object_handle, Group_Type_I);
+        if (ISINT(group_handle)){
+            U_CONFIRM("此零件不属于任何电缆托架支吊架");	
+            return(0);
+        }			  
+		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
+        /* check type of cable tray support */
+        type = PM_GET_OBJDATA(group_handle, 0, SupportType);
+        if(ISINT(type)){
+            U_CONFIRM("此零件不属于任何电缆托架支吊架");	
+            return(0);	      
+        }	
+        else{
+            check = STRINGTERM(type,"_");
+            if(check != "CTS"){
+                U_CONFIRM("此零件不属于任何电缆托架支吊架");	
+                return(0);		         
+            }
+        }   	
+        type = SEARCH(type,"_");      		
+		/*call the corresponding script*/	
+        path = SYS_GETENV("MarineToolkit") + "/CableTray/CableTraySupport_Modify" + type + ".bs";	
+        PM_CALL_SCRIPT(path,"main",group_name);			
+    } 
+    else{
+        return(0);
+    } 
+    return(0);
+}

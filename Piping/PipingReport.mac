@@ -1,0 +1,169 @@
+/* $Id: PipingReport.mac,v1.0.0 2018/11/03 Wallis.liu $ */
+
+/*
+**	这个程序用于集中管子报表程序.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/pm.h"
+
+global handle MainWindow;
+global handle PipeFabricationList,PipeInstallationList,PipeHoleList;
+global handle PipePenetrationList,SupportFabricationList,SupportInstallationList;
+/*
+**创建顶层窗体
+**Create Top frame
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();	 
+	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "管系报表");	
+	return(mainform);	
+}
+
+/*
+**创建工具面板
+*/
+create_panel(mainform)
+{  
+	Command = W_ADD_WINDOW(mainform, W_PANEL, "Command");
+	W_REALIZE_WINDOW(Command,	W_FRAME_X, 		0,
+								W_FRAME_Y,		0,
+								W_FRAME_WIDTH,	20,
+								W_FRAME_HEIGHT, 50);
+		                                 													
+	PipeFabricationList = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "PipeFabricationList");	
+	W_REALIZE_PANELITEM(PipeFabricationList,	W_PANEL_ROW, 			0, 
+												W_PANEL_COL, 			0,
+												W_PANEL_BUTTONIMAGE,	"管系内场托盘表", 
+												W_PANEL_WIDTH, 			20,
+												W_PANEL_BUTTONVALUE, 	101,
+												W_PANEL_CALLBACK, 		1,
+												W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);								 
+	W_SET_PANELITEM_HANDLER(PipeFabricationList, "reports_handler");
+
+	PipeInstallationList = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "PipeInstallationList");   
+	W_REALIZE_PANELITEM(PipeInstallationList,	W_PANEL_ROW,			1, 
+												W_PANEL_COL,			0,
+												W_PANEL_BUTTONIMAGE,	"管系安装托盘表", 
+												W_PANEL_WIDTH,			20,
+												W_PANEL_BUTTONVALUE,	102,
+												W_PANEL_CALLBACK,		1,
+												W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);								 
+	W_SET_PANELITEM_HANDLER(PipeInstallationList, "reports_handler");
+
+	PipeHoleList = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "PipeHoleList");   
+	W_REALIZE_PANELITEM(PipeHoleList,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			0,
+										W_PANEL_BUTTONIMAGE,	"开孔表", 
+										W_PANEL_WIDTH, 			20,
+										W_PANEL_BUTTONVALUE, 	103,
+										W_PANEL_CALLBACK, 		1,
+										W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);								 
+	W_SET_PANELITEM_HANDLER(PipeHoleList, "reports_handler");
+
+	PipePenetrationList = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "PipePenetrationList");   
+	W_REALIZE_PANELITEM(PipePenetrationList,	W_PANEL_ROW, 			3, 
+												W_PANEL_COL, 			0,
+												W_PANEL_BUTTONIMAGE,	"管系护圈托盘表", 
+												W_PANEL_WIDTH, 			20,
+												W_PANEL_BUTTONVALUE, 	103,
+												W_PANEL_CALLBACK, 		1,
+												W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);								 
+	W_SET_PANELITEM_HANDLER(PipePenetrationList, "reports_handler");
+
+	SupportFabricationList = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "SupportFabricationList");   
+	W_REALIZE_PANELITEM(SupportFabricationList,	W_PANEL_ROW, 			4, 
+												W_PANEL_COL, 			0,
+												W_PANEL_BUTTONIMAGE,	"管系支架制造托盘表", 
+												W_PANEL_WIDTH, 			20,
+												W_PANEL_BUTTONVALUE, 	103,
+												W_PANEL_CALLBACK, 		1,
+												W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);								 
+	W_SET_PANELITEM_HANDLER(SupportFabricationList, "reports_handler");
+
+	SupportInstallationList = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "SupportInstallationList");   
+	W_REALIZE_PANELITEM(SupportInstallationList,	W_PANEL_ROW, 			4, 
+													W_PANEL_COL, 			0,
+													W_PANEL_BUTTONIMAGE,	"管系支架安装托盘表", 
+													W_PANEL_WIDTH, 			20,
+													W_PANEL_BUTTONVALUE, 	103,
+													W_PANEL_CALLBACK, 		1,
+													W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);								 
+	W_SET_PANELITEM_HANDLER(SupportInstallationList, "reports_handler");
+
+	
+	quit = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "quit");
+	
+	W_REALIZE_PANELITEM(quit,	W_PANEL_ROW,			15, 
+								W_PANEL_COL,			0,
+								W_PANEL_BUTTONIMAGE,	"退出", 
+								W_PANEL_WIDTH, 			20,
+								W_PANEL_BUTTONVALUE,	111,
+								W_PANEL_CALLBACK, 		1,
+								W_PANEL_CLOSEBUTTON,	1,
+								W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+
+	return(Command);
+}
+
+quit_handler(item, event_type, button_value)
+{  
+	U_MESSAGE("管系报表工具板");
+	return(99);
+}
+
+reports_handler(item, event_type, button_value)
+{
+	if(item == PipeFabricationList){
+		W_UNMAP_FRAME(MainWindow);
+		path = SYS_GETENV("MarineToolkit") + "/Piping/ReportPipeFabricationList.mac";
+		PM_CALL_SCRIPT(path,"main");
+		W_MAP_FRAME(MainWindow);     
+	}
+	else if(item == PipeInstallationList){
+		W_UNMAP_FRAME(MainWindow);
+		path = SYS_GETENV("MarineToolkit") + "/Piping/ReportPipeValveList.mac";
+		PM_CALL_SCRIPT(path,"main");
+		W_MAP_FRAME(MainWindow);     
+	}
+	else if(item == PipeHoleList){
+		W_UNMAP_FRAME(MainWindow);
+		path = SYS_GETENV("MarineToolkit") + "/Piping/ReportPipeBom.mac";
+		PM_CALL_SCRIPT(path,"main");
+		W_MAP_FRAME(MainWindow);     
+	}
+	else if(item == PipePenetrationList){
+		W_UNMAP_FRAME(MainWindow);
+		path = SYS_GETENV("MarineToolkit") + "/Piping/ReportPipeCheckList.mac";
+		PM_CALL_SCRIPT(path,"main");
+		W_MAP_FRAME(MainWindow);     
+	}
+	else if(item == SupportFabricationList){
+		W_UNMAP_FRAME(MainWindow);
+		path = SYS_GETENV("MarineToolkit") + "/Piping/ReportPipeGasketList.mac";
+		PM_CALL_SCRIPT(path,"main");
+		W_MAP_FRAME(MainWindow);     
+	}
+	else if(item == SupportInstallationList){
+		W_UNMAP_FRAME(MainWindow);
+		path = SYS_GETENV("MarineToolkit") + "/Piping/ReportPipeBoltList.mac";
+		PM_CALL_SCRIPT(path,"main");
+		W_MAP_FRAME(MainWindow);   
+	}
+}
+
+main()
+{
+	mainform  = create_top_frame();	
+	Panel = create_panel(mainform);		
+	MainWindow = mainform;
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
