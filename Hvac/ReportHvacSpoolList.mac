@@ -89,7 +89,7 @@ init()
 	
 	W_SET_PANELITEM_ARGS(Report_Path, W_PANEL_VALUE, "C:/TEMP/");
 	
-	W_SET_PANELITEM_ARGS(Report_Template, W_PANEL_VALUE, "P:/报表模板/风管托盘表.xlsx");
+	W_SET_PANELITEM_ARGS(Report_Template, W_PANEL_VALUE, "P:/报表模板/风管内场托盘表.xlsx");
 }
 
 init0()
@@ -506,7 +506,7 @@ publish_model_info()
 create_top_frame()
 {
 	mainform = W_INIT_FRAME();
-	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "风管托盘表" );	
+	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "风管内场托盘表" );	
 	return(mainform);
 }
 
@@ -858,77 +858,76 @@ create_panel_underpart(mainform)
 {	
 	panel_underpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_underpart");
 	W_REALIZE_WINDOW(panel_underpart,   W_FRAME_X, 0,
-							                  W_FRAME_Y, 0);
+                                        W_FRAME_Y, 0);
 
 	Report_Template = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Template");
-	W_REALIZE_PANELITEM(Report_Template,   W_PANEL_ROW, 20, 
-	                                       W_PANEL_COL, 0,
-							                     W_PANEL_LABEL, "报表模板:     ",
-							                     W_PANEL_LENGTH, 50,
-							                     W_PANEL_VALUE, "*",
-							                     W_PANEL_SENSITIVITY, 0,
-							                     W_PANEL_CALLBACK, 1);
+	W_REALIZE_PANELITEM(Report_Template,    W_PANEL_ROW, 20, 
+                                            W_PANEL_COL, 0,
+                                            W_PANEL_LABEL, "报表模板:     ",
+                                            W_PANEL_LENGTH, 49,
+                                            W_PANEL_VALUE, "*",
+                                            W_PANEL_SENSITIVITY, 0,
+                                            W_PANEL_CALLBACK, 1);
 
 	select_template = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_template");
-	W_REALIZE_PANELITEM(select_template,   W_PANEL_ROW, 	      20, 
-	                                       W_PANEL_COL,         61,
-							                     W_PANEL_BUTTONIMAGE, "选择模板", 
-							                     W_PANEL_WIDTH,       10,
-							                     W_PANEL_BUTTONVALUE, 202,
-							                     W_PANEL_CALLBACK,    1,
-							                     W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							                     
+	W_REALIZE_PANELITEM(select_template,    W_PANEL_ROW, 	     20, 
+                                            W_PANEL_COL,         61,
+                                            W_PANEL_BUTTONIMAGE, "选择模板", 
+                                            W_PANEL_WIDTH,       10,
+                                            W_PANEL_BUTTONVALUE, 202,
+                                            W_PANEL_CALLBACK,    1,
+                                            W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							                     
 
 	Report_Path = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Path");
-	W_REALIZE_PANELITEM(Report_Path, W_PANEL_ROW, 21, 
-	                                 W_PANEL_COL, 0,
-							               W_PANEL_LABEL, "报表保存路径:      ",
-							               W_PANEL_LENGTH, 47,
-							               W_PANEL_VALUE, "*",
-							               W_PANEL_SENSITIVITY, 0,
-							               W_PANEL_CALLBACK, 1);	
+	W_REALIZE_PANELITEM(Report_Path,    W_PANEL_ROW, 21, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "保存路径:     ",
+                                        W_PANEL_LENGTH, 49,
+                                        W_PANEL_VALUE, "*",
+                                        W_PANEL_SENSITIVITY, 0,
+                                        W_PANEL_CALLBACK, 1);	
 							                     
 	select_path = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_path");
-	W_REALIZE_PANELITEM(select_path, W_PANEL_ROW, 	      21, 
-	                                 W_PANEL_COL,         61,
-							               W_PANEL_BUTTONIMAGE, "选择路径", 
-							               W_PANEL_WIDTH,       10,
-							               W_PANEL_BUTTONVALUE, 202,
-							               W_PANEL_CALLBACK,    1,
-							               W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);						                     
+	W_REALIZE_PANELITEM(select_path,W_PANEL_ROW, 	      21, 
+	                                W_PANEL_COL,         61,
+                                    W_PANEL_BUTTONIMAGE, "选择路径", 
+                                    W_PANEL_WIDTH,       10,
+                                    W_PANEL_BUTTONVALUE, 202,
+                                    W_PANEL_CALLBACK,    1,
+                                    W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);						                     
 							                  
 	export_report = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "export_report");
-	W_REALIZE_PANELITEM(export_report,  W_PANEL_ROW, 	      22, 
+	W_REALIZE_PANELITEM(export_report,  W_PANEL_ROW, 	     22, 
 	                                    W_PANEL_COL,         0,
-							                  W_PANEL_BUTTONIMAGE, "导出报表", 
-							                  W_PANEL_WIDTH,       10,
-							                  W_PANEL_BUTTONVALUE, 202,
-							                  W_PANEL_CALLBACK,    1,
-							                  W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							    
+                                        W_PANEL_BUTTONIMAGE, "导出报表", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							    
 														 							 
 	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
-	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	      22, 
+	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	     22, 
 	                                    W_PANEL_COL,         49,
-							                  W_PANEL_BUTTONIMAGE, "模型浏览", 
-							                  W_PANEL_WIDTH,       10,
-							                  W_PANEL_BUTTONVALUE, 202,
-							                  W_PANEL_CALLBACK,    1,
-							                  W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
-							 						 							 							 
+                                        W_PANEL_BUTTONIMAGE, "模型浏览", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+							 			
 	quit = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "quit");
-	W_REALIZE_PANELITEM(quit,  W_PANEL_ROW, 	      22, 
-	                           W_PANEL_COL,         61,
-							         W_PANEL_BUTTONIMAGE, "退出", 
-							         W_PANEL_WIDTH,       10,
-							         W_PANEL_BUTTONVALUE, 207,
-							         W_PANEL_CALLBACK,    1,
-							         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+	W_REALIZE_PANELITEM(quit,    W_PANEL_ROW, 	     22, 
+                                W_PANEL_COL,         61,
+                                W_PANEL_BUTTONIMAGE, "退出", 
+                                W_PANEL_WIDTH,       10,
+                                W_PANEL_BUTTONVALUE, 207,
+                                W_PANEL_CALLBACK,    1,
+                                W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
 							 
 	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
 	W_SET_PANELITEM_HANDLER(model_browsing, "model_browsing_handler");
 	W_SET_PANELITEM_HANDLER(export_report, "export_to_excel");
 	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
 	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
-	
 	return(panel_underpart);
 }
 
@@ -943,7 +942,7 @@ select_path_handler(item, event_type, dummy)
 select_template_handler(item, event_type, dummy)
 {
    flag = 0;
-   template = U_GET_FILENAME("请选择模板文件", "P:\\报表模板\\","风管托盘表.xlsx", "Excel File(*.xlsx)\nExcel File(*.xlsx)\nAll Files(*.*)",2 ,flag);
+   template = U_GET_FILENAME("请选择模板文件", "P:\\报表模板\\","风管内场托盘表.xlsx", "Excel File(*.xlsx)\nExcel File(*.xlsx)\nAll Files(*.*)",2 ,flag);
    if(ISSTRING(template)){
       W_SET_PANELITEM_ARGS(Report_Template,W_PANEL_VALUE,template);
    }
@@ -1024,13 +1023,13 @@ write_to_temp_file(file)
 	/*项目信息*/
     res = Get_Project_Attribute(Tag_Project_Number);
     if (!ISSTRING(res)){
-        project_number = "XXXX";
+        project_number = "";
     }else{
         project_number = res;
     }
     res = Get_Project_Attribute(Tag_Project_Description);
     if (!ISSTRING(res)){
-        project_descr = "XXXX";
+        project_descr = "";
     }else{
         project_descr = res;
     }
@@ -1049,12 +1048,12 @@ write_to_temp_file(file)
     planning_unit = U_GET_STR(s_f2);
     drawing_number= U_GET_STR(s_f3);
     
-	info = "风管托盘表" + ",#" + project_number + ",#" + project_descr + ",#" + design_area + ",#" + planning_unit + ",#" + drawing_number + ",#";
+	info = "风管内场托盘表" + ",#" + project_number + ",#" + project_descr + ",#" + design_area + ",#" + planning_unit + ",#" + drawing_number + ",#";
    	F_WRITE_STR(file,info);
    	F_WRITE_NEWLINE(file);	
 
     /*托盘表信息*/
-    info = "Table,#风管托盘表" + ",#5,#1,#7";
+    info = "Table,#风管内场托盘表" + ",#5,#1,#7";
     F_WRITE_STR(file,info);
     F_WRITE_NEWLINE(file);	
     

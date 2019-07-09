@@ -1,0 +1,1167 @@
+/* $Id: ReportHvacSupportInstallationList.mac,v1.0.0 2016/03/21 Wallis.liu $ */
+
+/*
+**	this script use for hvac support report.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_errors.h"
+#include "include/dm_errors.h"
+#include "include/pm_drawings.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/cos.h"
+#include "include/dw.h"
+#include "include/pm_annot.h"
+#include "include/dm_cos_schema.h"
+#include "include/geoutils.h"
+#include "include/PmPipingUtils.h"
+#include "opt/pm/EloTools/include/viewutilsELO.h"
+#include "include/g2d_ext2df.h"
+#include "include/quants.h"
+#include "include/pi_math.mac" 
+#include "include/pi.h"
+
+global int     Debug = 1; 
+
+#include "$MarineToolkit/HvacSupport/HVAC_Support.h"
+#include "$MarineToolkit/Include/String_Utility.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Grid_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+#include "$MarineToolkit/Include/Piping_Utility.h"
+
+/*
+**define size of array
+*/
+
+#define  Report_Column_Number 9
+
+/*
+**定义界面语言
+**define interface language
+*/
+global handle  Block_Name,PlanningUnit,OutfitArea,SupportName;
+global handle  DisplayGrid;
+global handle  NULL_HANDLE = 0;
+global int     Grid_SelectedItem = 0;
+global int     Grid_SortColumn = -1;
+global int     Grid_SortDirection = 1;
+global handle  Support_List;          	/*管支架handle列表*/
+global int     Support_Number=0;         /*管支架数量*/
+global handle  Report_Info;				/*报表信息列表*/
+global handle  Report_Objects;          /*保存报表行对应的管支架*/
+global int     Report_Row_Number = 0;	/*报表行数*/
+global handle  High_Light_List;         /*模型加亮列表*/
+global handle  Selected_Objects;
+global int     Selected_Objects_Number = 0;
+global int     AutoScale = 0;
+global int     AutoHighLight = 0;
+global handle  MainWindow;
+global handle  Grid_Title;
+global int     Maximum_Report_Row_Number = 1000;
+global handle  Report_Path,Report_Template;
+global string  DataFileName = "C:\\TEMP\\hvac_support_report.txt";
+global handle  Beams;
+global int     Beam_Number = 0;
+
+global handle  Summary;
+global int     Total_Number = 0;
+/*
+**初始化相关对象
+*/
+init()
+{	
+	Report_Info = alloc_2darray(1,1);
+	Report_Objects = A_ALLOC(1);
+	Beams = alloc_2darray(1,1);
+	Summary = alloc_2darray(1,1);
+
+	/*初始化模型集合*/
+	Support_List = PM_INIT_SET();
+
+	/*初始化加亮模型集合*/
+	High_Light_List = PM_INIT_SET();
+	
+	/*初始化选中的模型集合*/
+	Selected_Objects = PM_INIT_SET();
+	
+	W_SET_PANELITEM_ARGS(Report_Path, W_PANEL_VALUE, "C:/TEMP/");
+	
+	W_SET_PANELITEM_ARGS(Report_Template, W_PANEL_VALUE, "P:/报表模板/风管支架安装托盘表.xlsx");
+}
+
+init0()
+{	
+	Grid_Title = A_ALLOC(Report_Column_Number, "STRING");
+	A_PUT(Grid_Title,0,"分段");
+    A_PUT(Grid_Title,1,"区域");
+	A_PUT(Grid_Title,2,"托盘");
+	A_PUT(Grid_Title,3,"支架名称");
+	A_PUT(Grid_Title,4,"规    格");
+	A_PUT(Grid_Title,5,"表面处理");
+	A_PUT(Grid_Title,6,"数量");
+	A_PUT(Grid_Title,7,"单位");
+	A_PUT(Grid_Title,8,"重量");
+}
+
+/*
+**Get the selected objects in grid
+*/
+get_selected_items(handle wobj)
+{
+	PM_SETOP_SUB(Selected_Objects, Selected_Objects);
+	selected_rows = W_GET_WINDOW_ARG( wobj, W_LISTW_MSVALUE );
+	total_lines = STRLEN(selected_rows);
+	k = 0;
+	for (i = 0; i < total_lines; i = i + 1){
+		temp_string = SUBSTRING(selected_rows,i);
+		flag = HEAD(temp_string,1);
+		if (flag == "1"){
+			W_SET_WINDOW_ARGS( wobj, W_LISTW_ROW, i);
+			selected_row = W_GET_WINDOW_ARG( wobj, W_LISTW_ITEMID );	
+			model_handle = A_GET(Report_Objects, selected_row);	
+			PM_ADD_OBJECT_TO_SET(model_handle,Selected_Objects);
+			k = k + 1;
+		}
+	}
+	Selected_Objects_Number = k;
+	return (0);
+}
+
+model_list_mode(item, event_type, selection)
+{
+	if (selection == 0){
+		Model_Add_Mode = 0;
+	}
+	else{
+		Model_Add_Mode = 1;
+	}
+	return(0);
+}
+
+/*
+**get information of support stored in array 'Support_List' and save in array 'ReportInfo'；
+*/
+get_report_info()
+{
+    /*define a temperary array for report information*/
+	report = alloc_2darray(2000,Report_Column_Number);
+	supports = A_ALLOC(2000);
+	parts = alloc_2darray(2000,2);
+	row_number = 0;
+	for (i = 0; i < Support_Number; i = i + 1;){
+		support = PM_GET_MEMBER_IN_SET(Support_List, i);		
+		/* get support information and save to local array */
+		get_support_info(support, report, row_number, supports, parts);
+	}	
+	/*save report information to global array*/
+	Report_Row_Number = row_number;
+    free_2darray(Report_Info);    
+    Report_Info = alloc_2darray(Report_Row_Number,Report_Column_Number);
+    A_FREE(Report_Objects);
+    Report_Objects = A_ALLOC(Report_Row_Number);
+	for(i=0;i<row_number;i=i+1;){
+        for(j=0;j<Report_Column_Number;j=j+1;){
+	      value = get_2darray(report,i,j);
+	      put_2darray(Report_Info, i, j, value);	
+        }
+        support = A_GET(supports,i);
+        A_PUT(Report_Objects,i,support);
+	}
+	A_FREE(supports);
+	
+    frame_number = 0;
+	frames = alloc_2darray(Report_Row_Number,Report_Column_Number-2);
+	for(i=0;i<Report_Row_Number;i=i+1;){
+        part_item = get_2darray(parts,i,0);
+        part_id =   get_2darray(parts,i,1);
+        part_des =  get_2darray(report,i,4);
+        /*Summary of frame material*/
+        if(part_item == "1"){
+            if(frame_number == 0){
+                put_2darray(frames,0,0,part_id);
+                for(j=3;j<Report_Column_Number;j=j+1;){
+                    value = get_2darray(report,i,j);
+                    put_2darray(frames,0,j-2,value);
+                }
+                frame_number = frame_number + 1;
+            }
+            else{
+                check = 0;
+                for(k=0;k<frame_number;k=k+1;){
+                    part_id0 = get_2darray(frames,k,0);
+                    if(part_id0 == part_id){
+                        check = 1;
+                        length = String_To_Float(get_2darray(report,i,5)) + String_To_Float(get_2darray(frames,k,3));
+                        length_s = "";
+                        S_PRINTF(length_s, "%.2f", length);
+                        put_2darray(frames,k,3,length_s);
+                        weight = String_To_Float(get_2darray(report,i,7)) + String_To_Float(get_2darray(frames,k,5));
+                        weight_s = "";
+                        S_PRINTF(weight_s, "%.2f", weight);
+                        put_2darray(frames,k,5,weight_s);	               
+                    }
+                }
+                if(!check){
+                    put_2darray(frames,frame_number,0,part_id);
+                    for(j=3;j<Report_Column_Number;j=j+1;){
+                        value = get_2darray(report,i,j);
+                        put_2darray(frames,frame_number,j-2,value);
+                    }
+                frame_number = frame_number + 1;	                 
+                }	         	         
+            }	      
+        }
+	}
+	free_2darray(Summary);	
+	Total_Number = frame_number;
+	Summary = alloc_2darray(Total_Number,Report_Column_Number-2);
+	temp_number = 0;
+	for(i=0;i<frame_number;i=i+1;){
+        put_2darray(Summary,temp_number,0,"合计");
+        for(j=1;j<Report_Column_Number-2;j=j+1;){
+            value = get_2darray(frames,i,j);
+            put_2darray(Summary,temp_number,j,value);
+        }
+        temp_number = temp_number + 1;
+	} 
+
+	free_2darray(parts);
+	free_2darray(frames);
+	free_2darray(report);	
+	return(0);
+}
+
+/*get support part information*/
+get_support_info(support,report,row_number,supports,parts)
+{
+    supp_parts = PM_GET_OBJECTS_IN_GROUP(support);
+    part_number = PM_NR_MEMBERS_IN_SET(supp_parts);
+    /*record part information in array*/
+    support_parts = alloc_2darray(part_number,5);
+    /*
+    --0.  string   part number of part
+    --1.  string   part id 
+    --2.  string   part description
+    */        
+    for(i=0;i<part_number;i=i+1;){
+        part = PM_GET_MEMBER_IN_SET(supp_parts,i);
+        part_id = PM_GET_OBJDATA(part,0,MMT_TAG_PARTID);
+        item_no = PM_GET_OBJDATA(part,0,Part_Number);
+        if(ISSTRING(item_no)){
+            put_2darray(support_parts,i,0,item_no);        
+        }
+        else{
+            put_2darray(support_parts,i,0,"2-");
+        }
+        put_2darray(support_parts,i,1,part_id);
+        description = get_part_description(part);
+        put_2darray(support_parts,i,2,description);
+    }   
+
+    /*summary materail*/
+    flame_no = 1000;
+
+    mto_no = 0;
+    mto_info = alloc_2darray(part_number,5);
+    for(i=0;i<part_number;i=i+1;){
+        item_no = get_2darray(support_parts,i,0);
+        flag = HEAD(item_no,1);
+        if(flag == "1"){
+            if(flame_no == 1000){
+                flame_no = mto_no;
+                put_2darray(mto_info,mto_no,0,flag);
+                for(j=1;j<5;j=j+1;){
+                    value = get_2darray(support_parts,i,j);
+                    put_2darray(mto_info,mto_no,j,value);
+                }
+                mto_no = mto_no + 1;
+            }
+        }
+    }
+    free_2darray(support_parts);
+   
+    block = "Unset";
+    /*测试发现需要将语句执行2次才能提取到数据*/
+    value = PM_GET_OBJDATA(support,0,MMT_TAG_OBJECT_IN_BLOCK);
+    value = PM_GET_OBJDATA(support,0,MMT_TAG_OBJECT_IN_BLOCK);
+    if(ISSTRING(value)){
+        block = value;
+    }
+    
+    outfit_area = "Unset";
+    value = PM_GET_OBJDATA(support,0,Outfit_Area);
+    if(ISSTRING(value)){
+        outfit_area = value;
+    }
+    
+    planning_unit = "Unset";
+    value = PM_GET_OBJDATA(support,0,Planning_Unit);
+    if(ISSTRING(value)){
+        planning_unit = value;
+    }
+
+    surface_treatment = "Unset";
+    value = PM_GET_OBJDATA(support,0,Surface_Treatment);
+    if(ISSTRING(value)){
+        surface_treatment = value;
+    }
+
+    support_weight = "0.0";
+    value = PM_GET_OBJDATA(support,0,MMT_TAG_MASS);
+    if(ISSTRING(value)){
+        support_weight = value;
+    }
+    
+    support_name = PM_GET_OBJDATA(support,0,MMT_TAG_OBJNAME);       
+    for(i=0;i<mto_no;i=i+1;){
+        put_2darray(report,row_number,0,block);
+        put_2darray(report,row_number,1,outfit_area);
+        put_2darray(report,row_number,2,planning_unit);        
+        put_2darray(report,row_number,3,support_name);
+        
+        descriptin = get_2darray(mto_info,i,2);    
+        put_2darray(report,row_number,4,descriptin);          
+        put_2darray(report,row_number,5,surface_treatment);
+        put_2darray(report,row_number,6,"1");
+        put_2darray(report,row_number,7,"pcs");
+
+        mass = String_To_Float(support_weight);
+        S_PRINTF(support_weight,"%.2f",mass);
+        put_2darray(report,row_number,8,support_weight);
+        A_PUT(supports,row_number,support);
+
+        part_id = get_2darray(mto_info,i,1);
+        put_2darray(parts,row_number,0,item_no);
+        put_2darray(parts,row_number,1,part_id); 
+        row_number = row_number + 1;                        
+    }  
+    free_2darray(mto_info);
+    return(0);
+} 
+
+get_part_length(part)
+{
+    obj_type = PM_GET_OBJDATA(part,0,MMT_TAG_OBJTYPE);
+    if(obj_type == "5"){
+        len = PM_GET_OBJDATA(part,0,MMT_TAG_LENGTH);
+        if(ISSTRING(len)){
+            length = "";
+            S_PRINTF(length,"%.0f",String_To_Float(len));
+        }
+        else{
+            length = "1";
+        }
+    }
+    else{
+        length = "1";
+    }
+    return(length);
+}
+
+get_part_description(part)
+{
+    description = "";
+    part_id = PM_GET_OBJDATA(part,0,MMT_TAG_PARTID);
+    part_item = PM_GET_OBJDATA(part,0,Part_Number);   
+    if(ISINT(part_item)){
+        sequ = "2";
+    }
+    else{
+        sequ = HEAD(part_item,1);
+    }
+
+    /*说明*/ 
+    part_size = "";
+    if(sequ == "1" | sequ == "2"){
+        length_s = PM_GET_OBJDATA(part,0,MMT_TAG_LENGTH);     
+        dd  = DM_PARTID_DATA(part_id,"DD");        
+        part_size = dd;
+    }    
+    else if(sequ == "3"){
+        length_s = PM_GET_OBJDATA(part,0,MMT_TAG_PLATE_MINWIDTH);
+        length = String_To_Float(length_s);
+        S_PRINTF(length_s,"%.0f",length);
+        width_s  = PM_GET_OBJDATA(part,0,MMT_TAG_PLATE_MINHEIGHT);
+        width = String_To_Float(width_s);
+        S_PRINTF(width_s,"%.0f",width);      
+        hight_s  = DM_PARTID_DATA(part_id,"D31"); 
+        hight = String_To_Float(hight_s);
+        S_PRINTF(hight_s,"%.0f",hight); 
+        pad_type = PM_GET_OBJDATA(part,0,PadType); 
+        if(!ISSTRING(pad_type)){
+            pad_type = "A";
+        }
+         
+        if(pad_type == "A"){        
+            part_size = length_s + "X" + width_s + "X" + hight_s + " R15";
+        }
+        else{
+            part_size = "D" + width_s + "X" + hight_s;
+        }
+    }
+    else{        
+        part_size = DM_PARTID_DATA(part_id,"DD");
+    }      
+   
+    /*部件名*/
+    if(sequ == "1"){
+        part_description = "角钢";
+    }
+    else if(sequ == "2"){          
+        part_description = "扁钢";
+    }     
+    else if(sequ == "3"){          
+        part_description = "钢垫板";
+    } 
+    else if(sequ == "4"){          
+        part_description = "螺栓";
+    } 
+    else if(sequ == "5"){          
+        part_description = "螺母";
+    } 
+    else if(sequ == "6"){          
+        part_description = "平垫片";
+    } 
+    else if(sequ == "7"){          
+        part_description = "弹簧垫圈";
+    }           
+    else{
+        part_description = "";
+    }           
+    description = part_description + " " + part_size;
+    return(description);
+}
+
+/*
+**将全局变量object_prod_info中保存的生产信息显示到列表中；
+**根据全局变量Grid_SortColumn，Grid_SortDirection保存的信息对显示列表进行排序；
+*/
+publish_model_info()
+{
+	/* 将报表信息显示到窗口中 */	
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_DELETEROWS, -1); 
+	for (i = 0; i < Report_Row_Number; i = i + 1;){
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_INSERTROWS, 1);
+		for ( j = 0; j < Report_Column_Number; j = j + 1;){
+			Value = get_2darray(Report_Info,i,j);
+			if (ISSTRING(Value)){
+				W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, Value);
+			}
+		}		
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ITEMID, i);		
+	}
+	
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 1);
+	
+	/* 自动调整列宽度 Adjust the width of column automatically*/
+	for (i=0; i < Report_Column_Number; i = i + 1;){
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_COLUMN, i, W_LISTW_COLUMNWIDTH, -1);
+	}
+	
+	/* 对生产信息列表进行排序 */
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_COLUMN, Grid_SortColumn, W_LISTW_SORT, Grid_SortDirection);
+}
+/*
+**创建顶层窗体
+**Create Top frame
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "风管支架安装托盘表" );	
+	return(mainform);
+}
+
+/*
+**创建显示报表内容的格栅
+*/
+create_grid(main_form)
+{
+	wobj = W_ADD_WINDOW(main_form, W_MULTISELECT, "DisplayGrid");
+	W_REALIZE_WINDOW(wobj,  W_FRAME_RIGHT_OF,    "Block_Name",
+                            W_FRAME_BELOW,       "panel_upperpart",
+                            W_LISTW_COLUMNS,     Report_Column_Number,
+                            W_FRAME_SCROLLBAR,   W_SCROLLBAR_RIGHTEDGE,
+                            W_LISTW_HEADER_MODE, W_LISTW_HEADER_BUTTONS,
+                            W_LISTW_MODE_REPORT, 0,
+                            W_FRAME_COLS,        73, 
+                            W_FRAME_ROWS,        17,
+                            W_LISTW_CALLBACK,    1);						   
+	W_SET_WINDOW_HANDLER(wobj, "grid_handler");
+	
+	/*
+	**设置格栅的列标题
+	*/	
+	set_column_title(wobj, Grid_Title, Report_Column_Number);				
+	return(wobj);
+}
+
+
+quit_handler(item, event_type, button_value)
+{
+	exit();
+	U_MESSAGE("退出风管支架安装托盘表窗口");
+	return(99);
+}
+
+
+grid_handler(window, event_type, row, column, item_id)
+{  	
+	if (event_type == W_EVENT_ITEM_SELECTED) {
+		/* 处理格栅的排序 */
+		if (row < 0 & column >= 0) {
+			sort_grid(column,window);
+		}		
+		else if(row >= 0 & column == 0){		
+			/* 获取选中的模型 */				
+			get_selected_items(DisplayGrid);			
+			auto_highlight();
+			auto_scale_model();			
+		}		
+	}	
+	/* 处理双击数据行的事件 */
+	else if (event_type == W_EVENT_ITEM_DOUBLECLICKED) {	
+		/* 获取选中的模型 */			
+		get_selected_items(DisplayGrid);			
+		auto_highlight();
+		auto_scale_model();			
+	}
+	return(0);
+}
+
+auto_highlight()
+{
+	/* 处理模型加亮 */
+	if (AutoHighLight == 1){
+		/* 将已经加亮的模型恢复原来的颜色 */
+		model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			members = PM_GET_OBJECTS_IN_GROUP(model);
+            member_number = PM_NR_MEMBERS_IN_SET(members);
+            for(i=0;i<member_number;i=i+1;){
+                model_group = PM_GET_MEMBER_IN_SET(members,i);
+                Highlight_Object(model_group,FALSE);
+			}
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);
+		PM_FREE_SET(temp);
+		
+		/* 加亮选中的模型 */
+		model_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+		for (i = 0; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
+			members = PM_GET_OBJECTS_IN_GROUP(model);
+            member_number = PM_NR_MEMBERS_IN_SET(members);
+            for(i=0;i<member_number;i=i+1;){
+                model_group = PM_GET_MEMBER_IN_SET(members,i);
+                Highlight_Object(model_group,TRUE);
+			}
+			PM_ADD_OBJECT_TO_SET(model,High_Light_List);			
+		}
+	}
+}
+
+auto_scale_model()
+{
+	/* 处理模型自动缩放 */
+	if (AutoScale == 1){				
+		model_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+		if (model_number == 1){
+			model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,0);
+			Auto_Scale(model_handle);
+		}
+	}
+}
+
+sort_grid(column,window)
+{
+	/* A column header was clicked; sort the items */
+	if (Grid_SortColumn == column) {
+		if (Grid_SortDirection == 0) {
+			Grid_SortDirection = 1;
+		}
+		else {
+			Grid_SortDirection = 0;
+		}
+	}
+	else {
+		Grid_SortDirection = 1;
+	}
+	Grid_SortColumn = column;
+	if(Grid_SortColumn == 2){
+        W_SET_WINDOW_ARGS(window, W_LISTW_COLUMN, column, W_LISTW_SORT, Grid_SortDirection);
+	}
+}
+
+model_browsing_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);	
+	selected_model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	if (selected_model_number > 0){
+		current_model = PM_GET_MEMBER_IN_SET(High_Light_List, 0);
+		parts = PM_GET_OBJECTS_IN_GROUP(current_model);
+		part = PM_GET_MEMBER_IN_SET( parts, 0);
+		x0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGX);
+		y0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGY);
+		z0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGZ);
+		x = SCAN_QUANT(1,x0);
+		y = SCAN_QUANT(1,y0);
+		z = SCAN_QUANT(1,z0);
+		PM_SET_CURRENT_LOC(x, y, z);	
+	}
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);
+}
+
+
+search_model(item, event_type, button_value)
+{   
+	/* Get the hvac support group */
+	temp_list = PM_INIT_SET();
+    query = PM_INIT_QUERY("GROUP");
+	groups = PM_EXECUTE_QUERY(query);
+	if (!ISINT(groups)){
+		group_number = PM_NR_MEMBERS_IN_SET(groups);
+		for (i = 0; i < group_number; i = i + 1;){
+			group_handle = PM_GET_MEMBER_IN_SET(groups, i);
+			group_type = PM_GET_OBJDATA(group_handle, 0, MMT_TAG_GROUPTYPE);
+			/* Get rid of other type group*/
+ 			if (group_type == Group_Type){
+				/* 过滤不包含零件的组Get rid of group that content nothing */	
+				parts = PM_GET_OBJECTS_IN_GROUP(group_handle);
+				if (parts != 0){
+					part_number = PM_NR_MEMBERS_IN_SET(parts);
+					if (part_number !=0){
+					    /* 将管支架的handle保存到全局数组 */
+						result = PM_ADD_OBJECT_TO_SET(group_handle,temp_list);
+					}
+				}
+			}			
+		}
+	}
+	
+	model_number = PM_NR_MEMBERS_IN_SET(temp_list);
+	if (model_number <= 0){
+		return 0;
+	}
+	
+	filter_model(temp_list);
+		
+	/* put the result to the array 'Support_List' */
+    PM_FREE_SET(Support_List);
+    Support_List = PM_INIT_SET();		
+	Support_List = PM_COPY_SET(temp_list); 	
+
+	Support_Number = PM_NR_MEMBERS_IN_SET(Support_List);
+	if (Support_Number <= 0){
+		PM_FREE_SET(temp_list);
+		return 0;
+	}
+	
+	PM_FREE_SET(temp_list);
+	/* get support information and publish to grid */
+	get_report_info();
+	publish_model_info();
+}
+
+filter_model(models)
+{
+	/* 获取过滤条件 Get filter conditions*/
+	block_name = W_GET_PANELITEM_ARG(Block_Name, W_PANEL_VALUE);
+    outfit_area = W_GET_PANELITEM_ARG(OutfitArea, W_PANEL_VALUE);
+	planning_unit = W_GET_PANELITEM_ARG(PlanningUnit, W_PANEL_VALUE);
+    support_name = W_GET_PANELITEM_ARG(SupportName, W_PANEL_VALUE);
+	temp = PM_INIT_SET();
+	
+	/* 过滤掉不符合条件的模型 */
+	support_number = PM_NR_MEMBERS_IN_SET(models);
+	for (i = 0; i < support_number; i = i + 1;){
+		support_handle = PM_GET_MEMBER_IN_SET(models, i);	
+        /*测试发现，需要将语句执行2次才能抽取分段号*/
+        value = PM_GET_OBJDATA(support_handle,0,MMT_TAG_OBJECT_IN_BLOCK);
+        value = PM_GET_OBJDATA(support_handle,0,MMT_TAG_OBJECT_IN_BLOCK);
+        if(ISSTRING(value)){
+            model_block_name = value;
+            /* U_MESSAGE("model_block_name="+model_block_name);	 */
+        }
+        else{
+            model_block_name = "*";
+        }
+
+        value = PM_GET_OBJDATA(support_handle,0,Outfit_Area);
+        if(ISSTRING(value)){
+            model_outfit_area = value;
+            /* U_MESSAGE("model_outfit_area="+model_outfit_area);	 */
+        }	
+        else{
+            model_outfit_area = "*";
+        }
+        
+        value = PM_GET_OBJDATA(support_handle,0,Planning_Unit);
+        if(ISSTRING(value)){
+            model_planning_unit = value;
+            /* U_MESSAGE("model_planning_unit="+model_planning_unit);	 */
+        }	
+        else{
+            model_planning_unit = "*";
+        }
+
+        value = PM_GET_OBJDATA(support_handle,0,"nam");
+        if(ISSTRING(value)){
+            group_name = value;
+            /* U_MESSAGE("group_name="+group_name); */
+		}	
+		else{
+            group_name = "*";
+		}
+
+        check_block = PATTERN_MATCH(model_block_name, block_name);
+        check_outfit_area = PATTERN_MATCH(model_outfit_area, outfit_area);
+		check_planning_unit = PATTERN_MATCH(model_planning_unit, planning_unit);
+		check_name =  PATTERN_MATCH(group_name,support_name);
+		if(check_block & check_outfit_area & check_planning_unit & check_name){	
+		    PM_ADD_OBJECT_TO_SET(support_handle,temp);
+	    }				
+	}
+	PM_SETOP_SUB(models,models);
+	PM_SETOP_OR(models,temp);
+	PM_FREE_SET(temp);
+	return(0);
+}
+
+options_selected(item, event_type, dummy)
+{
+	s = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+	if ( s == "00" ){
+		AutoHighLight = 0;
+		AutoScale = 0;	
+		/* 将已经加亮的模型恢复原来的颜色 */
+		model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			Highlight_Object(model,FALSE);
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);	
+		PM_FREE_SET(temp);		
+	}
+	else if( s == "10"){
+		AutoHighLight = 1;
+		AutoScale = 0;	
+	}
+	else if( s == "11"){
+		AutoHighLight = 1;
+		AutoScale = 1;	
+	}
+	else if( s == "01"){
+		AutoHighLight = 0;
+		AutoScale = 1;
+		/* 将已经加亮的模型恢复原来的颜色 */
+		model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			Highlight_Object(model,FALSE);
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);
+		PM_FREE_SET(temp);
+	}		
+	return(0);
+}
+
+create_panel_upperpart(mainform)
+{
+	panel_upperpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_upperpart");
+	W_REALIZE_WINDOW(panel_upperpart,   W_FRAME_X, 0,
+                                        W_FRAME_Y, 0,
+                                        W_FRAME_ROWS, 2,
+                                        W_FRAME_COLS, 70);
+							            	
+	Block_Name = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "Block_Name");
+	W_REALIZE_PANELITEM(Block_Name, W_PANEL_ROW, 0, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_LABEL, "分段:  ",
+                                    W_PANEL_LENGTH, 8,
+                                    W_PANEL_VALUE, "EG42*",
+                                    W_PANEL_CALLBACK, 1);
+
+	OutfitArea = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "OutfitArea");
+	W_REALIZE_PANELITEM(OutfitArea, W_PANEL_ROW, 0, 
+	                                W_PANEL_COL, 15,
+                                    W_PANEL_LABEL, "区域:  ",
+                                    W_PANEL_LENGTH, 8,
+                                    W_PANEL_VALUE, "*",
+                                    W_PANEL_CALLBACK, 1);
+                                    
+	PlanningUnit = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "PlanningUnit");
+	W_REALIZE_PANELITEM(PlanningUnit,   W_PANEL_ROW,      0, 
+	                                    W_PANEL_COL,      30,
+                                        W_PANEL_LABEL,    "托盘:  ",
+                                        W_PANEL_LENGTH,   8,
+                                        W_PANEL_VALUE,    "*",
+                                        W_PANEL_CALLBACK, 3);
+
+	SupportName = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "SupportName");
+	W_REALIZE_PANELITEM(SupportName,    W_PANEL_ROW,      0, 
+	                                    W_PANEL_COL,      45,
+							                  W_PANEL_LABEL,    "名称:  ",
+							                  W_PANEL_LENGTH,   8,
+							                  W_PANEL_VALUE,    "*",
+							                  W_PANEL_CALLBACK, 3);
+                                              
+	Search_Model = W_ADD_PANELITEM(panel_upperpart, W_PANEL_BUTTON, "Search_Model");
+	W_REALIZE_PANELITEM(Search_Model,   W_PANEL_ROW, 	     0, 
+                                        W_PANEL_COL,         60,
+                                        W_PANEL_BUTTONIMAGE, "查找", 
+                                        W_PANEL_WIDTH,       8,
+                                        W_PANEL_BUTTONVALUE, 210,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+                                        
+	Options = W_ADD_PANELITEM(panel_upperpart, W_PANEL_TOGGLE, "options");
+	W_REALIZE_PANELITEM(Options,    W_PANEL_ROW, 1, W_PANEL_COL, 50,
+                                    W_PANEL_LABEL, "",
+                                    W_PANEL_CHOICESTRING, "自动加亮    ",
+                                    W_PANEL_CHOICESTRING, "自动缩放    ",
+                                    W_PANEL_VALUE, "00",
+                                    W_PANEL_CHOICESTYLE,	W_STYLE_PUSHBUTTONS,
+                                    W_PANEL_CALLBACK, 1);			
+                                    
+	W_SET_PANELITEM_HANDLER(Search_Model, "search_model");
+	W_SET_PANELITEM_HANDLER(Options, "options_selected");
+	return(panel_upperpart);
+}
+
+create_panel_underpart(mainform)
+{	
+	panel_underpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_underpart");
+	W_REALIZE_WINDOW(panel_underpart,   W_FRAME_X, 0,  W_FRAME_Y, 0);
+
+	Report_Template = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Template");
+	W_REALIZE_PANELITEM(Report_Template,W_PANEL_ROW, 20, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "报表模板:     ",
+                                        W_PANEL_LENGTH, 49,
+                                        W_PANEL_VALUE, "*",
+                                        W_PANEL_SENSITIVITY, 0,
+                                        W_PANEL_CALLBACK, 1);
+
+	select_template = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_template");
+	W_REALIZE_PANELITEM(select_template,W_PANEL_ROW, 	     20, 
+	                                    W_PANEL_COL,         61,
+                                        W_PANEL_BUTTONIMAGE, "选择模板", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							                     
+
+	Report_Path = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Path");
+	W_REALIZE_PANELITEM(Report_Path,    W_PANEL_ROW, 21, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "保存路径:     ",
+                                        W_PANEL_LENGTH, 49,
+                                        W_PANEL_VALUE, "*",
+                                        W_PANEL_SENSITIVITY, 0,
+                                        W_PANEL_CALLBACK, 1);	
+							                     
+	select_path = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_path");
+	W_REALIZE_PANELITEM(select_path,    W_PANEL_ROW, 	      21, 
+                                        W_PANEL_COL,         61,
+                                        W_PANEL_BUTTONIMAGE, "选择路径", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);						                     
+							                  
+	export_report = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "export_report");
+	W_REALIZE_PANELITEM(export_report,  W_PANEL_ROW, 	      22, 
+	                                    W_PANEL_COL,         0,
+                                        W_PANEL_BUTTONIMAGE, "导出报表", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							    
+														 							 
+	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
+	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	      22, 
+	                                    W_PANEL_COL,         49,
+                                        W_PANEL_BUTTONIMAGE, "模型浏览", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+ 
+	quit = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "quit");
+	W_REALIZE_PANELITEM(quit,   W_PANEL_ROW, 	      22, 
+	                            W_PANEL_COL,         61,
+                                W_PANEL_BUTTONIMAGE, "退出", 
+                                W_PANEL_WIDTH,       10,
+                                W_PANEL_BUTTONVALUE, 207,
+                                W_PANEL_CALLBACK,    1,
+                                W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	W_SET_PANELITEM_HANDLER(model_browsing, "model_browsing_handler");
+	W_SET_PANELITEM_HANDLER(export_report, "export_to_excel");
+	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
+	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
+	return(panel_underpart);
+}
+
+select_path_handler(item, event_type, dummy)
+{
+    path = U_GET_DIRECTORY("选择报表保存路径","C:/TEMP/","",0);
+    if(ISSTRING(path)){
+        W_SET_PANELITEM_ARGS(Report_Path,W_PANEL_VALUE,path+"/");
+    }
+}
+
+select_template_handler(item, event_type, dummy)
+{
+    flag = 0;
+    template = U_GET_FILENAME("请选择模板文件", "P:\\报表模板\\","风管支架安装托盘表.xlsx", "Excel File(*.xlsx)\nExcel File(*.xlsx)\nAll Files(*.*)",2 ,flag);
+    if(ISSTRING(template)){
+        W_SET_PANELITEM_ARGS(Report_Template,W_PANEL_VALUE,template);
+    }
+}
+
+export_to_excel(item, event_type, dummy)
+{
+    random_string = get_random_string();
+    DataFileName = "C:\\TEMP\\hvacsupportreport"+random_string+".txt";
+	if ( F_EXIST(DataFileName) ){
+		check = F_DELETE_FILE(DataFileName);
+		if (check == -1){
+			U_MESSAGEBOX("请先关闭文件" + DataFileName, U_MB_ERROR, U_MB_OK, U_MB_OK);
+			return(-1);
+		}
+	}
+	
+	flag = F_CREATE_FILE(DataFileName);
+	if (flag == -1){
+		U_CONFIRM("用户对文件:" + DataFileName + "所在路径没有写权限" );
+		return(-1);
+	}
+
+	file = F_OPEN_FILE(DataFileName,"w");
+	
+    /* 获取模板文件 */
+    unix_tmp_path = W_GET_PANELITEM_ARG(Report_Template,W_PANEL_VALUE);
+	if(!F_EXIST(unix_tmp_path)){
+		msg = "模板文件 <" + unix_tmp_path + "> 不存在";
+		U_CONFIRM(msg);
+		return(-1);
+	}
+    /* 模板文件后缀名 */
+    unix_tmp_suffix = SEARCH(unix_tmp_path, ".");
+	
+	/* 获取.NET程序路径 */
+	unix_exe_path = SYS_GETENV("MarineToolkit") + "\\NET_Programs\\SDARI_Hvac_Report.exe";
+
+	/*获取报表文件(excel)名称*/
+	U_INIT_DIALOG("请输入报表文件名称");
+	name_f = U_SET_STR("Excel文件名:", "", 20);
+	if(U_DIALOG() < 0){
+		return(0);
+	}
+	doc_name = U_GET_STR(name_f);
+	if(doc_name == ""){
+		msg = "文件名不能为空";
+		U_MESSAGEBOX(msg, U_MB_WARNING, U_MB_OK, U_OK);
+		return(0);
+	}
+	
+	/*获取报表文件的保存路径*/
+	unix_rep_path = W_GET_PANELITEM_ARG(Report_Path,W_PANEL_VALUE);
+	if(!F_EXIST(unix_rep_path)){
+		msg = "路径 <" + unix_rep_path + "> 不存在";
+		U_MESSAGEBOX(msg, U_MB_ERROR, U_MB_OK, U_OK);
+		return(-1);
+	}	
+	
+	unix_rep_file = unix_rep_path + doc_name + unix_tmp_suffix;
+	
+	win_tmp_path = S_REPLACE(unix_tmp_path, "/", "\\");
+	win_exe_path = S_REPLACE(unix_exe_path, "/", "\\");
+	win_rep_file = S_REPLACE(unix_rep_file, "/", "\\");
+	write_to_temp_file(file);
+	F_CLOSE_FILE(file);
+
+	cmd = win_exe_path + " " + win_tmp_path + " " + DataFileName + " " + win_rep_file;
+	SYS_EXEC_CMND(cmd);	
+	return(0);
+}
+
+write_to_temp_file(file)
+{    
+	/*项目信息*/
+    res = Get_Project_Attribute(Tag_Project_Number);
+    if (!ISSTRING(res)){
+        project_number = "";
+    }else{
+        project_number = res;
+    }
+    res = Get_Project_Attribute(Tag_Project_Description);
+    if (!ISSTRING(res)){
+        project_descr = "";
+    }else{
+        project_descr = res;
+    }
+    
+    planning_unit = W_GET_PANELITEM_ARG(PlanningUnit, W_PANEL_VALUE);
+    outfit_area = W_GET_PANELITEM_ARG(OutfitArea, W_PANEL_VALUE);
+	U_INIT_DIALOG("请输入托盘信息");
+    s_f1 = U_SET_STR("区  域:", outfit_area, 18);
+    s_f2 = U_SET_STR("托盘号:", planning_unit, 18);
+    s_f3 = U_SET_STR("图  号:", "", 18);
+    if(U_DIALOG()<0){
+        U_MESSAGE("用户取消操作");
+        return(0);
+    }
+    outfit_area= U_GET_STR(s_f1);
+    planning_unit = U_GET_STR(s_f2);
+    drawing_number= U_GET_STR(s_f3);
+
+    info = "风管支架安装托盘表" + ",#" + project_number + ",#" + project_descr + ",#" + outfit_area + ",#" + planning_unit + ",#" + drawing_number + ",#";
+   	F_WRITE_STR(file,info);
+   	F_WRITE_NEWLINE(file);	
+
+    /*托盘表信息*/
+    info = "Table,#风管支架安装托盘表" + ",#5,#1,#8";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);	
+    
+    mto_number = 1;
+    prev = "";
+    for(i=0;i<Report_Row_Number;i=i+1;){   
+        info = "Line,#";
+        W_SET_WINDOW_ARGS(DisplayGrid,W_LISTW_ROW,i);
+        item_id = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ITEMID);
+        for(k=3;k<Report_Column_Number;k=k+1;){
+            value = get_2darray(Report_Info,item_id,k);
+            if(k == 3){         
+                if(i==0){
+                 info = info + ITOASCII(mto_number) + ",#";
+                 prev = value;
+                 info = info + value + ",#";
+                }
+                else{
+                    if(prev == value){
+                        info = info + " ,#";
+                        info = info + " ,#";
+                    }
+                    else{
+                        mto_number = mto_number + 1;
+                        info = info + ITOASCII(mto_number) + ",#";
+                        prev = value;
+                        info = info + value + ",#";
+                    }
+                }
+            }
+            else{
+                if(k == 5){
+                    /*报表模板中有合并的单元格，在此补空值*/
+                    info = info + value + ",# ,#";
+                }
+                else{
+                    info = info + value + ",#";	
+                }
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);	
+    }
+    
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    for(i=0;i<Total_Number;i=i+1;){   
+        info = " ,#";
+        for(k=0;k<Report_Column_Number-2;k=k+1;){
+            value = get_2darray(Summary,i,k);
+            if(k == 2){
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";	
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);	
+    }   
+    return(0);   
+}
+
+get_random_string()
+{
+   time = GET_TIME();
+   date_string = CNV_DATE(time,2);
+   time_sring = TRANS(CNV_TIME(time,1),":","-");
+   random_string = date_string + "-" + time_sring; 
+   return random_string;
+}
+
+set_column_title(handle wobj, column_titles, column_number)
+{
+	for (i = 0; i < column_number; i = i + 1;){
+		title = A_GET(column_titles,i);
+		if (ISSTRING(title)){
+			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_HEADER, title);
+			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_COLUMNWIDTH,-1);
+			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_ITEMTYPE, W_LISTW_STRING_COLUMN); 
+		}
+		else {
+			return(0);
+		}
+	}
+	return(0);
+}
+
+main()
+{
+    init0();
+	mainform  = create_top_frame();
+	Panel_upperpart = create_panel_upperpart(mainform);
+	DisplayGrid  = create_grid(mainform);
+	Panel_underpart = create_panel_underpart(mainform);
+	init();
+	MainWindow = mainform;
+	
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
+
+exit()
+{
+	/* 将已经加亮的模型恢复原来的颜色 */
+	model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	for (i = 0 ; i < model_number; i = i + 1){
+        model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+        members = PM_GET_OBJECTS_IN_GROUP(model);
+        member_number = PM_NR_MEMBERS_IN_SET(members);
+        for(i=0;i<member_number;i=i+1;){
+            model_group = PM_GET_MEMBER_IN_SET(members,i);
+            Highlight_Object(model_group,FALSE);
+        }
+	}
+	PM_FREE_SET(Support_List);
+	PM_FREE_SET(High_Light_List);
+	PM_FREE_SET(Selected_Objects);
+	A_FREE(Report_Objects);
+	free_2darray(Report_Info);
+	free_2darray(Beams); 
+	free_2darray(Summary); 
+}
