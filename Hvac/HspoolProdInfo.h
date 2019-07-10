@@ -2,6 +2,7 @@
 /*定义生产信息宏名称*/
 #define  Group_Type                    "20"
 #define  Planning_Unit                 ".ba"
+#define  Outfit_Area                   ".lz"
 
 /* 定义项目信息对应的TAG定义 */
 #define Tag_Project_Description      ".dG"                          /* 项目描述 - 项目名称，系统默认属性 */
