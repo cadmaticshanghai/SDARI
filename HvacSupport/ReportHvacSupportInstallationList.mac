@@ -266,7 +266,6 @@ get_support_info(support,report,row_number,supports,parts)
 
     /*summary materail*/
     flame_no = 1000;
-
     mto_no = 0;
     mto_info = alloc_2darray(part_number,5);
     for(i=0;i<part_number;i=i+1;){
