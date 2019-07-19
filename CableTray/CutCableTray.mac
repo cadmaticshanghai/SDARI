@@ -1,0 +1,161 @@
+/* $Id: CutCableTray.mac,v1.0.0 2019/07/05 Jack.Leng $ */
+
+/*
+**	这个程序用于将不定长电缆托架自动切割为多个连续固定长度电缆托架
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/quants.h"
+#include "include/dm_cos_schema.h"
+
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Structural_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+
+
+/*默认托架长度*/
+global int CableTray_Length = 960;
+/*默认托架间距*/
+global int CableTray_Distance = 250;	
+
+main()
+{
+    handle_1 = pick_cabletray_handle("请选择要切断的电缆托架");
+    if (!handle_1) return(0);
+
+    res = input_cut_para_dialog(CableTray_Length,CableTray_Distance);
+    if (res<0) return(0);
+    
+    len_0 = PM_GET_OBJDATA(handle_1,0,"len");
+    length_0 = String_To_Float(len_0);
+    if (length_0<CableTray_Length){
+        U_CONFIRM("托架长度小于指定的切割长度");
+        return(0);
+    }
+    
+    /*切割成n段*/
+    n = 0;
+    n = length_0/(CableTray_Length+CableTray_Distance);
+    
+    st = PM_UM_OPEN_CHANGE("切割电缆托架");	
+    
+    /*新增的对象*/
+    handles = alloc_2darray(n, 1);
+    for (i=0;i<n;i=i+1){
+        handle_2 = cut_cabletray(handle_1, CableTray_Length);
+        len = PM_GET_OBJDATA(handle_2,0,"len");
+        length = String_To_Float(len);
+        if (length<CableTray_Length+CableTray_Distance){
+            PM_DELETE_OBJECT(handle_2);
+        }
+        else{
+            handle_1 = cut_cabletray(handle_2, CableTray_Distance);
+            PM_DELETE_OBJECT(handle_2);
+            put_2darray(handles,i,0,handle_1);
+        }
+    }
+    PM_UM_CLOSE_CHANGE();
+    
+    res = U_YESNO("切断位置是否合适?",0);
+    if(res != 1){
+        PM_UM_UNDO_LAST_CHANGE(); 
+    }
+}
+
+/*选择CABLETRAY*/
+pick_cabletray_handle(prompt)
+{
+    while(1){
+        tmp = 0;
+        picked_handle = PM_PICK_OBJECT(prompt, tmp );
+        if (!ISINT(picked_handle)){
+            obj_type = PM_GET_OBJDATA(picked_handle, tmp, MMT_TAG_OBJTYPE);
+            /* U_MESSAGE("obj_type="+obj_type); */
+			if (obj_type==7){
+				Highlight_Object(picked_handle,TRUE);
+                return (picked_handle);
+			}
+			else{
+				U_MESSAGE("请选择电缆托架操作");		
+			}
+        }
+        else{
+            return(0);
+        }
+    }
+}
+
+/*输入切断参数*/
+input_cut_para_dialog(cut_length,cut_distance)
+{	
+	U_INIT_DIALOG("请输入切断参数");
+    i_length   = U_SET_FLOAT("托架长度:", CableTray_Length, 0.0, 10000.0);
+    i_distance = U_SET_FLOAT("托架间距:", CableTray_Distance, 0.0, 10000.0);
+    
+    if(U_DIALOG()<0){
+        U_CONFIRM("用户取消操作");
+        return(-1);
+    }
+    
+    cut_length = U_GET_FLOAT(i_length);
+    cut_distance = U_GET_FLOAT(i_distance);
+    return(0);
+}
+
+/*切断电缆托架*/
+cut_cabletray(cabletray_handle,cut_len)
+{
+    /*position of part*/
+    lox = PM_GET_OBJDATA(cabletray_handle,0,"lox");
+    loy = PM_GET_OBJDATA(cabletray_handle,0,"loy");
+    loz = PM_GET_OBJDATA(cabletray_handle,0,"loz");
+    x0 = String_To_Float(lox);
+    y0 = String_To_Float(loy);
+    z0 = String_To_Float(loz);
+
+    /*normal direction of cabletray*/
+    u1_x = 0.0; u1_y = 0.0; u1_z = 0.0;
+    axs = PM_GET_OBJDATA(cabletray_handle,0,"axs");
+    axr = PM_GET_OBJDATA(cabletray_handle,0,"axr");
+    angle_to_direction(axs,axr, u1_x,u1_y,u1_z);
+
+    /*axis direction of cabletray*/
+    v1_x = 0.0; v1_y = 0.0; v1_z = 0.0;
+    sxs = PM_GET_OBJDATA(cabletray_handle,0,"sxs");
+    sxr = PM_GET_OBJDATA(cabletray_handle,0,"sxr");
+    angle_to_direction(sxs,sxr, v1_x,v1_y,v1_z);
+
+    /*length of cabletray*/
+    length = 0.0;
+    len = PM_GET_OBJDATA(cabletray_handle,0,"len");
+    length = String_To_Float(len);
+    
+    cut_x0 = x0 + cut_len * u1_x;
+    cut_y0 = y0 + cut_len * u1_y;
+    cut_z0 = z0 + cut_len * u1_z;
+    new_cabletray_handle = PM_CUT_STRAIGHT_CABLETRAY_PIECE(cabletray_handle, cut_x0,cut_y0, cut_z0); 
+    return(new_cabletray_handle);
+}
+
+/*方向夹角转换为方向向量*/
+angle_to_direction(ang_s,ang_r, dx,dy,dz)
+{
+    slope_angle = String_To_Float(ang_s);
+    rotation_angle = String_To_Float(ang_r);
+    
+    dx = COS(slope_angle) * COS(rotation_angle);
+    dy = COS(slope_angle) * SIN(rotation_angle);
+    dz = SIN(slope_angle);
+    VEC_UNITV(dx,dy,dz);
+    return (0);
+}
+
+
