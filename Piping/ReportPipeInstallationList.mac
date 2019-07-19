@@ -1455,13 +1455,13 @@ search_objects(item, event_type, button_value)
     } 
     
 	/* 获取报表信息 */
+    get_report4_info();
     if(Pspool_Number>0){
         get_report1_info();
     }	
     if(Valve_Number > 0){
         get_report2_info();
         get_report3_info();
-        get_report4_info();  
     }
     /* 显示报表信息 */
 	publish_report_info();
