@@ -1290,7 +1290,7 @@ search_objects(item, event_type, button_value)
 filter_model( models )
 {
 	/* 获取过滤条件 Get filter conditions*/
-	block_name    =	W_GET_PANELITEM_ARG(Block_Name,		W_PANEL_VALUE);
+	/*block_name    =	W_GET_PANELITEM_ARG(Block_Name,		W_PANEL_VALUE);*/
 	planning_unit = W_GET_PANELITEM_ARG(Planning_Unit,	W_PANEL_VALUE);	
 	
 	temp = PM_INIT_SET();
@@ -1301,23 +1301,24 @@ filter_model( models )
 		group_handle = PM_GET_MEMBER_IN_SET(models, i);	
 		pipes = PM_GET_OBJECTS_IN_GROUP(group_handle);
 		pipe = PM_GET_MEMBER_IN_SET(pipes,0);		
-		model_block_name = PM_GET_OBJDATA(pipe,0,Tag_BlockNumber);
+		/*model_block_name = PM_GET_OBJDATA(pipe,0,Tag_BlockNumber);
 		if(!ISSTRING(model_block_name)){
             model_block_name = PM_GET_OBJDATA(pipe,0,Tag_SupperBlock);
             if(!ISSTRING(model_block_name)){
                 model_block_name = "Unset";
             }			
-		}
+		}*/
       		
 		model_planning_unit = Get_Attribute_Value(group_handle, Tag_Spool_PlanningUnit);
 		if(!ISSTRING(model_planning_unit)){
 			model_planning_unit = "Unset";
 		}
             
-		check_block =  PATTERN_MATCH(model_block_name,block_name);
+		/*check_block =  PATTERN_MATCH(model_block_name,block_name);*/
 		check_planning = PATTERN_MATCH(model_planning_unit,planning_unit);
 		
-		if(check_block & check_planning){		
+		/*if(check_block & check_planning){*/
+		if(check_planning){		
 		   PM_ADD_OBJECT_TO_SET(group_handle,temp);
 		}							
 	}
@@ -1380,6 +1381,7 @@ create_panel_upperpart(mainform)
 									W_PANEL_COL, 0,
 									W_PANEL_LABEL, "分段名称:     ",
 									W_PANEL_LENGTH, 15,
+									W_PANEL_SENSITIVITY,    0,
 									W_PANEL_VALUE, "*",
 									W_PANEL_CALLBACK, 1);
 							              
