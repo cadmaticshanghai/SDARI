@@ -532,6 +532,9 @@ model_browsing_handler(item, event_type, button_value)
 
 search_objects(item, event_type, button_value)
 {
+    /* Delete all the data in grid */	
+    W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_ROW, 0);
+    W_SET_WINDOW_ARGS(W_Data_Grid, W_LISTW_DELETEROWS, -1); 
 	/* query all model groups*/
 	query = PM_INIT_QUERY("GROUP");
 	groups = PM_EXECUTE_QUERY(query);
@@ -562,7 +565,7 @@ search_objects(item, event_type, button_value)
 	}
 
 	penetration_number = PM_NR_MEMBERS_IN_SET(temp_list);
-	if (penetration_number <= 0){
+	if (penetration_number <= 0){      
 		return 0;
 	}
    
@@ -693,7 +696,8 @@ publish_penetration_info()
 filter_model( penetrations )
 {
 	/* Get filter conditions*/
-	block_name = W_GET_PANELITEM_ARG(W_Block_Name,W_PANEL_VALUE);
+	/*block_name = W_GET_PANELITEM_ARG(W_Block_Name,W_PANEL_VALUE);*/
+    planning_unit = W_GET_PANELITEM_ARG(W_Planning_Unit,W_PANEL_VALUE);
 	
 	temp = PM_INIT_SET();
 
@@ -714,17 +718,34 @@ filter_model( penetrations )
 		}
 		
 		if(find){													/* 如果贯通中包含复板，则将贯通加入临时集合 */
-			model = PM_GET_MEMBER_IN_SET(models,sequence-1);
-			model_block_name = get_block_name(model);
-							
-			if(PATTERN_MATCH(model_block_name,block_name)){
-				PM_ADD_OBJECT_TO_SET(penetration_handle,temp);
-			}			
+			/*model = PM_GET_MEMBER_IN_SET(models,sequence-1);
+			model_block_name = get_block_name(model);*/
+            find = 0;
+            sequence = 0;
+            while(!find){												/* 遍历贯通件中的模型，查找复板所属管段的托盘名称 */
+                model = PM_GET_MEMBER_IN_SET(models,sequence);
+                model_type = PM_GET_OBJDATA(model,0,MMT_TAG_OBJTYPE);
+                if(model_type == "3"){
+                    find=1;
+                    model_planning_unit = PM_GET_OBJDATA(model,0,Tag_Spool_PlanningUnit);
+                    if(ISSTRING(model_planning_unit)){
+                        if(PATTERN_MATCH(model_planning_unit,planning_unit)){
+                            PM_ADD_OBJECT_TO_SET(penetration_handle,temp);
+                        }                       
+                    }
+                    else{
+                        planUnit = "999";
+                        if(PATTERN_MATCH(planUnit,planning_unit)){
+                            PM_ADD_OBJECT_TO_SET(penetration_handle,temp);
+                        }                                             
+                    }
+                }
+                sequence = sequence + 1;
+            }							
 		}
-
 	}
-	PM_SETOP_SUB(models,models);
-	PM_SETOP_OR(models,temp);
+	PM_SETOP_SUB(penetrations,penetrations);
+	PM_SETOP_OR(penetrations,temp);
 	PM_FREE_SET(temp);
 	return(0);
 }
