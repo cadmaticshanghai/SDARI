@@ -1,0 +1,748 @@
+/* $Id: ModifyPenetrationThickness.mac,v1.0.0 2019/06/24 Jack.Leng $ */
+
+/*
+**	这个程序用于修改挡水圈厚度及形状，其中a，b为外侧尺寸。
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/quants.h"
+#include "include/dm_cos_schema.h"
+
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Structural_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+
+/*mdl 文件路径*/
+global string File_Path = "C:\\";
+/*默认圆形*/
+global int Shape = 0;
+
+
+main()
+{
+    /*选择腹板或挡水圈*/
+    handle_1 = pick_penetration_handle("请选择需要操作挡水圈");
+    if (!handle_1) return(0);
+    
+    /*当前材质*/
+    old_part_id = get_penetration_info(handle_1);
+    if (!old_part_id) return(0);
+    
+    /*选择新材质*/
+    if (Shape == 1){
+        new_part_id = select_penetration_comp(old_part_id);
+        if (!new_part_id) return(0);
+    }
+    else{
+        new_part_id = old_part_id;
+    }
+
+    /*替换材质*/
+    set = PM_INIT_SET();
+	PM_ADD_OBJECT_TO_SET(handle_1, set);
+    res = relocate(old_part_id, new_part_id, set);
+    PM_FREE_SET(set);
+    if (res>0) {
+        res = U_YESNO("变更是否合适 ?",0);
+        if(res != 1) PM_UM_UNDO_LAST_CHANGE(); 
+    }
+}
+
+
+/*选择PENETRATION*/
+pick_penetration_handle(prompt)
+{
+    while(1){
+        tmp = 0;
+        picked_handle = PM_PICK_OBJECT(prompt, tmp );
+        if (!ISINT(picked_handle)){
+            /*obj_type = PM_GET_OBJDATA(picked_handle, tmp, MMT_TAG_OBJTYPE);*/
+            groups_handle = PM_GET_OBJECT_GROUP(picked_handle, 19);
+            pid = PM_GET_OBJDATA(picked_handle,tmp,"pid");
+            shape = DM_PARTID_DATA(pid,"SH");
+            U_MESSAGE("shape="+shape);
+			if (!ISINT(groups_handle)){
+                /*gt = PM_GET_OBJDATA(groups_handle, 0, MMT_TAG_GROUPTYPE);*/
+                /*U_MESSAGE("gt="+gt);*/
+				Highlight_Object(groups_handle,TRUE);
+                return (picked_handle);
+			}
+			else{
+				U_MESSAGE("请选择挡水圈操作");		
+			}
+        }
+        else{
+            return(0);
+        }
+    }
+}
+
+/*获取PENETRATION信息*/
+get_penetration_info(picked_handle)
+{
+    /*获取零件信息*/
+    groups_handle = PM_GET_OBJECT_GROUP(picked_handle, 19);
+    parts = PM_GET_OBJECTS_IN_GROUP(groups_handle);
+    p_number = PM_NR_MEMBERS_IN_SET(parts);
+
+    tmp = 0;
+    for (i = 0; i < p_number; i = i + 1;){
+        part = PM_GET_MEMBER_IN_SET(parts, i);
+        part_pid = Get_Attribute_Value(part,"pid");
+        if(ISSTRING(part_pid)){
+            obj_type = PM_GET_OBJDATA(part, tmp, MMT_TAG_OBJTYPE);
+            if (obj_type==4){
+                Shape = 1;
+                part_id = PM_GET_OBJDATA(part, 0, MMT_TAG_PARTID);
+                descr = Pid_To_Description(part_id);
+                U_MESSAGE("old plate descr = "+descr);
+                return(part_id);
+            }
+        }
+        part_pid = Get_Attribute_Value(part,"_PZ");
+        if(ISSTRING(part_pid)){
+            Shape = 0;
+            U_MESSAGE("part_pid = "+part_pid);
+            return(part_pid);
+        }
+    }
+    return(0);
+}
+
+/*选择PENETRATION材料*/
+select_penetration_comp(old_pid)
+{
+	U_MESSAGE("请选择贯通件材料(钢板)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "*PLATE*");	
+	pid = DM_BROWSE_PARTCODE(old_pid, 1, selectmask);
+	if(ISSTRING(pid)){
+        part_descr = Pid_To_Description(pid);
+        U_MESSAGE("new plate descr = "+part_descr);
+        return (pid);
+	}
+    return(0);	
+}
+
+/*替换PENETRATION材料*/
+relocate(old_pid, new_pid, set)
+{
+    nr = PM_NR_MEMBERS_IN_SET(set);
+    if (nr == 0) {
+        U_MESSAGE("Empty set, operation canceled");
+        return(-1);
+    }
+    if (PM_WRITE_MDL_OF_SET(File_Path+"penetration.mdl", set) != 0){
+        return(-1);
+    }
+    
+    /*替换mdl文件*/
+    res = relocate_mdl_file(old_pid, new_pid);
+    if (res==1) {
+        /* open undo task */
+        PM_UM_OPEN_CHANGE("penetration set");
+
+        /*Notify PM that we are going to relocate objects using a sequence of deletes and MDL-loads. */
+        if (!PM_OK_TO_RELOCATE_OBJECTS_IN_SET(set)) {
+            F_DELETE_FILE(File_Path+"penetration.mdl");
+            PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }
+        
+        tmat = TRF_TMAT_CREATE();
+        
+        PM_DELETE_OBJECTS_IN_SET(set, 0);
+        res = PM_READ_MDL_INTO_SET(File_Path+"penetration.mdl", 1, "", tmat, set);
+
+        PM_RELOCATION_ACCEPTED();
+        PM_UM_CLOSE_CHANGE();
+
+        /* F_DELETE_FILE(File_Path+"penetration.mdl"); */
+        if( F_DELETE_FILE(File_Path+"penetration.mdl") ){
+            U_MESSAGE( "Cannot delete file penetration.mdl.");
+            return(-1);
+        }
+    }
+    else{
+        if( F_DELETE_FILE(File_Path+"penetration.mdl") ){
+            U_MESSAGE( "Cannot delete file penetration.mdl.");
+        }
+        return(-1);
+    }
+	return(1);
+}
+
+/*读取替换文件*/
+relocate_mdl_file(part_1,part_2)
+{
+    thickness = 1.0*DM_PARTID_DATA(part_2,"D31"); 
+
+	file_path = File_Path+"penetration.mdl";
+    if(!F_EXIST(file_path)){
+        U_CONFIRM("文件" + file_path + "不存在");
+        return(-1);
+    }
+    
+    f = F_OPEN_FILE(file_path, "r");
+    if( f < 0 ){
+		U_CONFIRM("Cannot open file <"+file_path+">");
+		return(-1);
+	}
+    
+    /*文件行数*/
+    file_lines = F_NR_LINES(f);
+    F_CLOSE_FILE(f);
+    
+	records = A_ALLOC(file_lines);
+    curve_strings = A_ALLOC(2);
+    line_val = "";
+    shape = -1;
+    weight_str = ""; w = 0;
+    para_str = ""; p = 0; 
+    flag=0;
+    j = 0;
+    k = 0;
+    f = F_OPEN_FILE(file_path,"r");
+    for( i=0; i<file_lines; i=i+1; ){
+        F_READ_LINE(f, line_val);
+        /*剔除空格*/
+        line_val = rtrim(line_val); 
+        
+        /*替换板材部件*/
+        if (SEARCH(line_val, "pid")!=""){
+            U_MESSAGE("line_val1:"+line_val);
+            part1 = STRINGTERM(line_val, part_1);
+            part3 = SUBSTRING(SEARCH(line_val, part_1),STRLEN(part_1));
+            line_val = part1 + part_2 + part3;
+            U_MESSAGE("line_val2:"+line_val);
+        }
+
+        /*原重量*/
+        if (SEARCH(line_val, "MAS")!=""){
+            weight_str = SEARCH(line_val, "(");
+            weight_str = STRINGTERM(weight_str, ")");
+            weight_str = SUBSTRING(weight_str,1);
+            /* U_MESSAGE("weight_str:"+weight_str); */
+            w = i;
+        }
+        
+        /*原形状参数*/
+        if (SEARCH(line_val, "CommonSleeveParams")!=""){
+            /*轮廓形状 0 圆形; 1 等腰圆*/
+            if (SEARCH(line_val, "shp 0")!=""){
+                shape = 0;
+            }
+            if (SEARCH(line_val, "shp 1")!=""){
+                shape = 1;
+            }
+            para_str = line_val;
+            p = i;
+        }
+        
+        /*轮廓所在行*/
+        if (!flag) curve_line = "";
+        tempStr = SEARCH(line_val, "CURVE");
+        if(tempStr!="") {
+            flag = 1;
+            curve_line = line_val;
+            /*是否以';'结束*/
+            lastChar = TAIL(curve_line,1);
+            if (lastChar==";") {
+                flag = 0;
+                A_PUT(curve_strings,j,curve_line);
+                j = j + 1;
+                A_PUT(records,k,"CURVE");
+                k = k + 1;
+            }
+        }
+        else{
+            if (flag) {
+                curve_line = curve_line + line_val;
+                /*是否以';'结束*/
+                lastChar = TAIL(curve_line,1);
+                if (lastChar==";") {
+                    flag = 0;
+                    A_PUT(curve_strings,j,curve_line);
+                    j = j + 1;
+                    A_PUT(records,k,"CURVE");
+                    k = k + 1;
+                }
+            }
+            else{
+                A_PUT(records,k,line_val);
+                k = k + 1;
+            }
+        }
+    }
+    F_CLOSE_FILE(f);
+    U_MESSAGE("");
+    
+    if (shape==0){
+        j = 0;
+        old_d=0;old_t=0;
+        res = get_data_for_curve_type_0(curve_strings,old_d,old_t);
+        if (res){
+            U_INIT_DIALOG("输入轮廓参数：");
+            i_d = U_SET_INT("外径:", 2*old_d, 1, 3000);
+            i_t = U_SET_INT("厚度:",   old_t, 1, 3000);
+            if(U_DIALOG()<0){
+                U_CONFIRM("取消操作");
+                A_FREE(records);
+                A_FREE(curve_strings);
+                return(-1);
+            }
+            
+            /*para_d 实际上是半径*/
+            para_d = 0.5 * U_GET_INT(i_d);
+            para_t =       U_GET_INT(i_t);
+            set_data_for_curve_type_0(curve_strings,para_d,para_t);
+            
+            /*替换轮廓参数*/
+            for(i=0; i<k; i=i+1;){
+                val = A_GET(records,i);
+                if(val=="CURVE"){
+                    curve_string = A_GET(curve_strings,j);
+                    j = j + 1;
+                    A_PUT(records,i,curve_string);
+                }
+            }
+            
+            /*替换重量参数*/
+            s1 = get_area_for_curve_type_0(old_d, old_t);
+            s2 = get_area_for_curve_type_0(para_d,para_t);
+            m2 = FTOASCII(string_to_float(weight_str)*s2/s1);
+            if (m2<0.1) {
+                temp_l=0; temp_d=0; temp_t=0; 
+                get_para_for_type_0(para_str,temp_l,temp_d,temp_t);
+                weight = get_weight_for_penetration(s2,temp_l);
+                m2 = FTOASCII(weight);
+            }
+            weight_string = "MAS=ATTRIBUTE("+m2+");";
+            U_MESSAGE(weight_string);
+            A_PUT(records,w,weight_string);
+            
+            /*替换形状参数*/
+            set_para_for_type_0(para_str,para_d,para_t);
+            A_PUT(records,p,para_str);
+ 
+            /*重写mdl文件*/
+            F_DELETE_FILE(file_path);
+            F_CREATE_FILE(file_path);
+            file = F_OPEN_FILE(file_path, "w");
+            for(i=0; i<k; i=i+1;){
+                val = A_GET(records,i);
+                F_WRITE_STR(file,val);
+                F_WRITE_NEWLINE(file);	
+                /*U_MESSAGE("new_line_val= "+val);*/
+            }
+            F_CLOSE_FILE(file);
+        }
+    }
+    else if(shape==1){
+        j = 0;
+        old_w=0;old_h=0;old_t=0;
+        res = get_data_for_curve_type_1(curve_strings,old_w,old_h,old_t);
+        if (res){
+            U_INIT_DIALOG("输入轮廓参数：");
+            i_w = U_SET_INT("长度:", old_w, 1, 3000);
+            i_h = U_SET_INT("宽度:", old_h, 1, 3000);
+            /* i_t = U_SET_INT("厚度:", old_t, 1, 3000); */
+            if(U_DIALOG()<0){
+                U_CONFIRM("取消操作");
+                A_FREE(records);
+                A_FREE(curve_strings);
+                return(-1);
+            }
+            
+            para_w = U_GET_INT(i_w);
+            para_h = U_GET_INT(i_h);
+            /* para_t = U_GET_INT(i_t); */
+            para_t = thickness;
+            set_data_for_curve_type_1(curve_strings,para_w,para_h,para_t);
+            
+            /*替换轮廓参数*/
+            for(i=0; i<k; i=i+1;){
+                val = A_GET(records,i);
+                if(val=="CURVE"){
+                    curve_string = A_GET(curve_strings,j);
+                    j = j + 1;
+                    A_PUT(records,i,curve_string);
+                }
+            }
+            
+            /*替换重量参数*/
+            s1 = get_area_for_curve_type_1(old_w, old_h, old_t);
+            s2 = get_area_for_curve_type_1(para_w,para_h,para_t);
+            m2 = FTOASCII(string_to_float(weight_str)*s2/s1);
+            if (m2<0.1) {
+                temp_l=0; temp_w=0; temp_h=0; temp_t=0; 
+                get_para_for_type_1(para_str,temp_l,temp_w,temp_h,temp_t);
+                weight = get_weight_for_penetration(s2,temp_l);
+                m2 = FTOASCII(weight);
+            }
+            weight_string = "MAS=ATTRIBUTE("+m2+");";
+            A_PUT(records,w,weight_string);
+            
+            /*替换形状参数*/
+            set_para_for_type_1(para_str,para_w,para_h,para_t);
+            U_MESSAGE("para_str= "+para_str);
+            A_PUT(records,p,para_str);
+ 
+            /*重写mdl文件*/
+            F_DELETE_FILE(file_path);
+            F_CREATE_FILE(file_path);
+            file = F_OPEN_FILE(file_path, "w");
+            for(i=0; i<k; i=i+1;){
+                val = A_GET(records,i);
+                F_WRITE_STR(file,val);
+                F_WRITE_NEWLINE(file);	
+                /*U_MESSAGE("new_line_val= "+val);*/
+            }
+            F_CLOSE_FILE(file);
+        }
+    }
+    else{
+        res = -1;
+        U_CONFIRM("未定义的挡水圈形状");
+    }
+
+	/* free allocated space */
+	A_FREE(records);
+    A_FREE(curve_strings);
+    return(res);
+}
+
+/*挡水圈重量*/
+get_weight_for_penetration(area,length)
+{
+    weight = area*length*7.85*0.001*0.001;
+    return (weight);
+}
+
+/*圆形参数*/
+/*@CommonSleeveParams=shp 0;l 150;t 20;d 235;;*/
+get_para_for_type_0(para_str,l,d,t)
+{
+    temp_str = SEARCH(para_str, ";");
+    temp_str = SEARCH(temp_str, "l ");
+    
+    temp_str_l = STRINGTERM(temp_str, ";");
+    temp_str_l = SEARCH(temp_str_l, " ");
+    l = string_to_abs_int(temp_str_l);
+    
+    temp_str_t = SEARCH(temp_str, "t");
+    temp_str_t = STRINGTERM(temp_str_t, ";");
+    temp_str_t = SEARCH(temp_str_t, " ");
+    t = string_to_abs_int(temp_str_t);
+    
+    temp_str_d = SEARCH(temp_str, "d");
+    temp_str_d = STRINGTERM(temp_str_d, ";");
+    temp_str_d = SEARCH(temp_str_d, " ");
+    d = string_to_abs_int(temp_str_d);
+    
+    U_MESSAGE("l = "+ITOASCII(l));
+    U_MESSAGE("d = "+ITOASCII(d));
+    U_MESSAGE("t = "+ITOASCII(t));
+}
+
+/*圆形参数*/
+/*@CommonSleeveParams=shp 0;l 150;t 20;d 235;;*/
+set_para_for_type_0(para_str,d,t)
+{
+    part_1 = STRINGTERM(para_str, "t");
+    para_str = part_1 + "t " + ITOASCII(t) + ";d " + ITOASCII(d) + ";;*/";
+    /* U_MESSAGE("para_str= "+para_str); */
+}
+
+/*等腰形参数*/
+/*@CommonSleeveParams=shp 1;l 150;t 20;w 505;h 265;;*/
+get_para_for_type_1(para_str,l,w,h,t)
+{
+    temp_str = SEARCH(para_str, ";");
+    temp_str = SEARCH(temp_str, "l ");
+
+    temp_str_l = STRINGTERM(temp_str, ";");
+    temp_str_l = SEARCH(temp_str_l, " ");
+    l = string_to_abs_int(temp_str_l);
+
+    temp_str_t = SEARCH(temp_str, "t");
+    temp_str_t = STRINGTERM(temp_str_t, ";");
+    temp_str_t = SEARCH(temp_str_t, " ");
+    t = string_to_abs_int(temp_str_t);
+    
+    temp_str_w = SEARCH(temp_str, "w");
+    temp_str_w = STRINGTERM(temp_str_w, ";");
+    temp_str_w = SEARCH(temp_str_w, " ");
+    w = string_to_abs_int(temp_str_w);
+
+    temp_str_h = SEARCH(temp_str, "h");
+    temp_str_h = STRINGTERM(temp_str_h, ";");
+    temp_str_h = SEARCH(temp_str_h, " ");
+    h = string_to_abs_int(temp_str_h);
+    
+    U_MESSAGE("l = "+ITOASCII(l));
+    U_MESSAGE("w = "+ITOASCII(w));
+    U_MESSAGE("h = "+ITOASCII(h));
+    U_MESSAGE("t = "+ITOASCII(t));
+}
+
+/*等腰形参数*/
+/*@CommonSleeveParams=shp 1;l 150;t 20;w 505;h 265;;*/
+set_para_for_type_1(para_str,w,h,t)
+{
+    part_1 = STRINGTERM(para_str, "t");
+    para_str = part_1 + "t " + ITOASCII(t) + ";w " + ITOASCII(w) + ";h " + ITOASCII(h) + ";;*/";
+    U_MESSAGE("para_str= "+para_str);
+}
+
+/*圆型截面积 */
+get_area_for_curve_type_0(r,t)
+{
+    area1 = area_for_curve_type_0(r);
+    area2 = area_for_curve_type_0(r-t);
+    return(area1-area2);
+}
+
+/*圆型轮廓面积*/
+area_for_curve_type_0(r)
+{
+    area = 3.1415926*r*r;
+    return(area);
+}
+
+/*等腰型截面积*/
+get_area_for_curve_type_1(a,b,t)
+{
+    area1 = area_for_curve_type_1(a,b);
+    area2 = area_for_curve_type_1(a-2*t,b-2*t);
+    return(area1-area2);
+}
+
+/*等腰型轮廓面积*/
+area_for_curve_type_1(a,b)
+{
+    area = (a-b)*b + 0.25*3.1415926*b*b;
+    return(area);
+}
+
+/*等腰型轮廓生成*/
+set_data_for_curve_type_1(curve_strings,a,b,t)
+{
+    /*CrvtpBRj=CURVE(-0.5*a,-0.5*b,0.5*a,-0.5*b,ARC,0.5*a,0,180,-0.5*a,0.5*b,ARC,-0.5*a,0,180);*/
+    /*CrvtpBRi=CURVE(  -120,-112.5,  120,-112.5,ARC,  120,0,180,  -120,112.5,ARC,  -120,0,180);*/
+    
+    curve_1 = A_GET(curve_strings,0);
+    curve_2 = A_GET(curve_strings,1);
+    oha = 0.5*a-0.5*b;
+    ohb = 0.5*b;
+    iha = oha;
+    ihb = ohb-t;
+    
+    temp = SEARCH(curve_1, ",");
+    temp = STRINGTERM(SUBSTRING(temp,1), ",");
+    ohalf_b1 = string_to_abs_int(temp);
+    
+    temp = SEARCH(curve_2, ",");
+    temp = STRINGTERM(SUBSTRING(temp,1), ",");
+    ohalf_b2 = string_to_abs_int(temp);
+    
+    if (ohalf_b1>ohalf_b2){
+        curve_1 = STRINGTERM(curve_1, "=");
+        curve_1 = curve_1 + "=CURVE("+FTOASCII(-oha)+","+FTOASCII(-ohb)+","
+                                     +FTOASCII(oha) +","+FTOASCII(-ohb)+","
+                                     +"ARC,"+FTOASCII(oha) +",0,180"+","
+                                     +FTOASCII(-oha) +","+FTOASCII(ohb)+","
+                                     +"ARC,"+FTOASCII(-oha) +",0,180"+");";
+        curve_2 = STRINGTERM(curve_2, "=");
+        curve_2 = curve_2 + "=CURVE("+FTOASCII(-iha)+","+FTOASCII(-ihb)+","
+                                     +FTOASCII(iha) +","+FTOASCII(-ihb)+","
+                                     +"ARC,"+FTOASCII(iha) +",0,180"+","
+                                     +FTOASCII(-iha) +","+FTOASCII(ihb)+","
+                                     +"ARC,"+FTOASCII(-iha) +",0,180"+");";
+    }
+    else{
+        curve_1 = STRINGTERM(curve_1, "=");
+        curve_1 = curve_1 + "=CURVE("+FTOASCII(-iha)+","+FTOASCII(-ihb)+","
+                                     +FTOASCII(iha) +","+FTOASCII(-ihb)+","
+                                     +"ARC,"+FTOASCII(iha) +",0,180"+","
+                                     +FTOASCII(-iha) +","+FTOASCII(ihb)+","
+                                     +"ARC,"+FTOASCII(-iha) +",0,180"+");";
+        curve_2 = STRINGTERM(curve_2, "=");
+        curve_2 = curve_2 + "=CURVE("+FTOASCII(-oha)+","+FTOASCII(-ohb)+","
+                                     +FTOASCII(oha) +","+FTOASCII(-ohb)+","
+                                     +"ARC,"+FTOASCII(oha) +",0,180"+","
+                                     +FTOASCII(-oha) +","+FTOASCII(ohb)+","
+                                     +"ARC,"+FTOASCII(-oha) +",0,180"+");";
+    }
+    A_PUT(curve_strings,0,curve_1);
+    A_PUT(curve_strings,1,curve_2);
+    U_MESSAGE("curve_1= "+curve_1);
+    U_MESSAGE("curve_2= "+curve_2);
+    return(1);
+}
+
+/*等腰型轮廓解析*/
+get_data_for_curve_type_1(curve_strings,a,b,t)
+{
+    /*CrvtpBRj=CURVE(-0.5*a, -0.5*b, 0.5*a, -0.5*b, ARC, 0.5*a, 0, 180, -0.5*a, 0.5*b, ARC, -0.5*a, 0, 180);*/
+    /*CrvtpBRi=CURVE(  -120, -112.5,   120, -112.5, ARC,   120, 0, 180,   -120, 112.5, ARC,   -120, 0, 180);*/
+    
+    curve_1 = A_GET(curve_strings,0);
+    curve_2 = A_GET(curve_strings,1);
+    
+    temp = SEARCH(curve_1, "(");
+    temp = STRINGTERM(temp, ",");
+    half_a1 = string_to_abs_int(SUBSTRING(temp,1));
+
+    temp = SEARCH(curve_1, ",");
+    temp = STRINGTERM(SUBSTRING(temp,1), ",");
+    half_b1 = string_to_abs_int(temp);
+
+    temp = SEARCH(curve_2, ",");
+    temp = STRINGTERM(SUBSTRING(temp,1), ",");
+    half_b2 = string_to_abs_int(temp);
+
+    if (half_b1>half_b2){
+        b=2*half_b1;
+        t=half_b1-half_b2;
+    }
+    else{
+        b=2*half_b2;
+        t=half_b2-half_b1;
+    }
+    a=2*half_a1+b;
+    U_MESSAGE("a:"+ITOASCII(a)+" b:"+ITOASCII(b));
+    return(1);
+}
+
+/*圆型轮廓解析*/
+get_data_for_curve_type_0(curve_strings,r,t)
+{
+    /*Crv12FAjU = CURVE(117.5,0,ARC,0,0,360);*/
+    /*Crv12FAjT = CURVE(97.5,0,ARC,0,0,360);*/
+
+    curve_1 = A_GET(curve_strings,0);
+    curve_2 = A_GET(curve_strings,1);
+
+    temp = SEARCH(curve_1, "(");
+    temp = STRINGTERM(temp, ",");
+    rad1 = string_to_abs_float(SUBSTRING(temp,1));
+
+    temp = SEARCH(curve_2, "(");
+    temp = STRINGTERM(temp, ",");
+    rad2 = string_to_abs_float(SUBSTRING(temp,1));
+
+    if (rad1>rad2){
+        r = rad1;
+        t = rad1-rad2;
+    }
+    else{
+        r = rad2;
+        t = rad2-rad1;
+    }
+    U_MESSAGE("d:"+FTOASCII(2*r)+" t:"+FTOASCII(t));
+    return(1);
+}
+
+/*圆型轮廓生成*/
+set_data_for_curve_type_0(curve_strings,r,t)
+{
+    /*Crv12FAjU = CURVE(117.5,0,ARC,0,0,360);*/
+    /*Crv12FAjT = CURVE(97.5,0,ARC,0,0,360);*/
+    
+    curve_1 = A_GET(curve_strings,0);
+    curve_2 = A_GET(curve_strings,1);
+    or = r;
+    ir = r-t;
+    
+    temp = SEARCH(curve_1, "(");
+    temp = STRINGTERM(temp, ",");
+    rad1 = string_to_abs_float(SUBSTRING(temp,1));
+    
+    temp = SEARCH(curve_2, "(");
+    temp = STRINGTERM(temp, ",");
+    rad2 = string_to_abs_float(SUBSTRING(temp,1));
+    
+    if (rad1>rad2){
+        curve_1 = STRINGTERM(curve_1, "=");
+        curve_1 = curve_1 + "=CURVE("+FTOASCII(or)+",0,ARC,0,0,360);";
+        curve_2 = STRINGTERM(curve_2, "=");
+        curve_2 = curve_2 + "=CURVE("+FTOASCII(ir)+",0,ARC,0,0,360);";
+    }
+    else{
+        curve_1 = STRINGTERM(curve_1, "=");
+        curve_1 = curve_1 + "=CURVE("+FTOASCII(ir)+",0,ARC,0,0,360);";
+        curve_2 = STRINGTERM(curve_2, "=");
+        curve_2 = curve_2 + "=CURVE("+FTOASCII(or)+",0,ARC,0,0,360);";
+    }
+    A_PUT(curve_strings,0,curve_1);
+    A_PUT(curve_strings,1,curve_2);
+    U_MESSAGE("curve_1= "+curve_1);
+    U_MESSAGE("curve_2= "+curve_2);
+    return(1);
+}
+
+string_to_abs_int(string int_string)
+{
+   int value;
+   value = 0;
+   value = SCAN_QUANT(3,int_string);
+   if (value<0) value=-value;
+   return(value);
+}
+
+string_to_abs_float(string float_string)
+{
+   value = 0.0;
+   value = SCAN_QUANT(3,float_string);
+   if (value<0) value=-value;
+   return(value);
+}
+
+string_to_float(string float_string)
+{
+   value = 0.0;
+   value = SCAN_QUANT(3,float_string);
+   return(value);
+}
+
+/*字符串剔除空格*/
+trim(string_val)
+{
+    res_str = "";
+    str_len = STRLEN(string_val);
+    for (i=1;i<str_len+1;i=i+1){
+        temp = HEAD(string_val,i);
+        temp = TAIL(temp,1);
+        if(temp!=" "){
+            res_str = res_str+temp;
+        }
+    }
+    return(res_str);
+}
+
+/*字符串右剔除空格*/
+rtrim(string_val)
+{
+    res_str = string_val;
+    str_len = STRLEN(string_val);
+    for (i=0;i<str_len;i=i+1){
+        temp = TAIL(res_str,1);
+        if(temp!=" "){
+            return(res_str);
+        }
+        else{
+            res_str = HEAD(res_str,STRLEN(res_str)-1);
+        }
+    }
+    return(res_str);
+}
+
