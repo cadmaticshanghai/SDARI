@@ -839,14 +839,18 @@ get_bend_length(part_handle)
 /*部件长度*/
 get_component_length(part_handle,type)
 {
-    part_id = PM_GET_OBJDATA(part_handle,1, "pid"); 
+    /*客户提出不需要连接件长度*/
+    return(0);
+    /*客户提出不需要连接件长度*/
+    
+/*     part_id = PM_GET_OBJDATA(part_handle,1, "pid"); 
     part_len = 1.0 * DM_PARTID_DATA(part_id,"D31");
     if (type=="ELBOW"){
         fii = PM_GET_OBJDATA(part_handle,1, "fii"); 
         part_len = part_len * TAN(0.5*(90-fii));
         part_len = 2*part_len;
     }
-    return(part_len);
+    return(part_len); */
 }
 
 /*零件类型*/
