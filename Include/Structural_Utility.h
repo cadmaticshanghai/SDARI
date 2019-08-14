@@ -582,12 +582,18 @@ Pick_Structural_Group(string prompt)
     flag = 1;
     while(flag){
         tmp = 0;
-        picked_object_handle = PM_PICK_OBJECT(prompt, tmp, "STRUCTCMP","BEAM","STANDCMP");
+        picked_object_handle = PM_PICK_OBJECT(prompt, tmp, "STRUCTCMP","BEAM","STANDCMP","PIPE","EQUIPMENT");
         if (!ISINT(picked_object_handle)){
             /*get group handle of picked object*/
             group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,7);
             if (ISINT(group_handle)){
-                U_CONFIRM("此零件不属于舾装件，请重新选择");
+				group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,52);
+				if (ISINT(group_handle)){
+					U_CONFIRM("此零件不属于舾装件，请重新选择");
+				}
+				else{
+					return(group_handle); 
+				}
             }
             else{
                 return(group_handle);                
@@ -606,15 +612,60 @@ Pick_Structural_Part(string prompt)
 {
     flag = 1;
     while(flag){
-        tmp = 0;
-        picked_object_handle = PM_PICK_OBJECT(prompt, tmp, "STRUCTCMP","BEAM","STANDCMP");
+        nth = 0;
+        picked_object_handle = PM_PICK_OBJECT(prompt, nth, "STRUCTCMP","BEAM","STANDCMP","PIPE","EQUIPMENT");
         if (!ISINT(picked_object_handle)){
+			obj_type = PM_GET_OBJDATA(picked_object_handle,0,MMT_TAG_OBJTYPE);
+			if(obj_type == "3"){			
+				part_obj_id = PM_GET_OBJDATA(picked_object_handle,nth,MMT_TAG_OBJID);
+				part_handle = PM_FIND_BY_OBJID(part_obj_id);			
+				return(part_handle);
+			}		
             return(picked_object_handle);
         }
         else{
             return(0);
         }
     }
+}
+
+/*let user pick one or more structural part in active view
+**and check if it is in the passed model set
+**if success, return part set handle, otherwise return 0
+*/
+Pick_Multi_Structural_Part(string prompt, handle model_set, handle parts)
+{
+	parts = PM_INIT_SET();
+	objects = PM_DEFINE_SET(prompt,1,"STRUCTCMP","BEAM","STANDCMP","PIPE","EQUIPMENT");
+	if(ISINT(objects)){
+		return(-1);
+	}
+	
+	find = 0;
+	part_number = PM_NR_MEMBERS_IN_SET(objects);
+	for(i=0;i<part_number;i=i+1;){
+		part = PM_GET_MEMBER_IN_SET(objects,i);
+		part_index = PM_FIND_OBJECT_FROM_SET(part, model_set);
+		if(part_index >=0){
+			PM_ADD_OBJECT_TO_SET(part,parts);			
+		}
+		else{
+			find = 1;
+			PM_HIGHLIGHT_OBJECT(part,0,0);
+		}
+	}
+	
+	if(find){		
+		U_CONFIRM("选择的全部或者部分零件不属于当前舾装件");
+	}
+	
+	part_number = PM_NR_MEMBERS_IN_SET(parts);
+	if(part_number > 0){
+		return(0);
+	}
+	else{
+		return(-1);
+	}	
 }
 
 /*let user pick structural parts that doesn't belong to any group in active view
@@ -625,22 +676,70 @@ Pick_Free_Structural_Parts(string prompt)
     flag = 1;
     parts = PM_INIT_SET();
     while(flag){
-        tmp = 0;
         nth = 0;
-        picked_object_handle = PM_PICK_OBJECT(prompt, tmp, "STRUCTCMP","BEAM","STANDCMP");
+		check = 0;
+        picked_object_handle = PM_PICK_OBJECT(prompt, nth, "STRUCTCMP","BEAM","STANDCMP","PIPE","EQUIPMENT");
         if (!ISINT(picked_object_handle)){
-            group_path = PM_GET_OBJDATA(picked_object_handle,nth,MMT_TAG_MEMBERSHIPPATH);
-            if(ISSTRING(group_path)){
+			group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,7);
+            if (ISINT(group_handle)){
+				group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,52);			
+				if (ISINT(group_handle)){
+					check = 1;
+				}
+			}	
+            if(!check){
                 U_CONFIRM("此零件已经属于其它舾装件！"); 
             }
             else{
-                PM_ADD_OBJECT_TO_SET(picked_object_handle,parts);
+				obj_type = PM_GET_OBJDATA(picked_object_handle,0,MMT_TAG_OBJTYPE);
+				if(obj_type == "3"){				
+					part_obj_id = PM_GET_OBJDATA(picked_object_handle,nth,MMT_TAG_OBJID);
+					part_handle = PM_FIND_BY_OBJID(part_obj_id);
+					PM_ADD_OBJECT_TO_SET(part_handle,parts);
+				}
+				else{
+					PM_ADD_OBJECT_TO_SET(picked_object_handle,parts);
+				}                
             }
         }
         else{
             return(parts);
         }
     }
+}
+
+
+/*let user pick structural parts that doesn't belong to any group in active view
+**if success, return part set, otherwise return 0
+*/
+Pick_Free_Models_For_Structural_Unit(string prompt)
+{
+    models = PM_DEFINE_SET(prompt);
+    if(ISINT(models)){
+        U_CONFIRM("未选择任何模型");
+        return(0);
+    }   
+    model_number = PM_NR_MEMBERS_IN_SET(models);
+    if(model_number <= 0){
+        U_CONFIRM("未选择任何模型");
+        return(0);    
+    }
+    for(i=0;i<model_number;i=i+1;){
+        model = PM_GET_MEMBER_IN_SET(models,i);
+        check = 0;
+        group_handle = PM_GET_OBJECT_GROUP(model,7);
+        if(ISINT(group_handle)){
+            group_handle = PM_GET_OBJECT_GROUP(model,52);			
+            if(ISINT(group_handle)){
+                check = 1;
+            }
+        }	
+        if(!check){
+            U_CONFIRM("零件已经属于其它舾装件！"); 
+            return(0);
+        }        
+    }
+    return(models);
 }
 
 /*this function used to rename structural model group
@@ -711,6 +810,39 @@ Delete_Structural_Unit(group_h)
     name = PM_GET_OBJDATA(group_h,nth,MMT_TAG_OBJNAME);
     title = "删除舾装件《" + name + "》";
     PM_UM_OPEN_CHANGE(title);        
+    /*remove all parts from model group*/
+    parts = PM_GET_OBJECTS_IN_GROUP(group_h,1);
+    res = PM_RM_SET_FROM_GROUP(parts,group_h);
+    if(res == -1){
+        PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        U_CONFIRM("无法将零件从舾装件《" + name + "》中移除");
+        return(0);                        
+    } 
+    /*delete model group*/
+    res = PM_DELETE_OBJECT(group_h);          
+    if(res == -1){
+        PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        U_CONFIRM("无法删除舾装件《" + name + "》");
+        return(0);                        
+    } 
+    PM_UM_CLOSE_CHANGE();
+    return(1);  
+}
+
+
+Delete_Structural_Unit_And_Parts(group_h)
+{
+    /*check access right, if no access right to model group or any part in group, return*/
+    if(!CheckAccessRight(group_h)){
+        U_CONFIRM("权限不足");
+        return(0);
+    }
+    nth = 0; 
+    name = PM_GET_OBJDATA(group_h,nth,MMT_TAG_OBJNAME);
+    title = "删除舾装件《" + name + "》及其零件";
+    PM_UM_OPEN_CHANGE(title);        
     /*delete all parts from model group*/
     parts = PM_GET_OBJECTS_IN_GROUP(group_h,1);
     res = PM_DELETE_OBJECTS_IN_SET(parts, 0);
@@ -725,7 +857,7 @@ Delete_Structural_Unit(group_h)
     if(res == -1){
         PM_UM_CLOSE_CHANGE();
         PM_UM_UNDO_LAST_CHANGE();
-        U_CONFIRM("无法删除舾装件《" + name + "》");
+        U_CONFIRM("无法删除舾装件《" + name + "》及其零件");
         return(0);                        
     } 
     PM_UM_CLOSE_CHANGE();
@@ -778,17 +910,25 @@ Get_Part_Unit(obj_h)
 {
     nth = 0;
     obj_type = PM_GET_OBJDATA(obj_h,nth,MMT_TAG_OBJTYPE);
-    if(obj_type == "2"){
-        return("个");
+	part_id = PM_GET_OBJDATA(obj_h,nth,MMT_TAG_PARTID);
+	qty = PM_GET_OBJDATA(obj_h,nth,MMT_TAG_BOM_QUANTITY);
+	gt = DM_PARTID_DATA(part_id,"GT");
+	/*equipment, standard part, structural component, pipe part beside tube*/
+    if(obj_type == "1" | obj_type == "2" | (obj_type == "4" & ISSTRING(qty)) | 
+	(obj_type == "3" & ISSTRING(qty)) | (obj_type == "10" & ISSTRING(qty))){
+        return("PCS");
     }
-    else if(obj_type == "4"){
+	/* PLATE */
+    else if(obj_type == "4" & ISINT(qty)){
         return("m2");
     }
+	/*BEAM*/
     else if(obj_type == "5"){
         return("m");
     }
+	/*OTHER*/
     else{
-        return("xx");
+        return("PCS");
     } 
 }
 
@@ -796,12 +936,18 @@ Get_Part_Surface_Area(obj_h)
 {
     nth = 0;
     obj_type = PM_GET_OBJDATA(obj_h,nth,MMT_TAG_OBJTYPE);
-    /*if object is standard component*/
-    if(obj_type == "2"){
+	part_id = PM_GET_OBJDATA(obj_h,nth,MMT_TAG_PARTID);
+	qty = PM_GET_OBJDATA(obj_h,nth,MMT_TAG_BOM_QUANTITY);
+	gt = "";
+	if(ISSTRING(part_id)){
+		gt = DM_PARTID_DATA(part_id,"GT");
+	}
+    /*if object is equopment, standard component, */
+    if(obj_type == "1" | obj_type == "2" | obj_type == "3" | obj_type == "10" | (obj_type == "4" & ISSTRING(qty))){
         return(0.00);
     }
-    /* if object is structural component*/
-    else if(obj_type == "4"){
+    /* if object is structural plate*/
+    else if(obj_type == "4" & ISINT(qty)){
         area = Calculate_Plate_Surface_Area(obj_h);
         return(area);      
     }
