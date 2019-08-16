@@ -269,7 +269,8 @@ get_spool_name(hole)
             spool_handle = PM_GET_OBJECT_GROUP(spooli,0);	/* 获取管段的handle */
             if(!ISINT(spool_handle)){	
                 value = Get_Attribute_Value(spool_handle, Tag_Spool_Name);
-                if(ISSTRING(value)){
+                isfind = string_find(spool_name, value);
+                if(ISSTRING(value) & !isfind){
                     spool_name = spool_name + value + ",";
                 }
             }
@@ -1086,7 +1087,7 @@ create_panel_upperpart(mainform)
 	                                W_PANEL_COL, 0,
                                     W_PANEL_LABEL, "分段:  ",
                                     W_PANEL_LENGTH, 8,
-                                    W_PANEL_VALUE, "EZ*",
+                                    W_PANEL_VALUE, "*",
                                     W_PANEL_CALLBACK, 1);
 
 	PlanningUnit = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "PlanningUnit");

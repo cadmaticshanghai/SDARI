@@ -26,7 +26,7 @@
 /*
 **It seem that there isn't method to get the size of a array, define a global var to store the number of production information
 */
-#define  Column_Number 9
+#define  Column_Number 8
 
 global handle W_Block_Name, W_System_Name, W_Planning_Unit;
 global handle W_Data_Grid;
@@ -64,24 +64,22 @@ init()
 	Tag_Array = A_ALLOC(Column_Number, "STRING");
 	A_PUT(Tag_Array,0,"Order");						/*序号*/
 	A_PUT(Tag_Array,1,"Name");						/*复板的编号名称*/
-    A_PUT(Tag_Array,2,"SpoolName");			        /*复板所属管段名*/
-	A_PUT(Tag_Array,3,Tag_Penetration_FabDn);		/*复板的制作图号*/
-	A_PUT(Tag_Array,4,Tag_Penetration_WeldType);	/*复板的焊接类型，默认为外场焊接*/
-	A_PUT(Tag_Array,5,"Material");					/*复板材料*/
-	A_PUT(Tag_Array,6,"Thickness");					/*复板厚度*/
-	A_PUT(Tag_Array,7,"Weight");					/*复板重量*/
-	A_PUT(Tag_Array,8,Tag_Penetration_Remark);		/*复板备注*/
+	A_PUT(Tag_Array,2,Tag_Penetration_FabDn);		/*复板的制作图号*/
+	A_PUT(Tag_Array,3,Tag_Penetration_WeldType);	/*复板的焊接类型，默认为外场焊接*/
+	A_PUT(Tag_Array,4,"Material");					/*复板材料*/
+	A_PUT(Tag_Array,5,"Thickness");					/*复板厚度*/
+	A_PUT(Tag_Array,6,"Weight");					/*复板重量*/
+	A_PUT(Tag_Array,7,Tag_Penetration_Remark);		/*复板备注*/
 
 	Tag_Description_Array = A_ALLOC(Column_Number, "STRING");
 	A_PUT(Tag_Description_Array,0,"序号");
 	A_PUT(Tag_Description_Array,1,"编号名称");
-    A_PUT(Tag_Description_Array,2,"管段号");
-	A_PUT(Tag_Description_Array,3,"型号规格及标准号");
-	A_PUT(Tag_Description_Array,4,"焊接类型");
-	A_PUT(Tag_Description_Array,5,"材质");
-	A_PUT(Tag_Description_Array,6,"厚度");
-	A_PUT(Tag_Description_Array,7,"重量");
-	A_PUT(Tag_Description_Array,8,"备注");
+	A_PUT(Tag_Description_Array,2,"型号规格及标准号");
+	A_PUT(Tag_Description_Array,3,"焊接类型");
+	A_PUT(Tag_Description_Array,4,"材质");
+	A_PUT(Tag_Description_Array,5,"厚度");
+	A_PUT(Tag_Description_Array,6,"重量");
+	A_PUT(Tag_Description_Array,7,"备注");
 	
 	Object_Info = alloc_2darray(1,1);
 	Access_List = A_ALLOC(1);
@@ -141,36 +139,32 @@ get_penetration_data(obj_h, tags, tags_number, datas)
 			A_PUT(datas,0,data);
 		}
 		else if(tag == "Name"){					/* 抽取复板的名称，如果未赋名称给复板，则根据规则给复板赋名称 */
-			data = get_double_plate_name(obj_h);
+			data = get_spool_name(double_plate);
 			A_PUT(datas,1,data);				
 		}
-		else if(tag == "SpoolName"){			    /* 抽取复板所属的管段名称,未分管段则为空*/
-			data = get_spool_name(double_plate);
-			A_PUT(datas,2,data);				
-		}
-		else if(tag == Tag_Penetration_FabDn){	/* 抽取复板的制作图名，如果尚未赋图号，则根据规则赋给默认的图号 */
+		else if(tag == Tag_Penetration_FabDn){	/* 抽取复板的编号，则根据规则赋给编号 */
 			data = get_fabrication_DrawingNumber(obj_h);			
-			A_PUT(datas,3,data);			
+			A_PUT(datas,2,data);			
 		}
 		else if(tag == Tag_Penetration_WeldType){	/* 抽取复板的焊接类型，如果未赋焊接类型，则根据规则赋给默认的焊接类型 */		
 			data = get_welding_type(obj_h);
-			A_PUT(datas,4,data);
+			A_PUT(datas,3,data);
 		}	
 		else if(tag == "Material"){				/* 抽取复板的材质 */
 			data = get_materail(double_plate);
-			A_PUT(datas,5,data);
+			A_PUT(datas,4,data);
 		}
 		else if(tag == "Thickness"){
 			data = get_thickness(double_plate);
-			A_PUT(datas,6,data);
+			A_PUT(datas,5,data);
 		}
 		else if(tag == "Weight"){
 			data = get_weight(double_plate);
-			A_PUT(datas,7,data);
+			A_PUT(datas,6,data);
 		}
 		else if(tag == Tag_Penetration_Remark){
 			data = get_remark(double_plate);
-			A_PUT(datas,8,data);
+			A_PUT(datas,7,data);
 		}
 		A_PUT(datas,i,data);
 	}
@@ -268,8 +262,15 @@ get_welding_type(obj_h)
 	return("外场焊");
 }
 
-/* 抽取复板的制作图号信息，如果值为空，值赋一个初始值 */
-get_fabrication_DrawingNumber(obj_h)
+/* 抽取复板的编号作为制作图号信息*/
+get_fabrication_DrawingNumber(penetration)
+{
+    drawing_name = get_double_plate_name(penetration);
+	return(drawing_name);
+}
+
+/*旧的图号生成规则*/
+get_fabrication_DrawingNumber_old(obj_h)
 {
 	value1 = "FD0000001";
 	value2 = "000000000";
@@ -322,15 +323,14 @@ get_spool_name(double_plate)
             spooli = PM_GET_MEMBER_IN_SET(pipes,i);
             spool_handle = PM_GET_OBJECT_GROUP(spooli,0);	/* 获取管段的handle */
             if(!ISINT(spool_handle)){	
-                value = Get_Attribute_Value(spool_handle, Tag_Spool_Name);
-                if(ISSTRING(value)){
-                    spool_name = spool_name + value + ",";
+                spool_name = Get_Attribute_Value(spool_handle, Tag_Spool_Name);
+                if(ISSTRING(spool_name)){
+                    if(spool_name!=""){
+                        return(spool_name);
+                    }
                 }
             }
         }
-    }
-    if(spool_name!=""){
-        spool_name = HEAD(spool_name, STRLEN(spool_name)-1);
     }
     return(spool_name);
 }
@@ -367,11 +367,11 @@ get_penetration_planning_unit(penetration)
 }
 
 /*自动编号*/
-auto_naming(planning_unit)
+auto_naming(planning_unit,flag)
 {
-    index_number = "000";
+    index_number = "00";
     for(i=1;i<1000;i=i+1;){
-        double_plate_name = planning_unit + "-FB-" + HEAD(index_number,STRLEN(index_number) - STRLEN(ITOASCII(i))) + ITOASCII(i);
+        double_plate_name = planning_unit + "-" + flag + "-" + HEAD(index_number,STRLEN(index_number) - STRLEN(ITOASCII(i))) + ITOASCII(i);
         find = find_isnamed(double_plate_name);
         if(find<1){
             return(double_plate_name);
@@ -385,7 +385,7 @@ find_isnamed(double_plate_name)
 	penetration_number = PM_NR_MEMBERS_IN_SET(Object_List);
 	for (i = 0; i < penetration_number; i = i + 1;){
 		double_plate = PM_GET_MEMBER_IN_SET(Object_List, i);	
-        value = PM_GET_OBJDATA(double_plate,0,Tag_Penetration_Name);
+        value = PM_GET_OBJDATA(double_plate,0, Tag_Penetration_FabDn);
         if(ISSTRING(value)){
             if(double_plate_name==value){
                 return (1);
@@ -399,22 +399,30 @@ find_isnamed(double_plate_name)
 get_double_plate_name(penetration)
 {
     double_plate_name = "Unset";
-    value = PM_GET_OBJDATA(penetration,0,Tag_Penetration_Name);
+    value = PM_GET_OBJDATA(penetration,0,Tag_Penetration_FabDn);
     if(ISSTRING(value)){
         double_plate_name = value;
     }
     else{
         planning_unit = get_penetration_planning_unit(penetration);
-        double_plate_name = auto_naming(planning_unit);
+        double_plate_name = auto_naming(planning_unit,"FB");
 		check_name = PATTERN_MATCH(double_plate_name,"Unset*");
 		if(!check_name){	
-		    Set_Attribute_Value(penetration,Tag_Penetration_Name,double_plate_name);
+            /*检查用户权限并做出相应处理*/
+            access = Get_Object_Access_Status(penetration);
+            if(access == "CheckOutByMe"){
+                Set_Attribute_Value(penetration,Tag_Penetration_FabDn,double_plate_name);
+            }
+            else{
+                mess = "你没有复板<" + double_plate_name + ">的修改权限";
+                U_MESSAGE(mess);	
+            }
 	    }
     }
     return (double_plate_name);
 }
 
-/* 复板的名称为其所属的管段的名称 */
+/* 旧的复板的名称规则 */
 get_penetration_name_old(obj_h)
 {
 	block_name = get_block_name(obj_h);
@@ -526,7 +534,6 @@ grid_handler(window, event_type, row, column, item_id)
 	return(0);
 }
 
-
 sort_grid(column,window)
 {
 	/* A column header was clicked; sort the items */
@@ -553,22 +560,20 @@ modify_info_handler(item, event_type, button_value)
 	/* check if already select objects in list */
 	penetration_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
 	if (penetration_number <= 0){
-		U_CONFIRM("请先选择管段");
+		U_CONFIRM("请先选择腹板");
 		return(0);
 	}
 	/*定义菜单信息*/   
-	tag_number = 4;
+	tag_number = 3;
 	tag_description = A_ALLOC(tag_number);
-	A_PUT(tag_description,0,"编号名称");
-    A_PUT(tag_description,1,"型号规格及标准号");
-	A_PUT(tag_description,2,"焊接类型");
-	A_PUT(tag_description,3,"备注");
+    A_PUT(tag_description,0,"型号规格及标准号");
+	A_PUT(tag_description,1,"焊接类型");
+	A_PUT(tag_description,2,"备注");
 	
 	tags = A_ALLOC(tag_number);
-	A_PUT(tags,0,Tag_Penetration_Name);
-    A_PUT(tags,1,Tag_Penetration_FabDn);
-	A_PUT(tags,2,Tag_Penetration_WeldType);
-	A_PUT(tags,3,Tag_Penetration_Remark);
+    A_PUT(tags,0,Tag_Penetration_FabDn);
+	A_PUT(tags,1,Tag_Penetration_WeldType);
+	A_PUT(tags,2,Tag_Penetration_Remark);
     
 	/* get column number of item that will be modified */
 	si = 1;
@@ -600,7 +605,7 @@ modify_info_handler(item, event_type, button_value)
 		double_plate_name = get_double_plate_name(penetration);
 		access = Get_Object_Access_Status(double_plate);
 		if(access == "CheckOutByMe"){
-			Set_Attribute_Value(penetration, attribute_tag, new_val);		
+			Set_Attribute_Value(penetration, attribute_tag, new_val);	
 		}
 		else{
 			mess = "你没有复板<" + double_plate_name + ">的修改权限";
@@ -808,7 +813,6 @@ filter_model( penetrations )
     planning_unit = W_GET_PANELITEM_ARG(W_Planning_Unit,W_PANEL_VALUE);
 	
 	temp = PM_INIT_SET();
-
 	penetration_number = PM_NR_MEMBERS_IN_SET(penetrations);
 	for (i = 0; i < penetration_number; i = i + 1;){
 		penetration_handle = PM_GET_MEMBER_IN_SET(penetrations, i);
@@ -977,7 +981,53 @@ options_selected(item, event_type, dummy)
 
 restore_default_handler(item, event_type, button_value)
 {
-	U_MESSAGE("..");
+	/* check if already select objects in list */
+	penetration_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (penetration_number <= 0){
+		U_CONFIRM("请先选择腹板");
+		return(0);
+	}
+    
+	/* 先将选中腹板编号替换成临时编号 */
+	for (i = 0; i < penetration_number; i = i + 1){
+		penetration = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+		double_plate = get_double_plate(penetration);
+		access = Get_Object_Access_Status(double_plate);
+		if(access == "CheckOutByMe"){
+            planning_unit = get_penetration_planning_unit(penetration);
+            temp_name = auto_naming(planning_unit,"LS");
+            check_name = PATTERN_MATCH(temp_name,"Unset*");
+            if(!check_name){	
+                Set_Attribute_Value(penetration,Tag_Penetration_FabDn,temp_name);
+            }	
+		}
+	}
+	/* 再将选中腹板编号编号 */
+	for (i = 0; i < penetration_number; i = i + 1){
+		penetration = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+		double_plate = get_double_plate(penetration);
+		double_plate_name = get_double_plate_name(penetration);
+		access = Get_Object_Access_Status(double_plate);
+		if(access == "CheckOutByMe"){
+            planning_unit = get_penetration_planning_unit(penetration);
+            def_name = auto_naming(planning_unit,"FB");
+            check_name = PATTERN_MATCH(def_name,"Unset*");
+            if(!check_name){	
+                Set_Attribute_Value(penetration,Tag_Penetration_FabDn,def_name);
+            }	
+		}
+		else{
+			mess = "你没有复板<" + double_plate_name + ">的修改权限";
+			U_CONFIRM(mess);		
+		}
+	}
+	/* refresh data grid */
+	get_penetration_info();
+	publish_penetration_info();
+
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
 }
 
 clean_info_handler(item, event_type, button_value)

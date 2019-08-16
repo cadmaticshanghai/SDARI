@@ -52,6 +52,13 @@ find_isnamed(hole_name,models)
     return (0);
 }
 
+/*×Ö·û´®°üº¬*/
+string_find(string_input, patt)
+{
+    check = PATTERN_MATCH(string_input,"*"+patt+"*");
+    return(check);
+}
+
 relocate(hole, description, face, x1,y1,z1, x2,y2,z2)
 {
     set = PM_INIT_SET();
