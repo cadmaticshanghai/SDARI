@@ -1,8 +1,8 @@
 /*定义支架信息属性*/
 #define	SupportDes                  "~G3"   /*string - 支架名称 */
 #define	SupportType                 "~G1"   /*string - 支架类型 */
-#define PadType                     "~P2"   /*string - 垫板类型 */
-#define Part_Number                 "~P0"   /*string - 零件编号 */
+#define  PadType                     "~P2"   /*string - 垫板类型 */
+#define  Part_Number                 "~P0"   /*string - 零件编号 */
 
 #define Tag_Tray_Label               "~C1"   /*string - 托架标注内容 */
 
@@ -60,6 +60,7 @@ Get_Tray_Leng_Code(length)
 }
 
 /*判断是单层，双层，三层托架,返回层高*/
+/*根据部件库特征判断是否多层，弃之不用*/
 Get_Tray_OffHeight(tray_handle)
 {
     tray_pid = PM_GET_OBJDATA(tray_handle,0,MMT_TAG_PARTID);
@@ -73,6 +74,309 @@ Get_Tray_OffHeight(tray_handle)
         return (265);
     }
     return (0);
+}
+
+/*双层间距120，三层宽度600(含)以下的层高120，以上140*/
+Get_Tray_Layer_Height(width,layer)
+{
+    if(layer<=2){
+        return (120);
+    }
+    else{
+        if (width<=600){
+            return (120);
+        }
+    }
+    return (140);
+}
+
+/*删除多层tray及相关space*/
+Delete_Support_And_Tray(support_handle)
+{
+    bar_clearance = 20;
+    supp_parts = PM_GET_OBJECTS_IN_GROUP(support_handle);
+    part_number = PM_NR_MEMBERS_IN_SET(supp_parts);        
+    for(i=0;i<part_number;i=i+1;){
+        part = PM_GET_MEMBER_IN_SET(supp_parts,i);
+        /* part_id = PM_GET_OBJDATA(part,0, MMT_TAG_PARTID); */
+        obj_type = PM_GET_OBJDATA(part,0, MMT_TAG_OBJTYPE);
+        if (obj_type==5){
+            xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+            res = PM_GET_BBOX_OF_OBJECT(part, xmin, xmax, ymin, ymax, zmin, zmax); 
+            trays = search_mdels_intersect_box(xmin,ymin,zmin,xmax,ymax,zmax,7);
+            if(!ISINT(trays)){
+                tray_number = PM_NR_MEMBERS_IN_SET(trays); 
+                for(j=0;j<tray_number;j=j+1;){
+                    tray_handle = PM_GET_MEMBER_IN_SET(trays,j);
+                    PM_DELETE_OBJECT(tray_handle);
+                }
+            }
+            
+            xmin = xmin - bar_clearance;
+            ymin = ymin - bar_clearance;
+            zmin = zmin - bar_clearance;
+            xmax = xmax + bar_clearance;
+            ymax = ymax + bar_clearance;
+            zmax = zmax + bar_clearance;
+
+            spaces = search_mdels_intersect_box(xmin,ymin,zmin,xmax,ymax,zmax,12);
+            if(!ISINT(spaces)){
+                space_number = PM_NR_MEMBERS_IN_SET(spaces); 
+                for(j=0;j<space_number;j=j+1;){
+                    space_handle = PM_GET_MEMBER_IN_SET(spaces,j);
+                    space_type = PM_GET_OBJDATA(space_handle,0, ".lu");
+                    /* U_MESSAGE(space_type); */
+                    if(space_type==13){
+                        PM_DELETE_OBJECT(space_handle);
+                    }
+                }
+            }
+        }
+        PM_DELETE_OBJECT(part);
+    }
+    PM_DELETE_OBJECT(support_handle);
+}
+
+/*复制多层托架*/
+Copy_Tray_Layer(tray_handle, w_x,w_y,w_z, u_x,u_y,u_z, layer)
+{
+    part_id = PM_GET_OBJDATA(tray_handle,0,MMT_TAG_PARTID);
+    tray_width = 1.0 * DM_PARTID_NAMED_DIM(part_id,"Width");
+    /* space_height = 1.0 * DM_PARTID_NAMED_DIM(part_id,"SHeight"); */
+    distance = Get_Tray_Layer_Height(tray_width,layer);
+    /* U_MESSAGE("distance="+FTOASCII(distance)); */
+    part_type = PM_GET_OBJDATA(tray_handle,0, ".qm");
+    /* U_MESSAGE("part_type="+part_type); */
+
+    /*main tray space*/
+    Create_Tray_Space(tray_handle,0);
+    
+    if (layer==1){
+        U_MESSAGE(" ");
+    }
+    else if (layer==2){
+        if(part_type==0){
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,   0, tray_handle);
+        }
+        else if(part_type==1){
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,  50, tray_handle);
+        }
+        Create_Tray_Space(tray_handle2,0);
+    }
+    else if (layer==3){
+        if(part_type==0){
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,   0, tray_handle);
+            tray_handle3 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,   0, tray_handle2);
+        }
+        else if(part_type==1){
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,  50, tray_handle);
+            tray_handle3 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance, -50, tray_handle2);
+        }
+        Create_Tray_Space(tray_handle2,0);
+        Create_Tray_Space(tray_handle3,0);
+    }
+    return (0);
+}
+
+/*延托架支撑方向复制*/
+Copy_Move_Tray(wx,wy,wz, vx,vy,vz, distance, offset, tray_handle)
+{
+    tray_set = PM_INIT_SET();
+    PM_ADD_OBJECT_TO_SET(tray_handle, tray_set);
+    if (PM_WRITE_MDL_OF_SET("copy_move_tray.mdl", tray_set) != 0){
+        PM_FREE_SET(tray_set);
+        return(-1);
+    }
+
+    px=0;py=0;pz=0;
+    Point_Move(px,py,pz, px,py,pz, wx,wy,wz, distance);
+    Point_Move(px,py,pz, px,py,pz, vx,vy,vz, offset);
+
+    /* 平移变换 */
+    trans = TRF_TMAT_CREATE();
+    trans = Trans_Translate(trans, px,py,pz);
+    /* print_matrix(trans); */
+    
+	/*Notify PM that we are going to relocate objects using a sequence of deletes and MDL-loads. */
+	if (!PM_OK_TO_RELOCATE_OBJECTS_IN_SET(tray_set)) {
+		F_DELETE_FILE("copy_move_tray.mdl");
+        PM_FREE_SET(tray_set);
+		return(-1);
+	}
+
+	/* PM_DELETE_OBJECTS_IN_SET(tray_set, 0); */
+	PM_READ_MDL_INTO_SET("copy_move_tray.mdl", 2, "", trans, tray_set);
+	PM_RELOCATION_ACCEPTED();
+	F_DELETE_FILE("copy_move_tray.mdl");
+    
+    part_number = PM_NR_MEMBERS_IN_SET(tray_set);        
+    for(i=0;i<part_number;i=i+1;){
+        part_handle = PM_GET_MEMBER_IN_SET(tray_set,i);
+        /* part_id = PM_GET_OBJDATA(part_handle,0, MMT_TAG_PARTID); */
+        if(part_handle!=tray_handle){
+            PM_FREE_SET(tray_set);
+            return(part_handle);
+        }
+    }
+    PM_FREE_SET(tray_set);
+	return(-1);
+}
+
+/*生成托架space空间*/
+Create_Tray_Space(tray_handle,w_offset)
+{
+    space_set = PM_INIT_SET();
+    node = 1;
+    cmd  = PM_GET_OBJDATA(tray_handle,0, "cmd");
+    sys_id = PM_GET_OBJDATA(tray_handle,0, "sid");
+    length = 1.0*PM_GET_OBJDATA(tray_handle,0, "len");
+    part_type = PM_GET_OBJDATA(tray_handle,0, ".qm");
+    
+    cmd = SUBSTRING(cmd,1);
+
+    /*start position of tray*/
+    p_x = 1.0*PM_GET_CONPNT_DATA(tray_handle,node,"x");
+    p_y = 1.0*PM_GET_CONPNT_DATA(tray_handle,node,"y");
+    p_z = 1.0*PM_GET_CONPNT_DATA(tray_handle,node,"z");
+
+    /*normal direction of tray*/
+    u_x = 0.0; u_y = 0.0; u_z = 0.0;
+    fns = PM_GET_CONPNT_DATA(tray_handle,node,"fns");
+    fnr = PM_GET_CONPNT_DATA(tray_handle,node,"fnr");
+    Angle_To_Direction(fns,fnr, u_x,u_y,u_z);
+    
+    /*width direction of tray*/
+    v_x = 0.0; v_y = 0.0; v_z = 0.0;
+    wxs = PM_GET_CONPNT_DATA(tray_handle,node,"wxs");
+    wxr = PM_GET_CONPNT_DATA(tray_handle,node,"wxr");
+    Angle_To_Direction(wxs,wxr, v_x,v_y,v_z);
+    
+    /*support direction of tray*/
+    w_x = 0.0; w_y = 0.0; w_z = 0.0;
+    Vector3d_CrossProduct(-u_x,-u_y,-u_z, -v_x,-v_y,-v_z,  w_x,w_y,w_z);
+    
+    /*start position of tray space*/
+    s_x = 0.0; s_y = 0.0; s_z = 0.0;
+    Point_Move(p_x,p_y,p_z, s_x,s_y,s_z, w_x,w_y,w_z, w_offset);
+
+    if(part_type==1){
+        Create_Straight_Tray_Space(space_set, cmd, sys_id, s_x,s_y,s_z, -u_x,-u_y,-u_z, -v_x,-v_y,-v_z, length);
+    }
+    else if(part_type==0){
+        Create_Standard_Tray_Space(space_set, cmd, sys_id, s_x,s_y,s_z, -u_x,-u_y,-u_z, -v_x,-v_y,-v_z);
+    }
+    PM_FREE_SET(space_set);
+}
+
+/*方向夹角转换为方向向量*/
+Angle_To_Direction(ang_s,ang_r, dx,dy,dz)
+{
+    slope_angle = String_To_Float(ang_s);
+    rotation_angle = String_To_Float(ang_r);
+    
+    dx = COS(slope_angle) * COS(rotation_angle);
+    dy = COS(slope_angle) * SIN(rotation_angle);
+    dz = SIN(slope_angle);
+    VEC_UNITV(dx,dy,dz);
+    return (0);
+}
+
+
+/*生成部件托架space空间*/
+Create_Standard_Tray_Space(set, cmd, sys_id, px,py,pz, ux,uy,uz, vx,vy,vz)
+{
+    /*  @(#)MDL3
+        ver 62;cre ;org ;lib ;owi ;tim ;unm ;typ ;;
+        SPACE(13,$M8ch.zJqHNYr3fjahEtll0-8,ST(1,any,11,0,0,""),MT(1),
+        P(32945.4,-1533.3,16217.3),D(0,1,0),D(-1,0,0)) */
+
+    temp1  = "SPACE(13,$"+cmd+",ST(1,any,"+sys_id+",0,0,''),MT(1),";
+    temp21 = "P("+FTOASCII(px)+","+FTOASCII(py)+","+FTOASCII(pz)+"),";
+    temp22 = "D("+FTOASCII(ux)+","+FTOASCII(uy)+","+FTOASCII(uz)+"),";
+    temp23 = "D("+FTOASCII(vx)+","+FTOASCII(vy)+","+FTOASCII(vz)+"))";
+    temp2  = temp21 + temp22 + temp23;
+    
+    file_lines = 4;
+    records = A_ALLOC(file_lines);
+    A_PUT(records,0,"@(#)MDL3");
+    A_PUT(records,1,"ver 62;cre ;org ;lib ;owi ;tim ;unm ;typ ;;");
+    A_PUT(records,2,temp1);
+    A_PUT(records,3,temp2);
+    
+    /*写mdl文件*/
+    file_path = "tray_space.mdl";
+    F_DELETE_FILE(file_path);
+    F_CREATE_FILE(file_path);
+    file = F_OPEN_FILE(file_path, "w");
+    for(i=0; i<file_lines; i=i+1;){
+        val = A_GET(records,i);
+        F_WRITE_STR(file,val);
+        F_WRITE_NEWLINE(file);	
+        /*U_MESSAGE("new_line_val= "+val);*/
+    }
+    F_CLOSE_FILE(file);
+    A_FREE(records);
+    
+	/*Notify PM that we are going to relocate objects using a sequence of deletes and MDL-loads. */
+	if (!PM_OK_TO_RELOCATE_OBJECTS_IN_SET(set)) {
+		F_DELETE_FILE(file_path);
+		return(-1);
+	}
+    trans = TRF_TMAT_CREATE();
+
+	/* PM_DELETE_OBJECTS_IN_SET(set, 0); */
+	PM_READ_MDL_INTO_SET(file_path, 2, "", trans, set);
+	PM_RELOCATION_ACCEPTED();
+	F_DELETE_FILE(file_path);
+}
+
+/*生成直托架space空间*/
+Create_Straight_Tray_Space(set, cmd, sys_id, px,py,pz, ux,uy,uz, vx,vy,vz, length)
+{
+    /*  @(#)MDL3
+        ver 62;cre ;org ;lib ;owi ;tim ;unm ;typ ;;
+        SPACE(13,$M8ch.zJqHNYr3fjahEtll0-8,ST(1,any,11,0,0,""),MT(1),
+        P(32945.4,-1533.3,16217.3),D(0,1,0),D(-1,0,0), CSLEN(320)) */
+
+    temp1  = "SPACE(13,$"+cmd+",ST(1,any,"+sys_id+",0,0,''),MT(1),";
+    temp21 = "P("+FTOASCII(px)+","+FTOASCII(py)+","+FTOASCII(pz)+"),";
+    temp22 = "D("+FTOASCII(ux)+","+FTOASCII(uy)+","+FTOASCII(uz)+"),";
+    temp23 = "D("+FTOASCII(vx)+","+FTOASCII(vy)+","+FTOASCII(vz)+"),";
+    temp24 = "CSLEN("+FTOASCII(length)+"))";
+    temp2  = temp21 + temp22 + temp23 + temp24;
+    
+    file_lines = 4;
+    records = A_ALLOC(file_lines);
+    A_PUT(records,0,"@(#)MDL3");
+    A_PUT(records,1,"ver 62;cre ;org ;lib ;owi ;tim ;unm ;typ ;;");
+    A_PUT(records,2,temp1);
+    A_PUT(records,3,temp2);
+    
+    /*写mdl文件*/
+    file_path = "tray_space.mdl";
+    F_DELETE_FILE(file_path);
+    F_CREATE_FILE(file_path);
+    file = F_OPEN_FILE(file_path, "w");
+    for(i=0; i<file_lines; i=i+1;){
+        val = A_GET(records,i);
+        F_WRITE_STR(file,val);
+        F_WRITE_NEWLINE(file);	
+        /*U_MESSAGE("new_line_val= "+val);*/
+    }
+    F_CLOSE_FILE(file);
+    A_FREE(records);
+    
+	/*Notify PM that we are going to relocate objects using a sequence of deletes and MDL-loads. */
+	if (!PM_OK_TO_RELOCATE_OBJECTS_IN_SET(set)) {
+		F_DELETE_FILE(file_path);
+		return(-1);
+	}
+    trans = TRF_TMAT_CREATE();
+
+	/* PM_DELETE_OBJECTS_IN_SET(set, 0); */
+	PM_READ_MDL_INTO_SET(file_path, 2, "", trans, set);
+	PM_RELOCATION_ACCEPTED();
+	F_DELETE_FILE(file_path);
 }
 
 /*弯托架角钢旋转角度*/
@@ -150,6 +454,39 @@ Eq(x, x0)
         return (1);
     }
     return (0);
+}
+
+/*分割*/
+string_split(input_string,separator,vector)
+{
+    temp_str = input_string;
+    DM_VECTOR_CLEAR(vector); 
+    while (temp_str!=""){
+        left_str = STRINGTERM(temp_str, separator);
+        right_str = SEARCH(temp_str, separator);
+        if(left_str!=""){
+            DM_VECTOR_PUSH_BACK(vector, left_str);
+        }
+        if(right_str!=""){
+            temp_str = TAIL(right_str,STRLEN(right_str)-STRLEN(separator));
+        }
+        else{
+            temp_str = right_str;
+        }
+    }
+}
+
+/*替换*/
+string_replace(input_string,patt1,patt2)
+{
+    temp_str = "";
+    vector = DM_VECTOR_CREATE();
+    string_split(input_string,patt1,vector);
+    for (i=0;i<DM_VECTOR_SIZE(vector);i=i+1){
+        temp_str = temp_str + DM_VECTOR_GET(vector,i) + patt2;
+    }
+    DM_VECTOR_DELETE(vector); 
+    return(temp_str);
 }
 
 Debug(string title, x)
