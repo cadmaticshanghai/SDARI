@@ -1,0 +1,3568 @@
+/* $Id: Gusset102.mac,v1.0.0 2016/05/17 Wallis.liu $ */
+
+/*
+**	这个程序用于参数化生成肘板.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/quants.h"
+#include "include/dm_cos_schema.h"
+
+#include "$MarineToolkit/Structural/Gusset102.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Structural_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+
+global string   Gusset_Type  = "102";
+global handle  Gusset_Handle;
+global handle  MainWindow;
+global string   Icon_Path = "$MarineToolkit/ICONS/Gusset/";
+
+/* 面板 */
+global handle Template, Information, Material, Command, Parameters, Position, Orientation;
+
+/* 控件 */
+global handle System_Name, Select_System, Gusset_Name, Pick_Gusset, Gusset_Description, Planning_Unit;
+global handle Gusset_Part1, Gusset_Part2, Gusset_Part3;
+global handle Select_Gusset_Part1, Select_Gusset_Part2, Select_Gusset_Part3;
+global handle Gusset_Para_A, Gusset_Para_B, Gusset_Para_R, Gusset_Para_D;
+global handle Gusset_Para_a1, Gusset_Para_b1, Gusset_Para_r, Gusset_Para_n;
+global handle Gusset_Position_X,Gusset_Position_Xref,Gusset_Position_Xoff;
+global handle Gusset_Position_Y,Gusset_Position_Yref,Gusset_Position_Yoff;
+global handle Gusset_Position_Z,Gusset_Position_Zref,Gusset_Position_Zoff;
+global handle Rotate_By_X_L,Rotate_By_X_R,Rotate_By_Y_L,Rotate_By_Y_R,Rotate_By_Z_L,Rotate_By_Z_R;
+global handle Gusset_Rotate_Angle_X,Gusset_Rotate_Angle_Y,Gusset_Rotate_Angle_Z;
+global handle Move_By_X_P,Move_By_X_N,Move_By_Y_P,Move_By_Y_N,Move_By_Z_P,Move_By_Z_N;
+global handle Gusset_Move_Distance_X,Gusset_Move_Distance_Y,Gusset_Move_Distance_Z;
+global handle Create_Gusset, Modify_Gusset;
+global handle Pipe_obj;
+global float   Node_id;
+
+
+/* 肘板信息 */
+global string SystemName = "";
+global int    SystemId = 0;
+global string GussetName = "";
+global string ModelDescription = "Undefined";
+global string PlanningUnit_ = "999";
+
+/* part id of gusset material */
+global string Gusset_Part1_Pid = "";
+global string Gusset_Part2_Pid = "";
+global string Gusset_Part3_Pid = ""; 
+
+/* gusset size */
+global float Gusset_Size_A  = 0;
+global float Gusset_Size_B  = 0;
+global float Gusset_Size_R  = 0;
+global float Gusset_Size_D  = 0;
+global float Gusset_Size_a1 = 0;
+global float Gusset_Size_b1 = 0;
+global float Gusset_Size_r  = 0;
+global float Gusset_Size_n  = 0;
+
+/* part data */
+global handle Part11,Part12,Part13,Part14,Part15,Part16,Part17,Part18;
+global handle Part21;
+global handle Part31;
+
+/*gusset position*/
+global float Gusset_X0 = 0; 
+global float Gusset_Y0 = 0;
+global float Gusset_Z0 = 0;
+
+/*gusset direction*/
+global float Gusset_X_Dx = 1;
+global float Gusset_X_Dy = 0;
+global float Gusset_X_Dz = 0;
+global float Gusset_Y_Dx = 0;
+global float Gusset_Y_Dy = 1;
+global float Gusset_Y_Dz = 0;
+global int   Modify_flag = 0;
+
+/*
+**创建顶层窗体
+**Create Top frame
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "肘板");	
+	return(mainform);	
+}
+
+/*
+**创建用于显示肘板模板的面板
+**
+*/
+create_template_panel(mainform)
+{  
+   /* 获取图标保存路径 */
+   icon_path = Icon_Path;
+   /* 图标完整文件名（包含路径） */
+   pic = icon_path + "Gusset102.bmp";
+   
+   /* 向主窗体添加一个面板，用于显示参数化模型样板 */
+	Template = W_ADD_WINDOW(mainform, W_PANEL, "Template");
+	W_REALIZE_WINDOW(Template, 	W_FRAME_X, 		0,
+							    W_FRAME_Y, 		0,
+							    W_FRAME_WIDTH,  460,
+							    W_FRAME_HEIGHT,	530);	
+								
+	LblImage_h = W_ADD_PANELITEM(Template, W_PANEL_MESSAGE, "LblImage_h");	
+	W_REALIZE_PANELITEM(LblImage_h, 	W_PANEL_X, 			0,
+										W_PANEL_Y, 			0,
+										W_PANEL_WIDTH,		460,
+										W_PANEL_HEIGHT,		530);	
+	W_SET_PANELITEM_ARGS(LblImage_h,	W_PANEL_LABELIMAGE,	pic,
+										W_PANEL_SHOW, 		1);
+	return(Template);
+}
+
+/*
+**创建用于处理肘板基本信息的面板
+**
+*/
+create_info_panel(mainform)
+{
+   /* 创建用于显示肘板主要信息的面板 */
+   Information = W_ADD_WINDOW(mainform, W_PANEL, "Information");
+   
+   /* 设置面板参数 */
+	W_REALIZE_WINDOW(Information,	W_FRAME_X, 		465,
+							        W_FRAME_Y, 		0,
+							        W_FRAME_WIDTH, 	410,
+							        W_FRAME_HEIGHT,	100);
+							            
+	title = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "title");
+	
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"肘板信息");
+
+    seperate_line = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);
+									       
+   /* 肘板所属系统 */
+	System_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "System_Name");
+	W_REALIZE_PANELITEM(System_Name,	W_PANEL_ROW, 		1, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"所属系统:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK,	1);
+	W_SET_PANELITEM_HANDLER(System_Name, "system_name_handler");   
+	
+	Select_System = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Select_System");
+	W_REALIZE_PANELITEM(Select_System,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			34,
+                  						W_PANEL_BUTTONIMAGE, 	"选择系统", 
+                  						W_PANEL_WIDTH, 			10,
+                  						W_PANEL_BUTTONVALUE,	100,
+                  						W_PANEL_CALLBACK, 		1,
+                  						W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_System, "select_system_handler"); 			
+
+   /* 肘板编号 */
+	Gusset_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Gusset_Name");
+	W_REALIZE_PANELITEM(Gusset_Name,W_PANEL_ROW, 		2, 
+									W_PANEL_COL, 		0,
+							        W_PANEL_LABEL, 		"肘板编号:   ",
+							        W_PANEL_LENGTH, 	25,
+							        W_PANEL_VALUE, 		"Undefined",
+							        W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Gusset_Name, "gusset_name_handler"); 
+	
+	Pick_Gusset = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Pick_Gusset");
+	W_REALIZE_PANELITEM(Pick_Gusset,W_PANEL_ROW, 			2, 
+	                                W_PANEL_COL, 			34,
+                  					W_PANEL_BUTTONIMAGE, 	"选择肘板", 
+                  					W_PANEL_WIDTH, 			10,
+                  					W_PANEL_BUTTONVALUE,	101,
+                  					W_PANEL_CALLBACK, 		1,
+                  					W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Pick_Gusset, "pick_gusset_handler"); 	
+	
+    /* 肘板名称 */
+	Gusset_Description = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Gusset_Description");
+	W_REALIZE_PANELITEM(Gusset_Description, W_PANEL_ROW, 		3, 
+											W_PANEL_COL, 		0,
+											W_PANEL_LABEL, 		"肘板名称:   ",
+											W_PANEL_LENGTH, 	25,
+											W_PANEL_VALUE, 		"Undefined",
+											W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Gusset_Description, "gusset_description_handler"); 
+
+	/* 肘板托盘 */
+	Planning_Unit = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Planning_Unit");
+	W_REALIZE_PANELITEM(Planning_Unit,	W_PANEL_ROW, 		4, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"托盘名称:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Planning_Unit, "gusset_planning_unit_handler");
+
+    return(Information);
+}
+
+system_name_handler(item, event_type, dummy)
+{
+  return(0); 
+}
+
+gusset_name_handler(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		gusset_name = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		gusset_handle = PM_FIND_BY_NAME(gusset_name);
+      
+		/* 如果指定的模型已经存在，则做如下处理 */
+		if (gusset_handle != 0){
+			group_type = PM_GET_OBJDATA(gusset_handle, 0, MMT_TAG_GROUPTYPE);
+			/* 指定的模型不是肘板模型 */
+			if (group_type != Group_Type){
+				U_CONFIRM("模型已经存在，但不是肘板模型");
+				W_SET_PANELITEM_ARGS(Gusset_Name, W_PANEL_VALUE, "Undefined");	
+				return(0);
+			} 
+			/* 指定的模型是肘板模型 */
+			else{
+				type = PM_GET_OBJDATA(gusset_handle, 0, GussetType);
+				if(type != Gusset_Type){
+					info = "肘板已经存在且类型为" + type + ",这个程序只能处理类型为" + Gusset_Type + "的肘板。";
+					U_CONFIRM(info);
+					return(0);
+				}   	             
+				res = U_YESNO("模型已经存在，是否修改？",1);
+				if (res == 1){
+					reload_gusset_data(gusset_name);
+					W_SET_PANELITEM_ARGS(Modify_Gusset, W_PANEL_SENSITIVITY,1);
+					W_SET_PANELITEM_ARGS(Create_Gusset, W_PANEL_SENSITIVITY,0);
+					Modify_flag = 1;
+					return(0);
+				}
+				else{
+					W_SET_PANELITEM_ARGS(item, W_PANEL_VALUE, "Undefined");
+					return(0);
+				}
+			}        
+		}
+		else{
+			W_SET_PANELITEM_ARGS(Modify_Gusset, W_PANEL_SENSITIVITY,0);
+			W_SET_PANELITEM_ARGS(Create_Gusset, W_PANEL_SENSITIVITY,1); 
+			Modify_flag = 0;        
+		}
+	}
+	return(0); 
+}
+
+/*圆形板*/
+create_circle_curve(float radius)
+{
+    radius_s = STRINGTERM(FTOASCII(radius),".");
+	curve = "";
+	curve = curve + radius_s + ",0,ARC,0,0,360";
+	return(curve);
+}
+
+/*矩形板*/
+create_rect_curve(float size1,float size2)
+{	
+	p1x = size1/2;
+	p1y = size2/2;				
+	p2x = p1x;
+	p2y = -p1y;			
+	p3x = -p1x;
+	p3y = -p1y;				
+	p4x = -p1x;
+	p4y = p1y;		
+	 	
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".");	
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;     
+	return(curve);   
+}
+
+/*肘板轮廓*/
+create_gusset_curve(float A, float B, float a1, float b1, float r)
+{	
+	p1x = A;
+	p1y = 0.0;	
+	p2x = p1x;
+	p2y = b1;				
+	p3x = a1;
+	p3y = B;		
+	p4x = 0.0;
+	p4y = B;
+	p5x = p4x;
+	p5y = r;
+	p6x = r*SIN(45);
+	p6y = r*COS(45);  
+	p7x = r;
+	p7y = 0.0;
+    
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".")+",";
+    p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+	p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+    p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+	p6ys = STRINGTERM(FTOASCII(p6y),".")+",";
+    p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+	p7ys = STRINGTERM(FTOASCII(p7y),".");		
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys+p5xs+p5ys+"ARP,"+p6xs+p6ys+p7xs+p7ys;  
+	return(curve);   
+}
+
+gusset_description_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		ModelDescription = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("Gusset102", "ModelDescription", ModelDescription);
+		if(Modify_flag){
+			set_gusset_para(Gusset_Handle);
+		}
+	}
+	return(0); 
+}
+
+gusset_planning_unit_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		PlanningUnit_ = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("Gusset102", "Planning_Unit", PlanningUnit_);
+	}
+	return(0); 
+}
+
+select_system_handler(item, event_type, button_value)
+{
+	system_name = PM_SELECT_SYSTEM();
+	if(ISINT(system_name)){
+		U_MESSAGE("系统选择取消");
+		return(0);
+	}
+	else {
+		U_MESSAGE("选择系统<" + system_name + ">");
+		SystemName = system_name;
+		SystemId = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+		SET_STRING_DEFAULT("Gusset102", "System_Name", system_name);
+	}			
+	return(0);   
+}
+
+pick_gusset_handler(item, event_type, button_value)
+{
+	tmp = 0;
+	picked_object_handle = PM_PICK_OBJECT("请选择肘板", tmp, "STRUCTCMP", "*PLATE*");
+	if (!ISINT(picked_object_handle)){	   
+		/*获取肘板的名称*/
+		group_handle = PM_GET_OBJECT_GROUP(picked_object_handle, Group_Type_I);
+		if (ISINT(group_handle)){
+			U_CONFIRM("此零件不属于任何肘板");
+			W_SET_PANELITEM_ARGS(Gusset_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);
+		}		
+	  
+		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
+		/* 判断肘板类型是否匹配 */
+		type = PM_GET_OBJDATA(group_handle, 0, GussetType);
+		if(ISINT(type)){
+			U_CONFIRM("此零件不属于任何肘板");
+			W_SET_PANELITEM_ARGS(Gusset_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);	      
+		}
+		if(type != Gusset_Type){
+			info = "选择的肘板类型为" + type + ",这个程序只能处理类型为" + Gusset_Type + "的肘板。";
+			U_CONFIRM(info);
+			return(0);
+		}	   	      		
+		/*获取肘板的尺寸参数及其它相关信息*/
+		reload_gusset_data(group_name);	
+		W_SET_PANELITEM_ARGS(Modify_Gusset, W_PANEL_SENSITIVITY,1);
+		W_SET_PANELITEM_ARGS(Create_Gusset, W_PANEL_SENSITIVITY,0);
+		Modify_flag = 1;
+        /*获取肘板的管子和连接点*/
+        get_group_box(group_handle);        
+	} 
+	else{
+		return(0);
+	} 
+	return(0); 
+}
+
+reload_gusset_data(string gusset_name)
+{
+   W_SET_PANELITEM_ARGS(Gusset_Name, W_PANEL_VALUE, gusset_name);	
+   group_handle = PM_FIND_BY_NAME(gusset_name);
+   Gusset_Handle = group_handle;
+   read_model_size();    
+   
+   /*获取并设置肘板的零件信息*/
+   parts = PM_GET_OBJECTS_IN_GROUP(Gusset_Handle);
+   p_number = PM_NR_MEMBERS_IN_SET(parts);
+   part1_1 = "";
+   part1_2 = "";
+   part1_3 = "";
+   part1_4 = "";
+   part1_5 = "";
+   part1_6 = "";
+   part1_7 = "";
+   part1_8 = "";
+   part2_1 = "";
+   part3_1 = "";
+
+   for (i = 0; i < p_number; i = i + 1;){
+        part = PM_GET_MEMBER_IN_SET(parts, i);
+        part_number = Get_Attribute_Value(part,PartNumber);
+        if (part_number == "1-1"){
+            part1_1 = part;
+        }
+        else if (part_number == "1-2"){
+            part1_2 = part;
+        } 
+        else if (part_number == "1-3"){
+            part1_3 = part;
+        }  
+        else if (part_number == "1-4"){
+            part1_4 = part;
+        }        
+        else if (part_number == "1-5"){
+            part1_5 = part;
+        }   
+        else if (part_number == "1-6"){
+            part1_6 = part;
+        }   
+        else if (part_number == "1-7"){
+            part1_7 = part;
+        }   
+        else if (part_number == "1-8"){
+            part1_8 = part;
+        }           
+        else if (part_number == "2-1"){
+            part2_1 = part;
+        } 
+        else if (part_number == "2-2"){
+            part2_2 = part;
+        }                                        
+        else if (part_number == "3-1"){
+            part3_1 = part;
+        } 
+        else if (part_number == "3-2"){
+            part3_2 = part;
+        }                                
+   }     
+   
+   /*获取并设置肘板零件的零件材料*/
+    part_id = PM_GET_OBJDATA(part1_1, 0, MMT_TAG_PARTID);
+	Gusset_Part1_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Gusset_Part1, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Gusset102", "Gusset_Part1_Pid", part_id);   
+   
+    part_id = PM_GET_OBJDATA(part2_1, 0, MMT_TAG_PARTID);
+	Gusset_Part2_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Gusset_Part2, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Gusset102", "Gusset_Part2_Pid", part_id);  
+
+    part_id = PM_GET_OBJDATA(part3_1, 0, MMT_TAG_PARTID);
+	Gusset_Part3_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Gusset_Part3, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Gusset102", "Gusset_Part3_Pid", part_id);
+	
+	/*获取肘板所属系统 */
+	part0 = PM_GET_MEMBER_IN_SET(parts, 0);
+	sys = PM_GET_OBJDATA(part0,0,"sys");
+	if (!ISINT(sys)){
+        SystemName = sys;
+	    SystemId = PM_GET_SYSTEM_ID(SystemName);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, SystemName);
+		SET_STRING_DEFAULT("Gusset102", "System_Name", SystemName);	   
+    } 
+
+	/*获取肘板的描述 */
+	des = PM_GET_OBJDATA(part0,0,GussetDes);
+	if(!ISINT(des)){
+        GussetDescription = des;
+		W_SET_PANELITEM_ARGS(Gusset_Description, W_PANEL_VALUE, des);
+		SET_STRING_DEFAULT("Gusset102", "GussetDescription", des);
+    }
+    
+	/*获取肘板的托盘 */
+	pla = PM_GET_OBJDATA(part0,0,PlanningUnit);
+	if(!ISINT(pla)){
+        planningunit = pla;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, pla);
+		SET_STRING_DEFAULT("Gusset102", "planningunit", pla);
+    }
+
+	/*获取肘板的坐标 */
+	x0 = 0.0;	y0 = 0.0;	z0 = 0.0;	
+	x_dx = 0.0;	x_dy = 0.0;	x_dz = 0.0;
+    y_dx = 0.0;	y_dy = 0.0;	y_dz = 0.0;
+    Get_Plate_Para(part2_1,x0,y0,z0,x_dx,x_dy,x_dz,y_dx,y_dy,y_dz);
+    
+	Gusset_X0 = x0;
+	Gusset_Y0 = y0;
+	Gusset_Z0 = z0;
+    W_SET_NUMERIC_VALUE(Gusset_Position_X, Gusset_X0);
+    W_SET_NUMERIC_VALUE(Gusset_Position_Y, Gusset_Y0);
+    W_SET_NUMERIC_VALUE(Gusset_Position_Z, Gusset_Z0);
+    
+    /* 将绝对坐标转换成相对坐标并显示到面板中 */
+    /* convert abstract coordinate value into reference and display on panel */
+    x_ref = "";
+    y_ref = "";
+    z_ref = "";
+    x_offset = 0;
+    y_offset = 0;
+    z_offset = 0;
+   
+    res = GetReferenceCoords( Gusset_X0, Gusset_Y0, Gusset_Z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+    if (res == 0){
+        W_SET_PANELITEM_ARGS(Gusset_Position_Xref, W_PANEL_VALUE, x_ref);
+        W_SET_PANELITEM_ARGS(Gusset_Position_Yref, W_PANEL_VALUE, y_ref);
+        W_SET_PANELITEM_ARGS(Gusset_Position_Zref, W_PANEL_VALUE, z_ref);
+
+        W_SET_NUMERIC_VALUE(Gusset_Position_Xoff, x_offset);
+        W_SET_NUMERIC_VALUE(Gusset_Position_Yoff, y_offset);
+        W_SET_NUMERIC_VALUE(Gusset_Position_Zoff, z_offset);
+    }
+    else if (res == -1){
+        W_SET_PANELITEM_ARGS(Gusset_Position_Xref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Gusset_Position_Yref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Gusset_Position_Zref, W_PANEL_VALUE, "Unset");
+
+        W_SET_NUMERIC_VALUE(Gusset_Position_Xoff, 0);
+        W_SET_NUMERIC_VALUE(Gusset_Position_Yoff, 0);
+        W_SET_NUMERIC_VALUE(Gusset_Position_Zoff, 0); 
+        U_CONFIRM("参考坐标系定义不正确");
+    }   
+    return(0);
+}
+
+create_material_panel(mainform)
+{
+    /* 创建用于显示肘板材料信息的面板 */
+    Material = W_ADD_WINDOW(mainform, W_PANEL, "Material");
+   
+    /* 设置面板参数 */
+	W_REALIZE_WINDOW(Material, 	W_FRAME_X, 		465,
+							    W_FRAME_Y, 		150,
+							    W_FRAME_WIDTH, 	400,
+							    W_FRAME_HEIGHT,	50);
+							            
+    title = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "title");
+	
+    W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"肘板材料");
+    seperate_line = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "seperate_line");
+   
+    W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+									       
+    /* 肘板材料 */
+	Gusset_Part1 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Gusset_Part1");	
+	W_REALIZE_PANELITEM(Gusset_Part1,  W_PANEL_ROW, 1, 
+	                                 W_PANEL_COL, 0,
+							         W_PANEL_LABEL, "肘板:   ",
+							         W_PANEL_LENGTH, 100,
+							         W_PANEL_DISPLEN, 26,
+							         W_PANEL_VALUE, "Undefined");  
+							               	
+	Select_Gusset_Part1 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Gusset_Part1");	
+	W_REALIZE_PANELITEM(Select_Gusset_Part1,  W_PANEL_ROW, 1, 
+	                                        W_PANEL_COL, 34,
+                  							W_PANEL_BUTTONIMAGE, "选择钢板", 
+                  							W_PANEL_WIDTH, 10,
+                  							W_PANEL_BUTTONVALUE, 201,
+                  							W_PANEL_CALLBACK, 1,
+                  							W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	                  							
+    W_SET_PANELITEM_HANDLER(Select_Gusset_Part1, "select_gusset_part1_handler"); 			
+
+    /* 垫板材料 */
+	Gusset_Part2 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Gusset_Part2");	
+	W_REALIZE_PANELITEM(Gusset_Part2,  W_PANEL_ROW, 2, 
+	                                 W_PANEL_COL, 0,
+							         W_PANEL_LABEL, "垫板:   ",
+							         W_PANEL_LENGTH, 100,
+							         W_PANEL_DISPLEN, 26,
+							         W_PANEL_VALUE, "Undefined");  
+							               	
+	Select_Gusset_Part2 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Gusset_Part2");	
+	W_REALIZE_PANELITEM(Select_Gusset_Part2,  W_PANEL_ROW, 2, 
+	                                        W_PANEL_COL, 34,
+                  							W_PANEL_BUTTONIMAGE, "选择钢板", 
+                  							W_PANEL_WIDTH, 10,
+                  							W_PANEL_BUTTONVALUE, 201,
+                  							W_PANEL_CALLBACK, 1,
+                  							W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	                  							
+    W_SET_PANELITEM_HANDLER(Select_Gusset_Part2, "select_gusset_part2_handler"); 
+    
+    return(Material);
+}
+
+gusset_part1_handler(item, event_type, dummy)
+{		
+	pid = Gusset_Part1_Pid;
+	if(ISSTRING(pid)){
+        descr = Pid_To_Description(pid);
+        W_SET_PANELITEM_ARGS(Gusset_Part1, W_PANEL_VALUE, descr);
+        SET_STRING_DEFAULT("Gusset102", "Gusset_Part1_Pid", pid);
+	}	
+	return(0);
+}
+
+gusset_part2_handler(item, event_type, dummy)
+{		
+	pid = Gusset_Part2_Pid;
+	if(ISSTRING(pid)){
+        descr = Pid_To_Description(pid);
+        W_SET_PANELITEM_ARGS(Gusset_Part2, W_PANEL_VALUE, descr);
+        SET_STRING_DEFAULT("Gusset102", "Gusset_Part2_Pid", pid);
+	}	
+	return(0);
+}
+    
+select_gusset_part1_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择肘板材料(钢板)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "*PLATE*");	
+	pid = DM_BROWSE_PARTCODE(Gusset_Part1_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+        Gusset_Part1_Pid = pid;  
+        part_descr = Pid_To_Description(pid);
+        W_SET_PANELITEM_ARGS(Gusset_Part1, W_PANEL_VALUE, part_descr);
+        SET_STRING_DEFAULT("Gusset102", "Gusset_Part1", pid);        
+	}	
+	if(Modify_flag & Pipe_obj){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择钢板");
+        delete_gusset_members();
+        calculate_gusset_para();
+        create_gusset(); 
+        /*肘板方向与管子平行*/
+        if(Pipe_obj){
+            flip_gusset(Pipe_obj,Node_id,-90);
+        }   
+        st = PM_UM_CLOSE_CHANGE(); 	   
+	}
+	return(0); 
+}
+
+select_gusset_part2_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择垫板材料(钢板)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "*PLATE*");	
+	pid = DM_BROWSE_PARTCODE(Gusset_Part2_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+        Gusset_Part2_Pid = pid;  
+        part_descr = Pid_To_Description(pid);
+        W_SET_PANELITEM_ARGS(Gusset_Part2, W_PANEL_VALUE, part_descr);
+        SET_STRING_DEFAULT("Gusset102", "Gusset_Part2", pid);			
+	}	
+	if(Modify_flag){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择钢板");
+        delete_gusset_members();
+        calculate_gusset_para();
+        create_gusset();  
+        /*肘板方向与管子平行*/
+        if(Pipe_obj){
+            flip_gusset(Pipe_obj,Node_id,-90);
+        }  
+        st = PM_UM_CLOSE_CHANGE(); 	   
+	}
+	return(0); 
+}
+
+create_gusset_handler(item, event_type, button_value)
+{
+    /* 获取肘板名称 */
+    GussetName = W_GET_PANELITEM_ARG(Gusset_Name, W_PANEL_VALUE);     
+    if (GussetName == "Undefined"){
+        U_CONFIRM("请先输入肘板编号");
+        return(0);
+    }
+   
+    /* 定义UNDO缓存 */
+    st = PM_UM_OPEN_CHANGE("创建肘板" + GussetName);
+   
+    /* 定义肘板组 */  
+    group_h = Create_Group(Group_Type, GussetName);
+
+    if(ISINT(group_h)){
+        U_CONFIRM("无法创建肘板模型组，请检查是否已经定义了这种类型的模型组？");
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        return(0);
+    } 
+   
+    Gusset_Handle = group_h; 
+    
+    /* 获取肘板位置坐标 */
+    if(!Modify_flag){
+        node_id = 0;
+        pipe_obj = PM_PICK_CONNECTION("选择管子端部点", 2, node_id, "PIPE");
+        if(ISINT(pipe_obj)) return(0);
+        Pipe_obj = pipe_obj;
+        Node_id  = node_id;
+        
+        /* 获取连接点坐标并显示到面板中 */
+        x0 = PM_GET_CONPNT_DATA(pipe_obj, node_id, "x");
+        y0 = PM_GET_CONPNT_DATA(pipe_obj, node_id, "y");
+        z0 = PM_GET_CONPNT_DATA(pipe_obj, node_id, "z");
+        /*精确定位*/
+        Gusset_X0 = x0;
+        Gusset_Y0 = y0;
+        Gusset_Z0 = z0;
+        /*坐标转换*/
+        trans_abs_ref();
+        
+        /* 获取管子直径 */
+        res = pick_pipe_outdiam(pipe_obj,node_id);
+        if (res < 0){
+            res = input_pipe_outdia_dialog();
+            if (res < 0){
+                return(0);
+            }
+        }
+    }    
+    
+    res = calculate_gusset_para(); 
+
+    if(res == -1){
+        U_CONFIRM("无法创建肘板模型组，请检查肘板参数是否正确？");
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();      
+        return(0);
+    }
+   
+    res = create_gusset();
+    /* 肘板创建不成功，删除相关定义 */
+    if (res == -1){
+        PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        return(0);
+    }
+
+    W_SET_NUMERIC_VALUE(Gusset_Position_X, Gusset_X0);
+    W_SET_NUMERIC_VALUE(Gusset_Position_Y, Gusset_Y0);
+    W_SET_NUMERIC_VALUE(Gusset_Position_Z, Gusset_Z0);
+    
+    /*肘板方向与管子平行*/
+    flip_gusset(Pipe_obj,Node_id,-90);
+
+    st = PM_UM_CLOSE_CHANGE();    
+    /*肘板创建成功，进入修改状态*/
+    W_SET_PANELITEM_ARGS(Modify_Gusset, W_PANEL_SENSITIVITY,1);
+	W_SET_PANELITEM_ARGS(Create_Gusset, W_PANEL_SENSITIVITY,1);
+	Modify_flag = 1;
+}
+
+calculate_gusset_para()
+{  
+    /* 检查是否已经选择了所需的零件 */
+    plate_1 = W_GET_PANELITEM_ARG(Gusset_Part1, W_PANEL_VALUE);
+    if (plate_1 == "Undefined"){
+        U_CONFIRM("请先选择肘板材料");
+        return(-1);
+    }
+    plate_2 = W_GET_PANELITEM_ARG(Gusset_Part2, W_PANEL_VALUE);
+    if (plate_2 == "Undefined"){
+        U_CONFIRM("请先选择垫板材料");
+        return(-1);
+    }
+    
+    /* 获取修改时肘板位置坐标 */
+    if(Modify_flag){
+        st = 0;
+        x0 = W_GET_NUMERIC_VALUE(Gusset_Position_X, st);
+        if (st == -1){
+            U_CONFIRM("X坐标未定义");
+            return(-1);
+        }
+        if ((Gusset_X0 - x0)>1.0 | (Gusset_X0 - x0)<-1.0){
+            Gusset_X0 = x0;
+        }
+
+        st = 0;
+        y0 = W_GET_NUMERIC_VALUE(Gusset_Position_Y, st);
+        if (st == -1){
+            U_CONFIRM("Y坐标未定义");
+            return(-1);
+        }
+        if ((Gusset_Y0 - y0)>1.0 | (Gusset_Y0 - y0)<-1.0){
+            Gusset_Y0 = y0;
+        }
+
+        st = 0;
+        z0 = W_GET_NUMERIC_VALUE(Gusset_Position_Z, st); 
+        if (st == -1){
+            U_CONFIRM("Y坐标未定义");
+            return(-1);
+        }
+        if ((Gusset_Z0 - z0)>1.0 | (Gusset_Z0 - z0)<-1.0){
+            Gusset_Z0 = z0;
+        }
+    }
+
+    /* 获取肘板尺寸 */
+    st = 0;
+    Gusset_Size_A = W_GET_NUMERIC_VALUE(Gusset_Para_A, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数A的值或者A的值有错误");
+        return(-1);
+    }
+
+    st = 0;
+    Gusset_Size_B = W_GET_NUMERIC_VALUE(Gusset_Para_B, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数B的值或者B的值有错误");
+        return(-1);
+    }   
+
+    st = 0;
+    Gusset_Size_R = W_GET_NUMERIC_VALUE(Gusset_Para_R, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数R的值或者R的值有错误");
+        return(-1);
+    }  
+
+    st = 0;
+    Gusset_Size_D = W_GET_NUMERIC_VALUE(Gusset_Para_D, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数D的值或者D的值有错误");
+        return(-1);
+    }  
+
+    st = 0;
+    Gusset_Size_a1 = W_GET_NUMERIC_VALUE(Gusset_Para_a1, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数a1的值或者a1的值有错误");
+        return(-1);
+    }
+
+    st = 0;
+    Gusset_Size_b1 = W_GET_NUMERIC_VALUE(Gusset_Para_b1, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数b1的值或者b1的值有错误");
+        return(-1);
+    }
+
+    st = 0;
+    Gusset_Size_r = W_GET_NUMERIC_VALUE(Gusset_Para_r, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数r的值或者r的值有错误");
+        return(-1);
+    }
+
+    st = 0;
+    Gusset_Size_n = W_GET_NUMERIC_VALUE(Gusset_Para_n, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数n的值或者n的值有错误");
+        return(-1);
+    }
+    if (Gusset_Size_n>8){
+        U_CONFIRM("肘板数量最多8个");
+        return(-1);
+    }   
+   
+    /*获取肘板厚度*/
+    plate_thickness_1 = 1.0*DM_PARTID_DATA(Gusset_Part1_Pid, "D31");
+    plate_thickness_2 = 1.0*DM_PARTID_DATA(Gusset_Part2_Pid, "D31");
+    /*肘板分布角度*/
+    n = Gusset_Size_n;
+    alpha = 360.0/n;
+
+    /*Z轴*/
+    zdx = 0.0;zdy = 0.0;zdz = 0.0;
+    VEC_CROSS_PRODUCT(Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,zdx,zdy,zdz);
+    VEC_UNITV(zdx,zdy,zdz);
+   
+    /*计算零件1-1相关参数calculate parameter of part1-1*/
+    if(n-1>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(1.0*alpha);
+        udy = SIN(1.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+        
+        distance = Gusset_Size_R*COS(1*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(1*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+
+        A_PUT(Part11,0,lox);
+        A_PUT(Part11,1,loy);
+        A_PUT(Part11,2,loz); 
+        A_PUT(Part11,3,udx);
+        A_PUT(Part11,4,udy);
+        A_PUT(Part11,5,udz);  
+        A_PUT(Part11,6,vdx);
+        A_PUT(Part11,7,vdy);
+        A_PUT(Part11,8,vdz);	
+    }  
+   
+    /*计算零件1-2相关参数 calculate parameter of part1-2*/
+    if(n-2>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(2.0*alpha);
+        udy = SIN(2.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+       
+        distance = Gusset_Size_R*COS(2*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(2*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+        
+        A_PUT(Part12,0,lox);
+        A_PUT(Part12,1,loy);
+        A_PUT(Part12,2,loz); 
+        A_PUT(Part12,3,udx);
+        A_PUT(Part12,4,udy);
+        A_PUT(Part12,5,udz);  
+        A_PUT(Part12,6,vdx);
+        A_PUT(Part12,7,vdy);
+        A_PUT(Part12,8,vdz);	
+    }     
+
+   /*计算零件1-3相关参数 calculate parameter of part1-3*/
+    if(n-3>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(3.0*alpha);
+        udy = SIN(3.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+       
+        distance = Gusset_Size_R*COS(3*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(3*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+        
+        A_PUT(Part13,0,lox);
+        A_PUT(Part13,1,loy);
+        A_PUT(Part13,2,loz); 
+        A_PUT(Part13,3,udx);
+        A_PUT(Part13,4,udy);
+        A_PUT(Part13,5,udz);  
+        A_PUT(Part13,6,vdx);
+        A_PUT(Part13,7,vdy);
+        A_PUT(Part13,8,vdz);	
+    }   
+   
+   /*计算零件1-4相关参数 calculate parameter of part1-4*/
+    if(n-4>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(4.0*alpha);
+        udy = SIN(4.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+        
+        distance = Gusset_Size_R*COS(4*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(4*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+
+        A_PUT(Part14,0,lox);
+        A_PUT(Part14,1,loy);
+        A_PUT(Part14,2,loz); 
+        A_PUT(Part14,3,udx);
+        A_PUT(Part14,4,udy);
+        A_PUT(Part14,5,udz);  
+        A_PUT(Part14,6,vdx);
+        A_PUT(Part14,7,vdy);
+        A_PUT(Part14,8,vdz);	
+    }   
+
+   /*计算零件1-5相关参数 calculate parameter of part1-5*/
+    if(n-5>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(5.0*alpha);
+        udy = SIN(5.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+        
+        distance = Gusset_Size_R*COS(5*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(5*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+
+        A_PUT(Part15,0,lox);
+        A_PUT(Part15,1,loy);
+        A_PUT(Part15,2,loz); 
+        A_PUT(Part15,3,udx);
+        A_PUT(Part15,4,udy);
+        A_PUT(Part15,5,udz);  
+        A_PUT(Part15,6,vdx);
+        A_PUT(Part15,7,vdy);
+        A_PUT(Part15,8,vdz);	
+    }   
+
+   /*计算零件1-6相关参数 calculate parameter of part1-6*/
+    if(n-6>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(6.0*alpha);
+        udy = SIN(6.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+        
+        distance = Gusset_Size_R*COS(6*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(6*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+
+        A_PUT(Part16,0,lox);
+        A_PUT(Part16,1,loy);
+        A_PUT(Part16,2,loz); 
+        A_PUT(Part16,3,udx);
+        A_PUT(Part16,4,udy);
+        A_PUT(Part16,5,udz);  
+        A_PUT(Part16,6,vdx);
+        A_PUT(Part16,7,vdy);
+        A_PUT(Part16,8,vdz);	
+    }  
+
+   /*计算零件1-7相关参数 calculate parameter of part1-7*/
+    if(n-7>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(7.0*alpha);
+        udy = SIN(7.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+        
+        distance = Gusset_Size_R*COS(7*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(7*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+
+        A_PUT(Part17,0,lox);
+        A_PUT(Part17,1,loy);
+        A_PUT(Part17,2,loz); 
+        A_PUT(Part17,3,udx);
+        A_PUT(Part17,4,udy);
+        A_PUT(Part17,5,udz);  
+        A_PUT(Part17,6,vdx);
+        A_PUT(Part17,7,vdy);
+        A_PUT(Part17,8,vdz);	
+    }  
+
+   /*计算零件1-8相关参数 calculate parameter of part1-8*/
+    if(n-8>=0){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = COS(8.0*alpha);
+        udy = SIN(8.0*alpha);
+        udz = Gusset_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;
+        /*板厚方向*/
+        wdx = 0.0;wdy = 0.0;wdz = 0.0;
+        VEC_CROSS_PRODUCT(udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+        VEC_UNITV(wdx,wdy,wdz);
+        
+        distance = Gusset_Size_R*COS(8*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz,distance);
+        distance = Gusset_Size_R*SIN(8*alpha);
+        Point_3D_Move_With_DirAndDis(x,y,z,Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,distance);
+        distance = 0.0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);  
+        distance = -0.5*plate_thickness_1;
+        Point_3D_Move_With_DirAndDis(x,y,z,wdx,wdy,wdz,distance); 
+        lox = x;
+        loy = y;
+        loz = z;
+
+        A_PUT(Part18,0,lox);
+        A_PUT(Part18,1,loy);
+        A_PUT(Part18,2,loz); 
+        A_PUT(Part18,3,udx);
+        A_PUT(Part18,4,udy);
+        A_PUT(Part18,5,udz);  
+        A_PUT(Part18,6,vdx);
+        A_PUT(Part18,7,vdy);
+        A_PUT(Part18,8,vdz);	
+    }  
+
+   /*计算零件2-1相关参数 calculate parameter of part2-1*/
+    if(1){
+        x = Gusset_X0;
+        y = Gusset_Y0;
+        z = Gusset_Z0;    
+        udx = Gusset_X_Dx;
+        udy = Gusset_X_Dy;
+        udz = Gusset_X_Dz;
+        vdx = -Gusset_Y_Dx;
+        vdy = -Gusset_Y_Dy;
+        vdz = -Gusset_Y_Dz;
+        distance = 0;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);   
+        lox = x;
+        loy = y;
+        loz = z;
+
+        A_PUT(Part21,0,lox);
+        A_PUT(Part21,1,loy);
+        A_PUT(Part21,2,loz); 
+        A_PUT(Part21,3,udx);
+        A_PUT(Part21,4,udy);
+        A_PUT(Part21,5,udz);  
+        A_PUT(Part21,6,vdx);
+        A_PUT(Part21,7,vdy);
+        A_PUT(Part21,8,vdz);	
+    }  
+    
+    return(0);
+}
+
+create_gusset()
+{  
+    /*获取肘板厚度*/
+    plate_thickness_1 = 1.0*DM_PARTID_DATA(Gusset_Part1_Pid, "D31");
+    /*肘板分布角度*/
+    n = Gusset_Size_n;
+    alpha = 360.0/n;
+
+    /* 定义肘板零件集合 */   
+    gusset = PM_INIT_SET();   
+    
+    /* 生成零件1-1 create part 1-1*/
+    if(n-1>=0){      
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);
+
+        /* 生成零件*/                        
+        lox = A_GET(Part11,0);
+        loy = A_GET(Part11,1);
+        loz = A_GET(Part11,2);	
+        udx = A_GET(Part11,3);
+        udy = A_GET(Part11,4);
+        udz = A_GET(Part11,5);
+        vdx = A_GET(Part11,6);
+        vdy = A_GET(Part11,7);
+        vdz = A_GET(Part11,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-1");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    }  
+
+    /* 生成零件1-2 create part 1-2*/
+    if(n-2>=0){      
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);     
+
+        /* 生成零件*/                        
+        lox = A_GET(Part12,0);
+        loy = A_GET(Part12,1);
+        loz = A_GET(Part12,2);	
+        udx = A_GET(Part12,3);
+        udy = A_GET(Part12,4);
+        udz = A_GET(Part12,5);
+        vdx = A_GET(Part12,6);
+        vdy = A_GET(Part12,7);
+        vdz = A_GET(Part12,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-2");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    }   
+     
+    /* 生成零件1-3 create part 1-3*/
+    if(n-3>=0){      
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);     
+
+        /* 生成零件*/                        
+        lox = A_GET(Part13,0);
+        loy = A_GET(Part13,1);
+        loz = A_GET(Part13,2);	
+        udx = A_GET(Part13,3);
+        udy = A_GET(Part13,4);
+        udz = A_GET(Part13,5);
+        vdx = A_GET(Part13,6);
+        vdy = A_GET(Part13,7);
+        vdz = A_GET(Part13,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-3");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    } 
+   
+    /* 生成零件1-4 create part 1-4*/
+    if(n-4>=0){      
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);    
+
+        /* 生成零件*/                        
+        lox = A_GET(Part14,0);
+        loy = A_GET(Part14,1);
+        loz = A_GET(Part14,2);	
+        udx = A_GET(Part14,3);
+        udy = A_GET(Part14,4);
+        udz = A_GET(Part14,5);
+        vdx = A_GET(Part14,6);
+        vdy = A_GET(Part14,7);
+        vdz = A_GET(Part14,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-4");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    } 
+
+    /* 生成零件1-5 create part 1-5*/
+    if(n-5>=0){     
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);
+
+        /* 生成零件*/                        
+        lox = A_GET(Part15,0);
+        loy = A_GET(Part15,1);
+        loz = A_GET(Part15,2);	
+        udx = A_GET(Part15,3);
+        udy = A_GET(Part15,4);
+        udz = A_GET(Part15,5);
+        vdx = A_GET(Part15,6);
+        vdy = A_GET(Part15,7);
+        vdz = A_GET(Part15,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-5");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    } 
+
+    /* 生成零件1-6 create part 1-6*/
+    if(n-6>=0){     
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);    
+
+        /* 生成零件*/                        
+        lox = A_GET(Part16,0);
+        loy = A_GET(Part16,1);
+        loz = A_GET(Part16,2);	
+        udx = A_GET(Part16,3);
+        udy = A_GET(Part16,4);
+        udz = A_GET(Part16,5);
+        vdx = A_GET(Part16,6);
+        vdy = A_GET(Part16,7);
+        vdz = A_GET(Part16,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-6");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    } 
+
+    /* 生成零件1-7 create part 1-7*/
+    if(n-7>=0){     
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);    
+
+        /* 生成零件*/                        
+        lox = A_GET(Part17,0);
+        loy = A_GET(Part17,1);
+        loz = A_GET(Part17,2);	
+        udx = A_GET(Part17,3);
+        udy = A_GET(Part17,4);
+        udz = A_GET(Part17,5);
+        vdx = A_GET(Part17,6);
+        vdy = A_GET(Part17,7);
+        vdz = A_GET(Part17,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-7");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    } 
+    
+    /* 生成零件1-8 create part 1-8*/
+    if(n-8>=0){     
+        A  = Gusset_Size_A; 
+        B  = Gusset_Size_B; 
+        a1 = Gusset_Size_a1; 
+        b1 = Gusset_Size_b1; 
+        r  = Gusset_Size_r;
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_gusset_curve(A, B, a1, b1, r);   
+
+        /* 生成零件*/                        
+        lox = A_GET(Part18,0);
+        loy = A_GET(Part18,1);
+        loz = A_GET(Part18,2);	
+        udx = A_GET(Part18,3);
+        udy = A_GET(Part18,4);
+        udz = A_GET(Part18,5);
+        vdx = A_GET(Part18,6);
+        vdy = A_GET(Part18,7);
+        vdz = A_GET(Part18,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part1_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "1-8");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    } 
+
+    /* 生成零件2-1 create part 2-1*/
+    if(1){     
+        r1  = 0.5 * Gusset_Size_D; 
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/    
+        curve = create_circle_curve(r1);        
+
+        /* 生成零件*/                        
+        lox = A_GET(Part21,0);
+        loy = A_GET(Part21,1);
+        loz = A_GET(Part21,2);	
+        udx = A_GET(Part21,3);
+        udy = A_GET(Part21,4);
+        udz = A_GET(Part21,5);
+        vdx = A_GET(Part21,6);
+        vdy = A_GET(Part21,7);
+        vdz = A_GET(Part21,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Gusset_Part2_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        Set_Attribute_Value(plate_handle, PartNumber,  "2-1");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, gusset); 		      
+        free_2darray(hole_list);  
+    } 
+    
+    PM_ADD_SET_TO_GROUP(gusset, Gusset_Handle);
+    set_gusset_para(Gusset_Handle);
+    save_model_size();
+    PM_FREE_SET(gusset);   
+	return(0);
+}
+
+calculate_hole_list(hole_list,hole_dia)
+{
+	hole1_size = "circle1 = CURVE(" + STRINGTERM(FTOASCII(hole_dia),".") + "\/ 2,0,ARC,0,0,360)\;";
+	hole1_pos  = ",circle1,0,0";		
+	
+	/* 将开孔信息存入数组 */
+	put_2darray(hole_list,0,0,hole1_size);
+	put_2darray(hole_list,0,1,hole1_pos);	
+	return(0);  
+}
+
+set_gusset_para(group_h)
+{
+    Set_Attribute_Value(group_h, PlanningUnit,  PlanningUnit_);
+    Set_Attribute_Value(group_h, GussetDes,  ModelDescription);
+    Set_Attribute_Value(group_h, GussetType, Gusset_Type);
+    W_SET_NUMERIC_VALUE(Gusset_Para_A,  Gusset_Size_A);
+    W_SET_NUMERIC_VALUE(Gusset_Para_B,  Gusset_Size_B);
+    W_SET_NUMERIC_VALUE(Gusset_Para_R,  Gusset_Size_R);
+    W_SET_NUMERIC_VALUE(Gusset_Para_D,  Gusset_Size_D);
+    W_SET_NUMERIC_VALUE(Gusset_Para_a1, Gusset_Size_a1);   
+    W_SET_NUMERIC_VALUE(Gusset_Para_b1, Gusset_Size_b1);   
+    W_SET_NUMERIC_VALUE(Gusset_Para_r,  Gusset_Size_r);   
+    W_SET_NUMERIC_VALUE(Gusset_Para_n,  Gusset_Size_n);         
+    return(0);
+}
+
+quit_handler(item, event_type, button_value)
+{ 
+    A_FREE(Part11);
+    A_FREE(Part12);
+    A_FREE(Part13);
+    A_FREE(Part14);  
+    A_FREE(Part15);  
+    A_FREE(Part16);  
+    A_FREE(Part17);  
+    A_FREE(Part18);  
+    A_FREE(Part21);
+    A_FREE(Part31);
+	U_MESSAGE("肘板参数化建模窗口");
+	return(99);
+}
+
+/*
+**创建用于输入及编辑肘板参数的面板
+*/
+create_parameter_panel(mainform)
+{
+	Parameters = W_ADD_WINDOW(mainform, W_PANEL, "Parameters");
+	W_REALIZE_WINDOW(Parameters,  W_FRAME_X, 465,
+	                              W_FRAME_Y, 250,
+							      W_FRAME_WIDTH, 100,
+							      W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"肘板尺寸");
+
+    seperate_line = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+                                        
+    /* 肘板参数 A */
+	Gusset_Para_A = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_A");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_A, W_NUMERIC_FLOAT,
+                                           1, 10000,
+                                           "%.0f");
+	W_REALIZE_PANELITEM(Gusset_Para_A, W_PANEL_ROW, 1, 
+	                                 W_PANEL_COL, 1,
+							         W_PANEL_LABEL, " A: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);      							               
+	W_SET_PANELITEM_HANDLER(Gusset_Para_A, "gusset_para_handler"); 
+	
+    /* 肘板参数 B */
+	Gusset_Para_B = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_B");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_B, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Gusset_Para_B, W_PANEL_ROW, 1, 
+	                                 W_PANEL_COL, 12,
+							         W_PANEL_LABEL, " B: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);
+	W_SET_PANELITEM_HANDLER(Gusset_Para_B, "gusset_para_handler");
+
+    /* 肘板参数 R */
+	Gusset_Para_R = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_R");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_R, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.1f");
+	W_REALIZE_PANELITEM(Gusset_Para_R, W_PANEL_ROW, 2, 
+	                                 W_PANEL_COL, 1,
+							         W_PANEL_LABEL, " R: ",
+							         W_PANEL_LENGTH, 6,
+                                     W_PANEL_SHOW, 0,
+							         W_PANEL_CALLBACK, 1);
+	W_SET_PANELITEM_HANDLER(Gusset_Para_R, "gusset_para_handler");
+
+    /* 肘板参数 D */
+	Gusset_Para_D = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_D");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_D, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Gusset_Para_D, W_PANEL_ROW, 2, 
+	                                 W_PANEL_COL, 12,
+							         W_PANEL_LABEL, " D: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);          							               
+	W_SET_PANELITEM_HANDLER(Gusset_Para_D, "gusset_para_handler");
+    
+    /* 肘板参数 a1 */
+	Gusset_Para_a1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_a1");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_a1, W_NUMERIC_FLOAT,
+                                            0, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Gusset_Para_a1, W_PANEL_ROW, 3, 
+	                                 W_PANEL_COL, 1,
+							         W_PANEL_LABEL, "a1: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Gusset_Para_a1, "gusset_para_handler");	
+
+    /* 肘板参数 b1 */
+	Gusset_Para_b1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_b1");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_b1, W_NUMERIC_FLOAT,
+                                            0, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Gusset_Para_b1, W_PANEL_ROW, 3, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, "b1: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Gusset_Para_b1, "gusset_para_handler");
+
+    /* 肘板参数 r */
+	Gusset_Para_r = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_r");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_r, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Gusset_Para_r, W_PANEL_ROW, 4, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, " r: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Gusset_Para_r, "gusset_para_handler");  
+
+    /* 肘板参数 n */
+	Gusset_Para_n = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Gusset_Para_n");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Para_n, W_NUMERIC_FLOAT,
+                                            1, 8,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Gusset_Para_n, W_PANEL_ROW, 4, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, " n: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Gusset_Para_n, "gusset_para_handler");  
+
+/*     Pick_Center_Position = W_ADD_PANELITEM(Parameters, W_PANEL_BUTTON, "Pick_Center_Position");	
+	W_REALIZE_PANELITEM(Pick_Center_Position, W_PANEL_ROW, 			5, 
+	                                          W_PANEL_COL, 			0,
+							                  W_PANEL_BUTTONIMAGE, 	"获取管子半径 R", 
+							                  W_PANEL_WIDTH, 		24,
+							                  W_PANEL_BUTTONVALUE, 	601,
+							                  W_PANEL_CALLBACK, 	1,
+							                  W_PANEL_LAYOUT,		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Pick_Center_Position, "pick_gusset_radius_handler"); */
+    
+	return(Parameters);
+}
+
+/*
+**处理肘板参数发生更改的事件
+*/
+gusset_para_handler(item, event_type, dummy)
+{  
+    /* 处理输入新数值后 */
+    if (event_type == W_EVENT_ITEM_LEFT){
+        /* 检查参数是否正确 */
+        if (item == Gusset_Para_A){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_A", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Gusset_Size_A = value;
+            st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_A", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改肘板参数:A");
+                calculate_gusset_para();
+                delete_gusset_members();
+                create_gusset();             
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        }
+        else if (item == Gusset_Para_B){
+        st = 0;
+        value = W_GET_NUMERIC_VALUE(item, st);
+        if (st != 0){
+            orgin = 0;
+            st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_B", orgin);
+            if(st1 == 0){
+                W_SET_NUMERIC_VALUE(item, orgin);
+                value = orgin;
+            }
+            else{
+                W_SET_NUMERIC_VALUE(item, 0);
+                return(-1);
+            }
+        }
+
+        Gusset_Size_B = value;
+        st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_B", value);
+
+        if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改肘板参数:B");
+            calculate_gusset_para();
+            delete_gusset_members();
+            create_gusset();             
+            st = PM_UM_CLOSE_CHANGE();           
+        }                 
+        }   
+        else if (item == Gusset_Para_R){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_R", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Gusset_Size_R = value;
+            st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_R", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改肘板参数:R");
+                calculate_gusset_para();
+                delete_gusset_members();
+                create_gusset();             
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        }
+        else if (item == Gusset_Para_D){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_D", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Gusset_Size_D = value;
+            st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_D", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改肘板参数:D");
+                calculate_gusset_para();
+                delete_gusset_members();
+                create_gusset();             
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        }
+        else if (item == Gusset_Para_a1){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_a1", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Gusset_Size_a1 = value;
+            st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_a1", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改肘板参数:a1");
+                calculate_gusset_para();
+                delete_gusset_members();
+                create_gusset();             
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        } 
+        else if (item == Gusset_Para_b1){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_b1", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Gusset_Size_b1 = value;
+            st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_b1", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改肘板参数:b1");
+                calculate_gusset_para();
+                delete_gusset_members();
+                create_gusset();             
+                st = PM_UM_CLOSE_CHANGE();           
+            } 
+        } 
+        else if (item == Gusset_Para_r){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_r", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Gusset_Size_r = value;
+            st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_r", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改肘板参数:r");
+                calculate_gusset_para();
+                delete_gusset_members();
+                create_gusset();             
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        } 
+        else if (item == Gusset_Para_n){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_n", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Gusset_Size_n = value;
+            st = SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_n", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改肘板参数:n");
+                calculate_gusset_para();
+                delete_gusset_members();
+                create_gusset();             
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        } 
+        /*肘板方向与管子平行*/
+        if(Modify_flag & Pipe_obj){
+            flip_gusset(Pipe_obj,Node_id,-90);
+        }
+    }
+    return(0); 
+}
+
+/*
+**创建用于输入及编辑肘板位置的面板
+*/
+create_position_panel(mainform)
+{
+	Position = W_ADD_WINDOW(mainform, W_PANEL, "Position");
+	
+	W_REALIZE_WINDOW(Position,  W_FRAME_X, 465,
+	                            W_FRAME_Y, 410,
+							    W_FRAME_WIDTH, 100,
+							    W_FRAME_HEIGHT, 180);
+
+	title = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "title");
+	
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"肘板位置");
+
+    seperate_line = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "seperate_line");
+   
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+   
+	/* 肘板位置信息-绝对坐标 */
+	Gusset_Position_X = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_X");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Position_X, W_NUMERIC_INT,
+                                               -1000000, 1000000);                                          	
+	W_REALIZE_PANELITEM(Gusset_Position_X, W_PANEL_ROW, 1, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "X: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);	
+	W_SET_NUMERIC_VALUE(Gusset_Position_X, 10000);						                     	
+	W_SET_PANELITEM_HANDLER(Gusset_Position_X, "gusset_position_handler"); 
+
+	Gusset_Position_Y = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_Y");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Position_Y, W_NUMERIC_INT,
+                                               -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Gusset_Position_Y, W_PANEL_ROW, 2, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Y: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Gusset_Position_Y, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Y, "gusset_position_handler");
+
+	Gusset_Position_Z = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_Z");
+    W_CONFIG_NUMERIC_PANELITEM(Gusset_Position_Z, W_NUMERIC_INT,
+                                               -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Gusset_Position_Z, W_PANEL_ROW, 3, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Z: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Gusset_Position_Z, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Z, "gusset_position_handler");	
+
+	/* 肘板位置信息-参考面 */
+	Gusset_Position_Xref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_Xref");
+	W_REALIZE_PANELITEM(Gusset_Position_Xref,	W_PANEL_ROW, 			1, 
+	                                        W_PANEL_COL, 			11,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                     
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Xref, "gusset_position_handler"); 
+
+	Gusset_Position_Yref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_Yref");	
+	W_REALIZE_PANELITEM(Gusset_Position_Yref,	W_PANEL_ROW, 			2, 
+	                                        W_PANEL_COL, 			11,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Yref, "gusset_position_handler");
+    
+	Gusset_Position_Zref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_Zref");	
+	W_REALIZE_PANELITEM(Gusset_Position_Zref,	W_PANEL_ROW, 			3, 
+	                                        W_PANEL_COL, 			11,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Zref, "gusset_position_handler");	
+
+	/* 肘板位置信息-偏移量 */	
+	Gusset_Position_Xoff = W_ADD_PANELITEM(Position,	W_PANEL_FILL, "Gusset_Position_Xoff");
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Position_Xoff,	W_NUMERIC_INT,
+													-10000, 10000);	
+	W_REALIZE_PANELITEM(Gusset_Position_Xoff,	W_PANEL_ROW, 			1, 
+	                                        W_PANEL_COL, 			18,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                     	
+	W_SET_NUMERIC_VALUE(Gusset_Position_Xoff, 0);	
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Xoff, "gusset_position_handler"); 
+
+	Gusset_Position_Yoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_Yoff");
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Position_Yoff,	W_NUMERIC_INT,
+													-10000, 10000);	
+	W_REALIZE_PANELITEM(Gusset_Position_Yoff,	W_PANEL_ROW, 			2, 
+	                                        W_PANEL_COL, 			18,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_NUMERIC_VALUE(Gusset_Position_Yoff, 0);							                        
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Yoff, "gusset_position_handler");
+
+	Gusset_Position_Zoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Gusset_Position_Zoff");
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Position_Zoff,	W_NUMERIC_INT,
+													-10000, 10000);
+	W_REALIZE_PANELITEM(Gusset_Position_Zoff,	W_PANEL_ROW, 			3, 
+											W_PANEL_COL, 			18,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);
+	W_SET_NUMERIC_VALUE(Gusset_Position_Zoff, 0);						                                        
+	W_SET_PANELITEM_HANDLER(Gusset_Position_Zoff, "gusset_position_handler");	
+
+	Pick_Gusset_Position = W_ADD_PANELITEM(Position, W_PANEL_BUTTON, "Pick_Gusset_Position");	
+	W_REALIZE_PANELITEM(Pick_Gusset_Position,	W_PANEL_ROW, 			4, 
+	                                        W_PANEL_COL, 			0,
+							                W_PANEL_BUTTONIMAGE, 	"点选位置", 
+							                W_PANEL_WIDTH, 			24,
+							                W_PANEL_BUTTONVALUE, 	601,
+							                W_PANEL_CALLBACK, 		1,
+							                W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Pick_Gusset_Position, "pick_gusset_position_handler");
+
+	return(Position);
+}
+
+/*
+**用于处理肘板坐标的输入
+*/
+gusset_position_handler(item, event_type, dummy)
+{     
+	if (event_type == W_EVENT_ITEM_LEFT){     
+		if (item == Gusset_Position_X | item == Gusset_Position_Y | item == Gusset_Position_Z){         
+			st = 0;                  
+			trans_abs_ref();
+		}
+		else if ( item == Gusset_Position_Xref | item == Gusset_Position_Yref | item == Gusset_Position_Zref){        
+        x_ref = W_GET_PANELITEM_ARG(Gusset_Position_Xref, W_PANEL_VALUE);
+        y_ref = W_GET_PANELITEM_ARG(Gusset_Position_Yref, W_PANEL_VALUE);
+        z_ref = W_GET_PANELITEM_ARG(Gusset_Position_Zref, W_PANEL_VALUE);
+        st = 0;
+        x_off = W_GET_NUMERIC_VALUE(Gusset_Position_Xoff, st);
+        y_off = W_GET_NUMERIC_VALUE(Gusset_Position_Yoff, st);
+        z_off = W_GET_NUMERIC_VALUE(Gusset_Position_Zoff, st);                
+        coord_ref_to_abs(x_ref,x_off,y_ref,y_off,x_ref,x_off);           
+		}   
+	}   
+	return(0);
+}
+
+/*
+**将相对坐标转换成绝对坐标
+*/
+coord_ref_to_abs(string x_ref,float x_off,string y_ref,float y_off,string Z_ref,float Z_off)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Gusset_Position_X, st);
+	y0 = W_GET_NUMERIC_VALUE(Gusset_Position_Y, st);
+	z0 = W_GET_NUMERIC_VALUE(Gusset_Position_Z, st);
+	return(0);
+}
+
+/*
+**用于处理获取管子半径
+*/
+pick_gusset_radius_handler(item, event_type, button_value)
+{
+    flag = 1;
+    while(flag){
+        nth = 0;
+        picked_object_handle = PM_PICK_OBJECT("选择管子", nth, "PIPE");
+        if (!ISINT(picked_object_handle)){
+			obj_type = PM_GET_OBJDATA(picked_object_handle,0,MMT_TAG_OBJTYPE);
+			if(obj_type == "3"){			
+				part_obj_id = PM_GET_OBJDATA(picked_object_handle,nth,MMT_TAG_OBJID);
+				part_handle = PM_FIND_BY_OBJID(part_obj_id);	
+                part_id = PM_GET_OBJDATA(picked_object_handle,nth,MMT_TAG_PARTID);
+                od = DM_PARTID_DATA(part_id,"D21");
+                if(od ==""){
+                    U_CONFIRM("获取不到零件外径，请重新选择！");
+                }
+                else{
+                    Gusset_Size_R = 0.5*od;
+                    W_SET_NUMERIC_VALUE(Gusset_Para_R, Gusset_Size_R);
+                    st = SET_FLOAT_DEFAULT("Gusset101", "Gusset_Para_R", Gusset_Size_R);
+                    return(1);
+                }               
+			}
+            else{
+                U_CONFIRM("请选择管子模型操作");
+            }
+        }
+        else{
+            return(0);
+        }
+    }
+}
+
+/*
+**用于处理肘板在模型中捕捉肘板的位置
+*/
+pick_gusset_position_handler(item, event_type, button_value)
+{
+	if(Modify_flag){
+        node_id = 0;
+        pipe_obj = PM_PICK_CONNECTION("选择管子端部点", 2, node_id, "PIPE");
+        if(ISINT(pipe_obj)) return(0);
+        Pipe_obj = pipe_obj;
+        Node_id  = node_id;
+        
+        /* 获取连接点坐标并显示到面板中 */
+        nx0 = PM_GET_CONPNT_DATA(pipe_obj, node_id, "x");
+        ny0 = PM_GET_CONPNT_DATA(pipe_obj, node_id, "y");
+        nz0 = PM_GET_CONPNT_DATA(pipe_obj, node_id, "z");
+
+        /*精确定位*/
+        Gusset_X0 = 1.0*nx0;
+        Gusset_Y0 = 1.0*ny0;
+        Gusset_Z0 = 1.0*nz0;
+        W_SET_NUMERIC_VALUE(Gusset_Position_X, Gusset_X0);
+        W_SET_NUMERIC_VALUE(Gusset_Position_Y, Gusset_Y0);
+        W_SET_NUMERIC_VALUE(Gusset_Position_Z, Gusset_Z0);  
+
+        /*坐标转换*/
+        trans_abs_ref();
+
+        /* 获取管子直径 */
+        res = pick_pipe_outdiam(pipe_obj,node_id);
+        if (res < 0){
+            res = input_pipe_outdia_dialog();
+            if (res < 0){
+                return(0);
+            }
+        }
+
+		st = PM_UM_OPEN_CHANGE("修改肘板位置");
+		calculate_gusset_para();
+		delete_gusset_members();
+		create_gusset();       
+        
+        /*肘板方向与管子平行*/
+        flip_gusset(Pipe_obj,Node_id,-90);     
+        
+		st = PM_UM_CLOSE_CHANGE();  
+	} 
+    else{  
+        U_CONFIRM("请先选择肘板再操作");
+    }    
+	return(0);
+}
+
+/*
+**获取管子直径
+*/
+pick_pipe_outdiam(pipe_obj,node_id)
+{
+    /*管子零件数*/
+    npart = PM_NR_PARTS_IN_PIPE(pipe_obj);
+    if (npart < 0) {
+        U_CONFIRM("获取不到管子零件，请重新选择！");
+        return(-1);
+    }
+
+    /*连接点通径*/
+    DN = PM_GET_CONPNT_DATA(pipe_obj, node_id, "NS");
+
+    /*遍历管子零件*/
+    for (part_i=1; part_i<npart+1; part_i=part_i+1;){
+        part_id = PM_GET_OBJDATA(pipe_obj, part_i, MMT_TAG_PARTID);
+        if (!ISSTRING(part_id)) return(-1);
+
+        gt = DM_PARTID_DATA(part_id,"GT");
+        if (!ISSTRING(gt)) return(-1);
+        dn = DM_PARTID_DATA(part_id,"D01");
+        if (!ISSTRING(dn)) return(-1);
+        od = DM_PARTID_DATA(part_id,"D21");
+        if (!ISSTRING(od)) return(-1);
+
+        /*gt=1的是管材*/
+        if (gt == "1" & DN == dn){
+            Gusset_Size_R = 0.5*od;
+            W_SET_NUMERIC_VALUE(Gusset_Para_R, Gusset_Size_R);
+            st = SET_FLOAT_DEFAULT("Gusset101", "Gusset_Para_R", Gusset_Size_R);
+            return (0);
+        }
+	}
+    return(-1);
+}
+
+input_pipe_outdia_dialog()
+{	
+    
+	U_INIT_DIALOG("不能获取连接点管子外径，请输入");
+    i_f = U_SET_FLOAT("管子外径:", 2.0*Gusset_Size_R, 0.0, 10000.0);
+    
+    if(U_DIALOG()<0){
+        U_CONFIRM("用户取消操作");
+        return(-1);
+    }
+    
+    od = U_GET_FLOAT(i_f);
+    Gusset_Size_R = 0.5*od;
+    W_SET_NUMERIC_VALUE(Gusset_Para_R, Gusset_Size_R);
+    st = SET_FLOAT_DEFAULT("Gusset101", "Gusset_Para_R", Gusset_Size_R);
+    return(0);
+}
+    
+/*
+**将绝对坐标转换成相对坐标
+*/
+trans_abs_ref()
+{
+	/* 将绝对坐标转换成相对坐标并显示到面板中 */   
+	x_ref = "";
+	y_ref = "";
+	z_ref = "";
+	x_offset = 0;
+	y_offset = 0;
+	z_offset = 0;
+   
+	x0 = 0;
+	y0 = 0;
+	z0 = 0;
+   
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Gusset_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Gusset_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Gusset_Position_Z,st);
+
+	res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+	if (res == 0){  
+		W_SET_PANELITEM_ARGS(Gusset_Position_Xref, W_PANEL_VALUE, x_ref);
+		W_SET_PANELITEM_ARGS(Gusset_Position_Yref, W_PANEL_VALUE, y_ref);
+		W_SET_PANELITEM_ARGS(Gusset_Position_Zref, W_PANEL_VALUE, z_ref);
+   
+		W_SET_NUMERIC_VALUE(Gusset_Position_Xoff, x_offset);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Yoff, y_offset);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Zoff, z_offset);     
+	}  
+	else if (res == -1){     
+		W_SET_PANELITEM_ARGS(Gusset_Position_Xref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Gusset_Position_Yref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Gusset_Position_Zref, W_PANEL_VALUE, "Unset");
+   
+		W_SET_NUMERIC_VALUE(Gusset_Position_Xoff, 0);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Yoff, 0);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Zoff, 0); 
+		U_CONFIRM("参考坐标系定义不正确");           
+	}    
+}
+
+/*
+**创建用于旋转肘板的面板
+*/
+create_rotate_gusset_panel(mainform)
+{
+	Orientation = W_ADD_WINDOW(mainform, W_PANEL, "Orientation");	
+	W_REALIZE_WINDOW(Orientation,	W_FRAME_X, 		700,
+									W_FRAME_Y, 		280,
+							        W_FRAME_WIDTH,	100,
+							        W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"旋转肘板");
+
+	seperate_line = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);
+   		                                
+	/* 肘板旋转轴 */   
+	Gusset_Rotate_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Gusset_Rotate_X");	
+	W_REALIZE_PANELITEM(Gusset_Rotate_X,W_PANEL_ROW,		1, 
+										W_PANEL_COL,		0,
+							            W_PANEL_LABEL,		"X轴:",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);
+
+	Gusset_Rotate_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Gusset_Rotate_Y");	
+	W_REALIZE_PANELITEM(Gusset_Rotate_Y,W_PANEL_ROW,		2, 
+										W_PANEL_COL,		0,
+							            W_PANEL_LABEL,		"Y轴:",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);	
+										
+	Gusset_Rotate_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Gusset_Rotate_Z");	
+	W_REALIZE_PANELITEM(Gusset_Rotate_Z,W_PANEL_ROW,		3, 
+										W_PANEL_COL,		0,
+							            W_PANEL_LABEL, 		"Z轴:",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);	
+
+	/* 肘板旋转角度 */  
+	Gusset_Rotate_Angle_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Gusset_Rotate_Angle_X");
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Rotate_Angle_X,	W_NUMERIC_FLOAT,
+													0.0, 180.0,
+													"%.1f");	                                                  
+	W_REALIZE_PANELITEM(Gusset_Rotate_Angle_X,	W_PANEL_ROW, 		1, 
+												W_PANEL_COL, 		8,
+							                    W_PANEL_LABEL, 		"",
+							                    W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Gusset_Rotate_Angle_X, 0.0);	
+							               
+	Gusset_Rotate_Angle_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Gusset_Rotate_Angle_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Rotate_Angle_Y,	W_NUMERIC_FLOAT,
+													0.0, 180.0,	
+													"%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Gusset_Rotate_Angle_Y,	W_PANEL_ROW, 		2, 
+												W_PANEL_COL, 		8,
+												W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK,	0);							               
+	W_SET_NUMERIC_VALUE(Gusset_Rotate_Angle_Y, 0.0);							               	
+	
+	Gusset_Rotate_Angle_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Gusset_Rotate_Angle_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Rotate_Angle_Z,	W_NUMERIC_FLOAT,
+													0.0, 180.0,	
+													"%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Gusset_Rotate_Angle_Z,	W_PANEL_ROW, 		3, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Gusset_Rotate_Angle_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Gusset_Rotate_Angle_X, "check_rotate_angle");
+	W_SET_PANELITEM_HANDLER(Gusset_Rotate_Angle_Y, "check_rotate_angle");   
+	W_SET_PANELITEM_HANDLER(Gusset_Rotate_Angle_Z, "check_rotate_angle");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	left_rotate_image  = icon_path + "rotateleft16.bmp";
+	right_rotate_image = icon_path + "rotateright16.bmp";
+     
+	Rotate_By_X_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_L");
+	
+	W_REALIZE_PANELITEM(Rotate_By_X_L,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);   
+	Rotate_By_X_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_R");
+	
+	W_REALIZE_PANELITEM(Rotate_By_X_R,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL); 							                  
+	Rotate_By_Y_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_L");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Y_L,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+	Rotate_By_Y_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_R");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Y_R,  W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);							                  							                  
+	Rotate_By_Z_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_L");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Z_L,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);   
+	Rotate_By_Z_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_R");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Z_R,  W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+
+    Pick_Pipe_Direction = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Pick_Pipe_Direction");	
+	W_REALIZE_PANELITEM(Pick_Pipe_Direction, W_PANEL_ROW, 		4, 
+	                                      W_PANEL_COL, 			0,
+							              W_PANEL_BUTTONIMAGE, 	"与管子平行", 
+							              W_PANEL_WIDTH, 		20,
+							              W_PANEL_BUTTONVALUE, 	601,
+							              W_PANEL_CALLBACK, 	1,
+							              W_PANEL_LAYOUT,		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Pick_Pipe_Direction, "pick_gusset_zdirction_handler");
+
+    Pick_Pipe_Opp_Direction = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Pick_Pipe_Opp_Direction");	
+	W_REALIZE_PANELITEM(Pick_Pipe_Opp_Direction, W_PANEL_ROW, 	5, 
+	                                      W_PANEL_COL, 			0,
+							              W_PANEL_BUTTONIMAGE, 	"与管子反向平行", 
+							              W_PANEL_WIDTH, 		20,
+							              W_PANEL_BUTTONVALUE, 	601,
+							              W_PANEL_CALLBACK, 	1,
+							              W_PANEL_LAYOUT,		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Pick_Pipe_Opp_Direction, "flip_gusset_zdirction_opp_handler");
+    
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_R, "rotate_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_L, "rotate_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_R, "rotate_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_L, "rotate_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_R, "rotate_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_L, "rotate_gusset_handler");
+	
+	return(Orientation);
+}
+
+/*
+**用于处理肘板Z轴与目标管子平行
+*/
+pick_gusset_zdirction_handler(item, event_type, button_value)
+{
+    flag = 1;
+    while(flag){
+        nth = 0;
+        picked_handle = PM_PICK_OBJECT("选择管子", nth, "PIPE");
+        if (!ISINT(picked_handle)){
+			obj_type = PM_GET_OBJDATA(picked_handle, 0, MMT_TAG_OBJTYPE);
+			if(obj_type == "3"){			
+                flip_gusset(picked_handle,nth,90);
+			}
+            else{
+                U_CONFIRM("请选择管子模型操作");
+            }
+        }
+        else{
+            return(0);
+        }
+    }
+}
+
+/*
+**用于处理肘板Z轴与目标管子平行
+*/
+flip_gusset_zdirction_opp_handler(item, event_type, button_value)
+{
+    flag = 1;
+    while(flag){
+        nth = 0;
+        picked_handle = PM_PICK_OBJECT("选择管子", nth, "PIPE");
+        if (!ISINT(picked_handle)){
+			obj_type = PM_GET_OBJDATA(picked_handle, 0, MMT_TAG_OBJTYPE);
+			if(obj_type == "3"){			
+                flip_gusset(picked_handle,nth,-90);
+			}
+            else{
+                U_CONFIRM("请选择管子模型操作");
+            }
+        }
+        else{
+            return(0);
+        }
+    }
+}
+
+
+flip_gusset(pipe_handle,nth,flip_ang)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Gusset_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Gusset_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Gusset_Position_Z,st);
+	set = PM_GET_OBJECTS_IN_GROUP(Gusset_Handle);
+    
+    /*normal direction of panel*/
+    wxr = PM_GET_CONPNT_DATA(pipe_handle,nth,"wxr");
+    wxs = PM_GET_CONPNT_DATA(pipe_handle,nth,"wxs");
+    rotation_angle = String_To_Float(wxr);
+    slope_angle = String_To_Float(wxs);
+    dx = COS(slope_angle)*COS(rotation_angle);
+    dy = COS(slope_angle)*SIN(rotation_angle);
+    dz = SIN(slope_angle);
+    VEC_UNITV(dx,dy,dz);
+    
+    /*normal direction of panel*/
+    fnr = PM_GET_CONPNT_DATA(pipe_handle,nth,"fnr");
+    fns = PM_GET_CONPNT_DATA(pipe_handle,nth,"fns");
+    rotation_angle = String_To_Float(fnr);
+    slope_angle = String_To_Float(fns);
+    wdx = COS(slope_angle)*COS(rotation_angle);
+    wdy = COS(slope_angle)*SIN(rotation_angle);
+    wdz = SIN(slope_angle);
+    VEC_UNITV(wdx,wdy,wdz);   
+
+    calculate_gusset_para();
+    delete_gusset_members();
+    create_gusset();             
+    
+    /* Rotate_Set(x0, y0, z0, "y", set, flip_ang); */
+    rotate_set_to_direction(x0,y0,z0, 
+                            Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz, 
+                            Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,
+                            COS(flip_ang), 0, -SIN(flip_ang), 0, 1, 0, 
+                            set);    
+    
+    rotate_set_to_direction(x0,y0,z0, 
+                            Gusset_X_Dx,Gusset_X_Dy,Gusset_X_Dz, 
+                            Gusset_Y_Dx,Gusset_Y_Dy,Gusset_Y_Dz,
+                            wdx,wdy,wdz, dx,dy,dz, 
+                            set);
+}
+
+/*
+**旋转与目标向量平行
+*/
+rotate_set_to_direction(x0,y0,z0, ux1,uy1,uz1, vx1,vy1,vz1, ux2,uy2,uz2, vx2,vy2,vz2, set)
+{
+    nr = PM_NR_MEMBERS_IN_SET(set);
+    if (nr == 0) {
+        U_MESSAGE("Empty set, operation canceled");
+        return(-1);
+    }
+    if (PM_WRITE_MDL_OF_SET("rotate.mdl", set) != 0){
+        return(-1);
+    }
+
+    cur_dx = -x0; cur_dy = -y0; cur_dz = -z0;
+	local_to_global = PM_CREATE_TMAT(1, cur_dx,cur_dy,cur_dz, ux1,uy1,uz1, vx1,vy1,vz1);
+	global_to_local = PM_INVERSE_TMAT(local_to_global);
+
+    rotm = PM_CREATE_TMAT(1, 0,0,0, ux2,uy2,uz2, vx2,vy2,vz2);
+    tm1  = PM_JOIN_TMATS(local_to_global, rotm);
+	tmat = PM_JOIN_TMATS(tm1, global_to_local);
+
+	/* open undo task */
+    /* PM_UM_OPEN_CHANGE("Rotate set"); */
+
+	/*	Notify PM that we are going to relocate objects using a
+		sequence of deletes and MDL-loads. */
+	if (!PM_OK_TO_RELOCATE_OBJECTS_IN_SET(set)) {
+		F_DELETE_FILE("rotate.mdl");
+		/* PM_UM_CLOSE_CHANGE(); */
+		return(-1);
+	}
+
+	PM_DELETE_OBJECTS_IN_SET(set, 0);
+	PM_READ_MDL_INTO_SET("rotate.mdl", 1, "", tmat, set);
+	PM_RELOCATION_ACCEPTED();
+	/* PM_UM_CLOSE_CHANGE(); */
+	F_DELETE_FILE("rotate.mdl");
+	return(0);
+}
+
+/*获取模型的空间范围*/
+get_group_box(group_handle)
+{
+    set = PM_GET_OBJECTS_IN_GROUP(group_handle);
+    /*模型组空间范围*/
+    xmin = 0; ymin = 0; zmin = 0;
+    xmax = 0; ymax = 0; zmax = 0;
+    PM_GET_BBOX_OF_SET(set, xmin, xmax, ymin, ymax, zmin, zmax); 
+    
+    /*空间范围内的管子*/
+    Pipe_obj = Search_First_Model(xmin,ymin,zmin, xmax,ymax,zmax, "3");
+    if(Pipe_obj){
+        /*管子连接点*/
+        Node_id = get_pipe_node_in_box(Pipe_obj, xmin,ymin,zmin, xmax,ymax,zmax);
+        U_MESSAGE("Node_id = " + ITOASCII(Node_id));
+    }
+    else{
+        U_CONFIRM("肘板与管子相对位置发生变化，需要重新定位");
+        return(-1);
+    }
+}
+
+/*判断是哪个连接点*/
+get_pipe_node_in_box(pipe_handle, xmin,ymin,zmin, xmax,ymax,zmax)
+{
+    flag = 1; nth = 1;
+    while(flag){
+        xn = PM_GET_CONPNT_DATA(pipe_handle,nth,"x");
+        yn = PM_GET_CONPNT_DATA(pipe_handle,nth,"y");
+        zn = PM_GET_CONPNT_DATA(pipe_handle,nth,"z");
+        if(xn==""){
+            flag = 0;
+        }
+        
+        xi = 1.0*xn;
+        yi = 1.0*yn;
+        zi = 1.0*zn;
+        if(xi>= xmin & xi<= xmax){
+            if(yi>= ymin & yi<= ymax){
+                if(zi>= zmin & zi<= zmax){
+                    return nth;
+                }
+            }
+        }
+        nth = nth + 1;
+    }
+    U_MESSAGE("未能计算管子哪个连接点在肘板空间范围之内，取第一个连接点");
+    return 1;
+}
+
+check_rotate_angle(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		angle = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, 1);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+rotate_gusset_handler(item, event_type, button_value)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Gusset_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Gusset_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Gusset_Position_Z,st);
+
+	set = PM_GET_OBJECTS_IN_GROUP(Gusset_Handle);
+         
+	if (item == Rotate_By_X_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Gusset_Rotate_Angle_X,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_X_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Gusset_Rotate_Angle_X,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_Y_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Gusset_Rotate_Angle_Y,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Y_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Gusset_Rotate_Angle_Y,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Z_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Gusset_Rotate_Angle_Z,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}
+	else if (item == Rotate_By_Z_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Gusset_Rotate_Angle_Z,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}     
+	return(0);
+}
+
+/*
+**创建用于移动肘板的面板
+*/
+create_move_gusset_panel(mainform)
+{
+	move_gusset = W_ADD_WINDOW(mainform, W_PANEL, "move_gusset");	
+	W_REALIZE_WINDOW(move_gusset,	W_FRAME_X,		700,
+								W_FRAME_Y,		440,
+							    W_FRAME_WIDTH,	100,
+							    W_FRAME_HEIGHT,	200);
+
+	title = W_ADD_PANELITEM(move_gusset, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+								W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"移动肘板");
+
+	seperate_line = W_ADD_PANELITEM(move_gusset, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+										W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR, 	1);
+		                                 							         
+	/* 肘板移动轴 */ 
+	Gusset_Move_X = W_ADD_PANELITEM(move_gusset, W_PANEL_FILL, "Gusset_Move_X");	
+	W_REALIZE_PANELITEM(Gusset_Move_X,	W_PANEL_ROW, 		1, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"X: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);
+
+	Gusset_Move_Y = W_ADD_PANELITEM(move_gusset, W_PANEL_FILL, "Gusset_Move_Y");	
+	W_REALIZE_PANELITEM(Gusset_Move_Y,	W_PANEL_ROW, 		2, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"Y: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE,		"",
+							            W_PANEL_CALLBACK,	0);	
+										
+	Gusset_Move_Z = W_ADD_PANELITEM(move_gusset, W_PANEL_FILL, "Gusset_Move_Z");	
+	W_REALIZE_PANELITEM(Gusset_Move_Z,	W_PANEL_ROW, 		3, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"Z: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);	
+
+   /* 肘板移动距离 */   
+	Gusset_Move_Distance_X = W_ADD_PANELITEM(move_gusset, W_PANEL_FILL, "Gusset_Move_Distance_X");
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Move_Distance_X,	W_NUMERIC_FLOAT,
+														0.0, 10000.0,
+														"%.0f");	                                                   
+	W_REALIZE_PANELITEM(Gusset_Move_Distance_X,	W_PANEL_ROW, 1, 
+												W_PANEL_COL, 8,
+							                    W_PANEL_LABEL, "",
+							                    W_PANEL_LENGTH, 5,
+         							            W_PANEL_VALUE, "0.0",
+         							            W_PANEL_CALLBACK, 1);        							                
+	W_SET_NUMERIC_VALUE(Gusset_Move_Distance_X, 0.0);	
+
+							               
+	Gusset_Move_Distance_Y = W_ADD_PANELITEM(move_gusset, W_PANEL_FILL, "Gusset_Move_Distance_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Move_Distance_Y,	W_NUMERIC_FLOAT,
+													0.0, 10000.0,	
+													"%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Gusset_Move_Distance_Y,	W_PANEL_ROW, 		2, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	5,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);							               
+	W_SET_NUMERIC_VALUE(Gusset_Move_Distance_Y, 0.0);							               	
+	
+	Gusset_Move_Distance_Z = W_ADD_PANELITEM(move_gusset, W_PANEL_FILL, "Gusset_Move_Distance_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Gusset_Move_Distance_Z,	W_NUMERIC_FLOAT,
+														0.0, 10000.0,	
+														"%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Gusset_Move_Distance_Z,	W_PANEL_ROW, 		3, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	5,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK,	0);
+	W_SET_NUMERIC_VALUE(Gusset_Move_Distance_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Gusset_Move_Distance_X, "check_move_distance");
+	W_SET_PANELITEM_HANDLER(Gusset_Move_Distance_Y, "check_move_distance");   
+	W_SET_PANELITEM_HANDLER(Gusset_Move_Distance_Z, "check_move_distance");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	move_right_image  = icon_path + "move_right.bmp";
+	move_left_image = icon_path + "move_left.bmp";
+     
+	Move_By_X_N = W_ADD_PANELITEM(move_gusset, W_PANEL_BUTTON, "Move_By_X_N");	
+	W_REALIZE_PANELITEM(Move_By_X_N,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE,		move_left_image, 
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+										
+	Move_By_X_P = W_ADD_PANELITEM(move_gusset, W_PANEL_BUTTON, "Move_By_X_P");	
+	W_REALIZE_PANELITEM(Move_By_X_P,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL); 
+							                  
+	Move_By_Y_N = W_ADD_PANELITEM(move_gusset, W_PANEL_BUTTON, "Move_By_Y_N");	
+	W_REALIZE_PANELITEM(Move_By_Y_N,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Y_P = W_ADD_PANELITEM(move_gusset, W_PANEL_BUTTON, "Move_By_Y_P");	
+	W_REALIZE_PANELITEM(Move_By_Y_P,	W_PANEL_ROW, 			2, 
+										W_PANEL_COL, 			15,
+										W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);							                  
+							                  
+	Move_By_Z_N = W_ADD_PANELITEM(move_gusset, W_PANEL_BUTTON, "Move_By_Z_N");	
+	W_REALIZE_PANELITEM(Move_By_Z_N,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Z_P = W_ADD_PANELITEM(move_gusset, W_PANEL_BUTTON, "Move_By_Z_P");	
+	W_REALIZE_PANELITEM(Move_By_Z_P,    W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+							                   							               			         							         														
+	W_SET_PANELITEM_HANDLER(Move_By_X_P, "move_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_X_N, "move_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_P, "move_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_N, "move_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_P, "move_gusset_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_N, "move_gusset_handler");
+	
+	return(move_gusset);
+}
+
+check_move_distance(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		Distance = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			dummy = 1;
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, dummy);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+move_gusset_handler(item, event_type, button_value)
+{
+	set = PM_GET_OBJECTS_IN_GROUP(Gusset_Handle);
+      
+	if (item == Move_By_X_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Gusset_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Gusset_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Gusset_Position_X,x0);
+		trans_abs_ref();
+	}
+	else if (item == Move_By_X_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Gusset_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Gusset_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Gusset_Position_X,x0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Gusset_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Gusset_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Gusset_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Gusset_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Gusset_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Gusset_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Gusset_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Gusset_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Gusset_Position_Z,z0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Gusset_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Gusset_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Gusset_Position_Z,z0);
+		trans_abs_ref();       
+	}  
+	return(0);
+}
+
+create_command_panel(mainform)
+{	
+	Command = W_ADD_WINDOW(mainform, W_PANEL, "Command");
+	W_REALIZE_WINDOW(Command,	W_FRAME_X, 		0,
+							    W_FRAME_Y,		540,
+							    W_FRAME_WIDTH,	650,
+							    W_FRAME_HEIGHT,	50);
+
+	title = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "title");
+	
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"命令");
+
+   seperate_line = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "seperate_line");
+   
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		3,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);	
+		                                 													
+	Create_Gusset = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Create_Gusset");
+	
+	W_REALIZE_PANELITEM(Create_Gusset,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			0,
+							            W_PANEL_BUTTONIMAGE, 	"创建", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Create_Gusset, "create_gusset_handler");
+
+	Delete_Gusset = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Delete_Gusset");
+	
+	W_REALIZE_PANELITEM(Delete_Gusset,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			11,
+							            W_PANEL_BUTTONIMAGE, 	"删除", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	503,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Delete_Gusset, "delete_gusset_handler");
+
+	Browse_Gusset = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Browse_Gusset");
+	
+	W_REALIZE_PANELITEM(Browse_Gusset,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			22,
+							            W_PANEL_BUTTONIMAGE, 	"浏览", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	504,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Browse_Gusset, "browse_gusset_handler");
+
+	Undo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Undo");
+	
+	W_REALIZE_PANELITEM(Undo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			33,
+							    W_PANEL_BUTTONIMAGE, 	"Undo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	505,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Undo, "undo_handler");
+
+	Redo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Redo");
+	
+	W_REALIZE_PANELITEM(Redo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			44,
+							    W_PANEL_BUTTONIMAGE, 	"Redo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	506,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Redo, "redo_handler");
+				 
+	quit = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "quit");
+	
+	W_REALIZE_PANELITEM(quit,	W_PANEL_ROW,         1, 
+								W_PANEL_COL,         55,
+								W_PANEL_BUTTONIMAGE, "退出", 
+							    W_PANEL_WIDTH,       10,
+							    W_PANEL_BUTTONVALUE, 507,
+							    W_PANEL_CALLBACK,    1,
+							    W_PANEL_CLOSEBUTTON, 1,
+							    W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	return(Command);
+}
+
+/*保留1位小数*/
+string_para(float_para)
+{
+    temp = "";
+    S_PRINTF(temp,"%.1f",float_para);
+    return temp;
+}
+
+/*保存设计参数*/
+save_model_size()
+{
+	para = "";
+	if(Gusset_Size_A != 0.0){
+		para = para + "A=" + string_para(Gusset_Size_A);
+	}
+	if(Gusset_Size_B != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//B=" + string_para(Gusset_Size_B);
+		}
+		else{
+			para = para + "B=" + string_para(Gusset_Size_B);
+		}
+	}	
+	if(Gusset_Size_R != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//R=" + string_para(Gusset_Size_R);
+		}
+		else{
+			para = para + "R=" + string_para(Gusset_Size_R);
+		}
+	}
+	if(Gusset_Size_D != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//D=" + string_para(Gusset_Size_D);
+		}
+		else{
+			para = para + "D=" + string_para(Gusset_Size_D);
+		}
+	}
+	if(Gusset_Size_a1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//a1=" + string_para(Gusset_Size_a1);
+		}
+		else{
+			para = para + "a1=" + string_para(Gusset_Size_a1);
+		}
+	}
+	if(Gusset_Size_b1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//b1=" + string_para(Gusset_Size_b1);
+		}
+		else{
+			para = para + "b1=" + string_para(Gusset_Size_b1);
+		}
+	}
+	if(Gusset_Size_r != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//r=" + string_para(Gusset_Size_r);
+		}
+		else{
+			para = para + "r=" + string_para(Gusset_Size_r);
+		}
+	}	
+	if(Gusset_Size_n != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//n=" + string_para(Gusset_Size_n);
+		}
+		else{
+			para = para + "n=" + string_para(Gusset_Size_n);
+		}
+	}
+  
+	Set_Attribute_Value(Gusset_Handle, GussetSize, para);
+}
+
+/*读取设计参数*/
+read_model_size()
+{
+	nth = 0;
+	para = PM_GET_OBJDATA(Gusset_Handle,nth,GussetSize);
+	if(ISSTRING(para)){	
+		/*get seat type & size from parameter of equipment GDL*/
+		flag = 1;
+		while(flag){
+			parameter = STRINGTERM(para,"//");
+			if(parameter != ""){
+				name = STRINGTERM(parameter,"=");
+				value = TAIL(parameter,STRLEN(parameter)-STRLEN(name)-1);
+				if(name == "A"){
+					Gusset_Size_A = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_A,Gusset_Size_A);
+				}
+				else if(name == "B"){
+					Gusset_Size_B = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_B,Gusset_Size_B);
+				}
+				else if(name == "R"){
+					Gusset_Size_R = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_R,Gusset_Size_R);
+				}
+				else if(name == "D"){
+					Gusset_Size_D = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_D,Gusset_Size_D);
+				}
+				else if(name == "a1"){
+					Gusset_Size_a1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_a1,Gusset_Size_a1);
+				}
+				else if(name == "b1"){
+					Gusset_Size_b1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_b1,Gusset_Size_b1);
+				}
+				else if(name == "r"){
+					Gusset_Size_r = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_r,Gusset_Size_r);
+				}
+				else if(name == "n"){
+					Gusset_Size_n = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Gusset_Para_n,Gusset_Size_n);
+				}
+			}
+			else{
+				flag = 0;            
+			}
+			para = TAIL(para,STRLEN(para) - STRLEN(parameter) - 2);        
+		}
+	}
+	return(0);
+}
+
+browse_gusset_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);	
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);   
+}
+
+delete_gusset_handler(item, event_type, button_value)
+{
+	flag = 1;
+	while(flag){
+		tmp = 0;
+		picked_object_handle = PM_PICK_OBJECT("请选择要删除的肘板", tmp, "STRUCTCMP","BEAM");
+		if (!ISINT(picked_object_handle)){	   
+			/*获取肘板的名称*/
+			group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,Group_Type_I);
+			if (ISINT(group_handle)){
+				U_CONFIRM("此零件不属于任何肘板");	      	
+				return(0);
+			}	
+			group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);
+			/* 定义UNDO缓存 */
+			st = PM_UM_OPEN_CHANGE("删除肘板" + group_name);	 
+      	  
+			/* 删除肘板零件 */
+			gusset_members = PM_GET_OBJECTS_IN_GROUP(group_handle);
+			PM_DELETE_OBJECTS_IN_SET(gusset_members, 0);  
+            
+			/* 删除肘板 */   
+			res = PM_DELETE_OBJECT(group_handle);
+         
+			/* 肘板删除不成功，撤销相关操作 */
+			if (res == -1){
+				PM_UM_CLOSE_CHANGE();
+				PM_UM_UNDO_LAST_CHANGE();
+				return(0);
+			}        
+			st = PM_UM_CLOSE_CHANGE();  	      	      						
+		} 
+		else{
+			flag = 0;
+		} 
+	}
+   
+	/*肘板删除成功，进入创建新肘板状态*/   
+	W_SET_PANELITEM_ARGS(Gusset_Name, W_PANEL_VALUE, "Undefined");   
+	W_SET_PANELITEM_ARGS(Modify_Gusset, W_PANEL_SENSITIVITY,0);
+	W_SET_PANELITEM_ARGS(Create_Gusset, W_PANEL_SENSITIVITY,1);   
+	Modify_flag = 0;
+	return(0);
+}
+
+redo_handler(item, event_type, button_value)
+{
+	res = PM_UM_REDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		gusset_name = PM_GET_OBJDATA(Gusset_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(gusset_name)){ 
+			reload_gusset_data(gusset_name);
+		}
+	}   
+	return(0);
+}
+
+undo_handler(item, event_type, button_value)
+{
+	res = PM_UM_UNDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		gusset_name = PM_GET_OBJDATA(Gusset_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(gusset_name)){ 
+			reload_gusset_data(gusset_name);
+		}
+	}
+	return(0);
+}
+
+delete_gusset_members()
+{
+	gusset_members = PM_GET_OBJECTS_IN_GROUP(Gusset_Handle);
+	PM_DELETE_OBJECTS_IN_SET(gusset_members, 0); 
+	return(0);   
+}
+
+/*
+**加载
+*/
+load_default_setting()
+{
+	permision = PM_PREPARE_TO_EDIT_SETTINGS();
+	if(permision != 0){
+		U_MESSAGE("用户没有保存共享设置的权限");
+	}
+   
+	/*加载肘板信息的默认值*/
+	system_name = "";
+	st = GET_STRING_DEFAULT("Gusset102", "System_Name", system_name);
+	if(st == 0){
+	    SystemName = system_name;
+		SystemId = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);	   
+	}
+	else{
+		system_name = "Foundation";
+		system_id = PM_GET_SYSTEM_ID(system_name);
+		if(system_id != -1){
+			W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+			SystemName = system_name;
+			SystemId = system_id;
+		} 	   
+	}
+	
+	/*加载肘板名称*/
+	description = "";
+	st = GET_STRING_DEFAULT("Gusset102", "ModelDescription", description);
+	if(st == 0){
+	    ModelDescription = description;
+		W_SET_PANELITEM_ARGS(Gusset_Description, W_PANEL_VALUE, description);
+	}	
+	
+	/*加载肘板托盘*/
+	planning_unit = "";
+	st = GET_STRING_DEFAULT("Gusset102", "Planning_Unit", planning_unit);
+	if(st == 0){
+	    PlanningUnit_ = planning_unit;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, planning_unit);
+	}		
+	
+	/*加载默认的零件*/
+    part_id = "";
+    st = GET_STRING_DEFAULT("Gusset102","Gusset_Part1", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part1:   " + descr);
+		W_SET_PANELITEM_ARGS(Gusset_Part1, W_PANEL_VALUE, descr);
+        Gusset_Part1_Pid = part_id;
+	}	
+    st = GET_STRING_DEFAULT("Gusset102","Gusset_Part2", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part2:   " + descr);
+		W_SET_PANELITEM_ARGS(Gusset_Part2, W_PANEL_VALUE, descr);
+        Gusset_Part2_Pid = part_id;
+	}	
+    
+	/*load default value of gusset size*/
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_A", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_A, size);
+		Gusset_Size_A = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_A, 400.00);
+		Gusset_Size_A = 400.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_A", Gusset_Size_A); 
+	}
+	
+   size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_B", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_B, size);
+		Gusset_Size_B = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_B, 300.00);
+		Gusset_Size_B = 300.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_B", Gusset_Size_B); 
+	}
+	
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_R", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_R, size);
+		Gusset_Size_R = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_R, 500.00);
+		Gusset_Size_R = 500.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_R", Gusset_Size_R); 
+	}
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_D", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_D, size);
+		Gusset_Size_D = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_D, 500.00);
+		Gusset_Size_D = 500.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_D", Gusset_Size_D); 
+	}
+    
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_a1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_a1, size);
+		Gusset_Size_a1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_a1, 100.00);
+		Gusset_Size_a1 = 100.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_a1", Gusset_Size_a1); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_b1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_b1, size);
+		Gusset_Size_b1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_b1, 80.00);
+		Gusset_Size_b1 = 80.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_b1", Gusset_Size_b1); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_r", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_r, size);
+		Gusset_Size_r = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_r, 50.00);
+		Gusset_Size_r = 50.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_r", Gusset_Size_r); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_n", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_n, size);
+		Gusset_Size_n = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Gusset_Para_n, 4.00);
+		Gusset_Size_n = 4.00;	  
+		SET_FLOAT_DEFAULT("Gusset102", "Gusset_Para_n", Gusset_Size_n); 
+	}	
+ 
+	return(0);
+}
+
+initialize()
+{
+   /* 获取当前光标点坐标并显示到面板中 */
+   /* get the current position and display value of coordinate */
+   x0 = 0;
+   y0 = 0;
+   z0 = 0;   
+   PM_GET_CURRENT_LOC(x0, y0, z0);   
+   W_SET_NUMERIC_VALUE(Gusset_Position_X, x0);
+   W_SET_NUMERIC_VALUE(Gusset_Position_Y, y0);
+   W_SET_NUMERIC_VALUE(Gusset_Position_Z, z0);
+   
+   /* 将绝对坐标转换成相对坐标并显示到面板中 */
+   /* convert abstract coordinate value into reference and display on panel */
+   x_ref = "";
+   y_ref = "";
+   z_ref = "";
+   x_offset = 0;
+   y_offset = 0;
+   z_offset = 0;
+   
+   Gusset_X0 = x0;
+   Gusset_Y0 = y0;
+   Gusset_Z0 = z0;
+   
+   res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+   
+   if (res == 0){   
+		W_SET_PANELITEM_ARGS(Gusset_Position_Xref, W_PANEL_VALUE, x_ref);
+		W_SET_PANELITEM_ARGS(Gusset_Position_Yref, W_PANEL_VALUE, y_ref);
+		W_SET_PANELITEM_ARGS(Gusset_Position_Zref, W_PANEL_VALUE, z_ref);
+   
+		W_SET_NUMERIC_VALUE(Gusset_Position_Xoff, x_offset);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Yoff, y_offset);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Zoff, z_offset);      
+   }
+   
+	else if (res == -1){     
+		W_SET_PANELITEM_ARGS(Gusset_Position_Xref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Gusset_Position_Yref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Gusset_Position_Zref, W_PANEL_VALUE, "Unset");
+   
+		W_SET_NUMERIC_VALUE(Gusset_Position_Xoff, 0);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Yoff, 0);
+		W_SET_NUMERIC_VALUE(Gusset_Position_Zoff, 0); 
+      
+		U_CONFIRM("参考坐标系定义不正确");           
+   }
+    
+   W_SET_PANELITEM_ARGS(Modify_Gusset, W_PANEL_SENSITIVITY,0);
+   Modify_flag = 0;
+   
+   Part11 = A_ALLOC(15);
+   Part12 = A_ALLOC(15);
+   Part13 = A_ALLOC(15);
+   Part14 = A_ALLOC(15);   
+   Part15 = A_ALLOC(15); 
+   Part16 = A_ALLOC(15); 
+   Part17 = A_ALLOC(15); 
+   Part18 = A_ALLOC(15); 
+   Part21 = A_ALLOC(15);
+   Part31 = A_ALLOC(15);
+   
+   load_default_setting();
+   return(0);
+}
+
+main()
+{
+	mainform  = create_top_frame();	
+	Panel_1 = create_template_panel(mainform);
+	Panel_2 = create_info_panel(mainform);
+	Panel_3 = create_material_panel(mainform);
+	Panel_4 = create_command_panel(mainform);
+	Panel_5 = create_parameter_panel(mainform);
+	Panel_6 = create_position_panel(mainform);
+	/* Panel_7 = create_rotate_gusset_panel(mainform); */
+	/* Panel_8 = create_move_gusset_panel(mainform); */
+	initialize();	
+	MainWindow = mainform;
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
