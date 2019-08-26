@@ -1,7 +1,7 @@
 /* $Id: ReportPenetrationList.mac,v1.0.0 2019/07/30 Jack.Leng $ */
 
 /*
-**	这个程序用于生成挡水圈清册.
+**	这个程序用于生成挡水圈/护圈清册.
 */
 
 #include "include/dmutil.h"
@@ -39,7 +39,7 @@ global int  Debug = 1;
 **define size of array
 */
 
-#define  Report_Column_Number 10
+#define  Report_Column_Number 11
 
 /*
 **定义界面语言
@@ -90,7 +90,7 @@ init()
 	
 	W_SET_PANELITEM_ARGS(Report_Path, W_PANEL_VALUE, "C:/TEMP/");
 	
-	W_SET_PANELITEM_ARGS(Report_Template, W_PANEL_VALUE, "P:/报表模板/挡水圈清册.xlsx");
+	W_SET_PANELITEM_ARGS(Report_Template, W_PANEL_VALUE, "P:/报表模板/挡水圈护圈清册.xlsx");
 }
 
 init0()
@@ -98,14 +98,15 @@ init0()
 	Grid_Title = A_ALLOC(Report_Column_Number, "STRING");
 	A_PUT(Grid_Title,0,"分段");
 	A_PUT(Grid_Title,1,"托盘");
-	A_PUT(Grid_Title,2,"编号");
-	A_PUT(Grid_Title,3,"型号规格");
-	A_PUT(Grid_Title,4,"材质");
-	A_PUT(Grid_Title,5,"长度");
-	A_PUT(Grid_Title,6,"表面积");
-    A_PUT(Grid_Title,7,"表面处理");
-	A_PUT(Grid_Title,8,"重量");
-    A_PUT(Grid_Title,9,"备注");
+    A_PUT(Grid_Title,2,"名称");
+	A_PUT(Grid_Title,3,"编号");
+	A_PUT(Grid_Title,4,"型号规格");
+	A_PUT(Grid_Title,5,"材质");
+	A_PUT(Grid_Title,6,"长度");
+	A_PUT(Grid_Title,7,"表面积");
+    A_PUT(Grid_Title,8,"表面处理");
+	A_PUT(Grid_Title,9,"重量");
+    A_PUT(Grid_Title,10,"备注");
 }
 
 /*
@@ -164,20 +165,7 @@ get_report_info()
 	}	
     
     /*汇总 判断相同的列*/
-    judgecols = A_ALLOC(2, "INT");
-	A_PUT(judgecols,0,3);
-	A_PUT(judgecols,1,4);
-    /*汇总 需要汇总的列*/
-    sumcols = A_ALLOC(3, "INT");
-	A_PUT(sumcols,0,5);
-	A_PUT(sumcols,1,6);
-    A_PUT(sumcols,2,8);
-    
-    free_2darray(Summary);
-    Summary = summation(report, judgecols, sumcols);
-    
-    A_FREE(judgecols);
-    A_FREE(sumcols);
+    get_summation_info(report);
     
 	/*save report information to global array*/
 	Report_Row_Number = row_number;
@@ -197,6 +185,27 @@ get_report_info()
 
 	free_2darray(report);	
 	return(0);
+}
+
+get_summation_info(report)
+{
+    /*汇总 判断相同的列*/
+    judgecols = A_ALLOC(3, "INT");
+	A_PUT(judgecols,0,2);
+    A_PUT(judgecols,1,4);
+	A_PUT(judgecols,2,5);
+    /*汇总 需要汇总的列*/
+    sumcols = A_ALLOC(3, "INT");
+	A_PUT(sumcols,0,6);
+	A_PUT(sumcols,1,7);
+    A_PUT(sumcols,2,9);
+    
+    free_2darray(Summary);
+    Summary = summation(report, judgecols, sumcols);
+    
+    A_FREE(judgecols);
+    A_FREE(sumcols);
+    return(0);
 }
 
 /*材料汇总*/
@@ -249,7 +258,10 @@ summation(inputlist, judgecols, sumcols)
                     tag_m = tag_m + string_val(n) + ",";
                 }
             }
-            put_2darray(reslist,m,A_GET(sumcols,s),rtrim_number(string_val(sum_m)));
+            
+            /*保留3位小数*/
+            str_sum_m = round_float_as_string(sum_m, 3);
+            put_2darray(reslist,m,A_GET(sumcols,s),rtrim_number(str_sum_m));
         }
         DM_VECTOR_PUSH_BACK(taglist, string_val(tag_m));
     }
@@ -290,8 +302,10 @@ get_penetration_info(penetration,report,row_number,penetrations)
                 block_name = get_block_name(penetration);
                 /*管段的托盘作为挡水圈托盘*/
                 planning_unit = get_penetration_planning_unit(penetration);
+                /*挡水圈形式*/
+                penetration_type = get_penetration_type(penetration); 
                 /*挡水圈编号*/
-                penetration_name = get_penetration_name(penetration,Penetration_List); 
+                penetration_name = get_penetration_name(penetration); 
                 /*通过mdl文件解析长度,面积,重量*/
                 description = ""; length = ""; area = ""; weight = "";
                 relocate(penetration,description,length,area,weight);
@@ -303,15 +317,16 @@ get_penetration_info(penetration,report,row_number,penetrations)
                 remark = get_penetration_remark(penetration);
                 
                 put_2darray(report,row_number,0,block_name);
-                put_2darray(report,row_number,1,planning_unit);        
-                put_2darray(report,row_number,2,penetration_name);
-                put_2darray(report,row_number,3,description);
-                put_2darray(report,row_number,4,material);
-                put_2darray(report,row_number,5,length);
-                put_2darray(report,row_number,6,area);
-                put_2darray(report,row_number,7,surfacetreatment);
-                put_2darray(report,row_number,8,weight);
-                put_2darray(report,row_number,9,remark);
+                put_2darray(report,row_number,1,planning_unit);    
+                put_2darray(report,row_number,2,penetration_type);                 
+                put_2darray(report,row_number,3,penetration_name);
+                put_2darray(report,row_number,4,description);
+                put_2darray(report,row_number,5,material);
+                put_2darray(report,row_number,6,length);
+                put_2darray(report,row_number,7,area);
+                put_2darray(report,row_number,8,surfacetreatment);
+                put_2darray(report,row_number,9,weight);
+                put_2darray(report,row_number,10,remark);
                 
                 A_PUT(penetrations,row_number,penetration);
                 row_number = row_number + 1; 
@@ -333,8 +348,33 @@ get_block_name(penetration)
     return (block_name);
 }
 
-/* 挡水圈的托盘为其所属的管段的托盘 */
+/* 挡水圈的托盘 20190823更新*/
 get_penetration_planning_unit(penetration)
+{
+    planning_unit = "999";
+    pent_parts = PM_GET_OBJECTS_IN_GROUP(penetration);
+    part_number = PM_NR_MEMBERS_IN_SET(pent_parts);        
+    for(i=0;i<part_number;i=i+1;){
+        part = PM_GET_MEMBER_IN_SET(pent_parts,i);
+        /*part_id = PM_GET_OBJDATA(part,0, MMT_TAG_PARTID);*/
+        obj_type = PM_GET_OBJDATA(part,0, MMT_TAG_OBJTYPE);
+        if (obj_type==4){
+            xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+            res = PM_GET_BBOX_OF_OBJECT(part, xmin, xmax, ymin, ymax, zmin, zmax); 
+            pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,3);
+            if(!ISINT(pipes)){
+                parti = PM_GET_MEMBER_IN_SET(pipes,0);
+                /* 获取托盘 */
+                planning_unit = get_planning_unit_from_part(parti);
+                return(planning_unit);
+            }
+        }
+    }
+	return(planning_unit);
+}
+
+/* 挡水圈的托盘为其所属的管段的托盘 */
+get_penetration_planning_unit_A(penetration)
 {
     planning_unit = "Unset";
     pent_parts = PM_GET_OBJECTS_IN_GROUP(penetration);
@@ -343,14 +383,19 @@ get_penetration_planning_unit(penetration)
         part = PM_GET_MEMBER_IN_SET(pent_parts,i);
         /*part_id = PM_GET_OBJDATA(part,0, MMT_TAG_PARTID);*/
         obj_type = PM_GET_OBJDATA(part,0, MMT_TAG_OBJTYPE);
-        if (obj_type==3){
+        if (obj_type==4){
             xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
             res = PM_GET_BBOX_OF_OBJECT(part, xmin, xmax, ymin, ymax, zmin, zmax); 
-            obj_type = 3;
-            pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,obj_type);
+            pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,3);
             if(!ISINT(pipes)){
-                pipe = PM_GET_MEMBER_IN_SET(pipes,0);
-                spool_handle = PM_GET_OBJECT_GROUP(pipe,0);	/* 获取管段的handle */
+                parti = PM_GET_MEMBER_IN_SET(pipes,0);
+
+                /* 获取管段的handle 18T3以后的版本适用*/
+                /*spool_handle = PM_GET_OBJECT_GROUP(parti,0);*/	
+                
+                /*获取管段的handle，18T2版本适用*/
+                spool_handle = get_spool_handle(parti);
+                
                 if(!ISINT(spool_handle)){	
                     model_planning_unit = Get_Attribute_Value(spool_handle, Tag_Spool_PlanningUnit);
                     if(ISSTRING(model_planning_unit)){
@@ -364,23 +409,101 @@ get_penetration_planning_unit(penetration)
 	return(planning_unit);
 }
 
+get_spool_handle(part)
+{
+	spool_number = PM_GET_OBJDATA(part, 0, MMT_COSA_SPOOL_NAME);
+	if(spool_number ==0 ){
+		U_MESSAGE("还未生成管段");
+		return(-1);
+	}
+	line_name = PM_GET_OBJDATA(part, 0, MMT_TAG_PIPELINE_NAME);
+	member_path = PM_GET_OBJDATA(part, 0, MMT_TAG_MEMBERSHIPPATH);
+	group_id = SUBSTRING(STRINGTERM(SEARCH(member_path,"@"),":"),1);
+	obj_handle = PM_FIND_BY_OBJID(group_id);
+	return(obj_handle);
+}
+
+/* 挡水圈的形式 */
+get_penetration_type(penetration)
+{
+    penetration_type = "Unset";
+    pent_parts = PM_GET_OBJECTS_IN_GROUP(penetration);
+    part_number = PM_NR_MEMBERS_IN_SET(pent_parts);        
+    for(i=0;i<part_number;i=i+1;){
+        part = PM_GET_MEMBER_IN_SET(pent_parts,i);
+        /*part_id = PM_GET_OBJDATA(part,0, MMT_TAG_PARTID);*/
+        obj_type = PM_GET_OBJDATA(part,0, MMT_TAG_OBJTYPE);
+        if (obj_type==4){
+            penetration_type = PM_GET_OBJDATA(part,0, Tag_Penetration_Type);
+            return(penetration_type);
+        }
+    }
+    return (penetration_type);
+}
+
 /* 挡水圈的件号命名 */
-get_penetration_name(penetration,models)
+get_penetration_name(penetration)
 {
     penetration_name = "Unset";
-    value = PM_GET_OBJDATA(penetration,0,Tag_Penetration_Name);
+    value = PM_GET_OBJDATA(penetration,0,Tag_Penetration_FabDn);
     if(ISSTRING(value)){
         penetration_name = value;
     }
     else{
+        penetration_type = get_penetration_type(penetration);
         planning_unit = get_penetration_planning_unit(penetration);
-        penetration_name = auto_naming(planning_unit,models);
+        penetration_name = auto_naming(planning_unit,penetration_type);
 		check_name = PATTERN_MATCH(penetration_name,"Unset*");
 		if(!check_name){	
-		    Set_Attribute_Value(penetration,Tag_Penetration_Name,penetration_name);
+		    Set_Attribute_Value(penetration,Tag_Penetration_FabDn,penetration_name);
 	    }
     }
-    return (penetration_name);
+    return(penetration_name);
+}
+
+/*挡水圈编号*/
+auto_naming(planning_unit,penetration_type)
+{
+    flag = "XX";
+    if(penetration_type=="挡水圈"){
+        flag = "PH";
+    }
+    if(penetration_type=="护圈"){
+        flag = "PK";
+    }
+    
+    index_number = "00";
+    for(i=1;i<1000;i=i+1;){
+        penetration_name = planning_unit + "-" + flag + "-" + HEAD(index_number,STRLEN(index_number) - STRLEN(ITOASCII(i))) + ITOASCII(i);
+        find = find_isnamed(penetration_name);
+        if(find<1){
+            return(penetration_name);
+        }
+    }
+    return("Undefined"); 
+}
+
+find_isnamed(penetration_name)
+{
+	penetration_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+    if(penetration_number==0){
+        penetration_number = PM_NR_MEMBERS_IN_SET(Penetration_List);
+        rangeObjects = Penetration_List;
+    }
+    else{
+        rangeObjects = Selected_Objects;
+    }
+    
+	for (i = 0; i < penetration_number; i = i + 1;){
+		penetration = PM_GET_MEMBER_IN_SET(rangeObjects, i);	
+        value = PM_GET_OBJDATA(penetration,0, Tag_Penetration_FabDn);
+        if(ISSTRING(value)){
+            if(penetration_name==value){
+                return (1);
+            }
+        }
+	}
+    return (0);
 }
 
 /* 挡水圈的材质 */
@@ -475,12 +598,11 @@ publish_model_info()
 }
 /*
 **创建顶层窗体
-**Create Top frame
 */
 create_top_frame()
 {
 	mainform = W_INIT_FRAME();
-	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "挡水圈清册" );	
+	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "挡水圈/护圈清册" );	
 	return(mainform);
 }
 
@@ -507,7 +629,6 @@ create_grid(main_form)
 	set_column_title(wobj, Grid_Title, Report_Column_Number);				
 	return(wobj);
 }
-
 
 quit_handler(item, event_type, button_value)
 {
@@ -629,9 +750,9 @@ modify_info_handler(item, event_type, button_value)
     
     /*映射相应的列*/
 	maps = A_ALLOC(tag_number);
-	A_PUT(maps,0,2);
-	A_PUT(maps,1,7);
-	A_PUT(maps,2,9);
+	A_PUT(maps,0,3);
+	A_PUT(maps,1,8);
+	A_PUT(maps,2,10);
     
 	/* get column number of item that will be modified */
 	si = 1;
@@ -754,7 +875,7 @@ search_model(item, event_type, button_value)
 	/* put the result to the array 'Penetration_List' */
     PM_FREE_SET(Penetration_List);
     Penetration_List = PM_INIT_SET();		
-	Penetration_List = PM_COPY_SET(temp_list); 	
+	Penetration_List = PM_COPY_SET(temp_list);
 
 	Penetration_Number = PM_NR_MEMBERS_IN_SET(Penetration_List);
 	if (Penetration_Number <= 0){
@@ -789,8 +910,8 @@ filter_model(models)
         if(model_planning_unit == "Unset"){
             model_planning_unit = "*";
         }
-        model_penetration_name = get_penetration_name(penetration,models);
-        if(model_penetration_name == "Unset"){
+        model_penetration_name = PM_GET_OBJDATA(penetration,0,Tag_Penetration_FabDn);
+        if(!ISSTRING(model_penetration_name)){
             model_penetration_name = "*";
         }
         
@@ -887,7 +1008,7 @@ create_panel_upperpart(mainform)
                                         W_PANEL_BUTTONVALUE, 210,
                                         W_PANEL_CALLBACK,    1,
                                         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
-                                        
+
 	Options = W_ADD_PANELITEM(panel_upperpart, W_PANEL_TOGGLE, "options");
 	W_REALIZE_PANELITEM(Options,    W_PANEL_ROW, 1, W_PANEL_COL, 50,
                                     W_PANEL_LABEL, "",
@@ -951,7 +1072,16 @@ create_panel_underpart(mainform)
                                         W_PANEL_BUTTONVALUE, 202,
                                         W_PANEL_CALLBACK,    1,
                                         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							    
-														 							 
+														 				
+	restore_default = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "restore_default");
+	W_REALIZE_PANELITEM(restore_default,   W_PANEL_ROW, 	    22, 
+	                                       W_PANEL_COL,         12,
+							               W_PANEL_BUTTONIMAGE, "恢复默认值", 
+							               W_PANEL_WIDTH,       10,
+							               W_PANEL_BUTTONVALUE, 202,
+							               W_PANEL_CALLBACK,    1,
+							               W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+                                           
 	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
 	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	      22, 
 	                                    W_PANEL_COL,         49,
@@ -972,11 +1102,65 @@ create_panel_underpart(mainform)
                                 W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
 							 
 	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	W_SET_PANELITEM_HANDLER(restore_default, "restore_default_handler");
 	W_SET_PANELITEM_HANDLER(model_browsing, "model_browsing_handler");
 	W_SET_PANELITEM_HANDLER(export_report, "export_to_excel");
 	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
 	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
 	return(panel_underpart);
+}
+
+restore_default_handler(item, event_type, button_value)
+{
+	/* check if already select objects in list */
+	penetration_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (penetration_number <= 0){
+		U_CONFIRM("请先选择挡水圈/护圈");
+		return(0);
+	}
+    
+	/* 先将选中腹板编号替换成临时编号 */
+	for (i = 0; i < penetration_number; i = i + 1){
+		penetration = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+		penetration_plate = get_penetration_plate(penetration);
+		access = Get_Object_Access_Status(penetration_plate);
+		if(access == "CheckOutByMe"){
+            planning_unit = get_penetration_planning_unit(penetration);
+            temp_name = auto_naming(planning_unit,"LS");
+            check_name = PATTERN_MATCH(temp_name,"Unset*");
+            if(!check_name){
+                Set_Attribute_Value(penetration,Tag_Penetration_FabDn,temp_name);
+            }
+		}
+	}
+	/* 再将选中腹板编号 */
+	for (i = 0; i < penetration_number; i = i + 1){
+		penetration = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+		penetration_plate = get_penetration_plate(penetration);
+		penetration_name = get_penetration_name(penetration);
+		access = Get_Object_Access_Status(penetration_plate);
+		if(access == "CheckOutByMe"){
+            penetration_type = get_penetration_type(penetration); 
+            planning_unit = get_penetration_planning_unit(penetration);
+            def_name = auto_naming(planning_unit,penetration_type);
+            check_name = PATTERN_MATCH(def_name,"Unset*");
+            if(!check_name){	
+                Set_Attribute_Value(penetration,Tag_Penetration_FabDn,def_name);
+            }	
+		}
+		else{
+			mess = "你没有挡水圈/护圈<" + penetration_name + ">的修改权限";
+			U_CONFIRM(mess);		
+		}
+	}
+    
+	/* refresh data grid */
+	get_report_info();
+	publish_model_info();
+
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
 }
 
 select_path_handler(item, event_type, dummy)
@@ -990,7 +1174,7 @@ select_path_handler(item, event_type, dummy)
 select_template_handler(item, event_type, dummy)
 {
     flag = 0;
-    template = U_GET_FILENAME("请选择模板文件", "P:\\报表模板\\","风挡水圈托盘表.xlsx", "Excel File(*.xlsx)\nExcel File(*.xlsx)\nAll Files(*.*)",2 ,flag);
+    template = U_GET_FILENAME("请选择模板文件", "P:\\报表模板\\","挡水圈护圈清册.xlsx", "Excel File(*.xlsx)\nExcel File(*.xlsx)\nAll Files(*.*)",2 ,flag);
     if(ISSTRING(template)){
         W_SET_PANELITEM_ARGS(Report_Template,W_PANEL_VALUE,template);
     }
@@ -1063,7 +1247,100 @@ export_to_excel(item, event_type, dummy)
 	return(0);
 }
 
+/*将列表中选中的数据导出*/
 write_to_temp_file(file)
+{    
+	/* check if already select objects in list */
+	penetration_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (penetration_number <= 0){
+		U_CONFIRM("请先选择挡水圈/护圈");
+		return(0);
+	}
+    
+	/*项目信息*/
+    res = Get_Project_Attribute(Tag_Project_Number);
+    if (!ISSTRING(res)){
+        project_number = "";
+    }else{
+        project_number = res;
+    }
+    res = Get_Project_Attribute(Tag_Project_Description);
+    if (!ISSTRING(res)){
+        project_descr = "";
+    }else{
+        project_descr = res;
+    }
+    
+    planning_unit = W_GET_PANELITEM_ARG(PlanningUnit, W_PANEL_VALUE);
+	U_INIT_DIALOG("请输入托盘信息");
+    s_f1 = U_SET_STR("托盘号:", planning_unit, 18);
+    s_f2 = U_SET_STR("图  号:", "", 18);
+    if(U_DIALOG()<0){
+        U_MESSAGE("用户取消操作");
+        return(0);
+    }
+    planning_unit = U_GET_STR(s_f1);
+    drawing_number= U_GET_STR(s_f2);
+
+    info = "挡水圈护圈清册" + ",#" + project_number + ",#" + project_descr + ",#" + planning_unit + ",#" + drawing_number + ",#";
+   	F_WRITE_STR(file,info);
+   	F_WRITE_NEWLINE(file);	
+
+    /*托盘表信息*/
+    info = "Table,#挡水圈护圈清册" + ",#5,#1,#12";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);	
+    
+    /*选中的信息*/
+    select_info = alloc_2darray(penetration_number,Report_Column_Number);
+
+	/* assign new value to selected objects */
+	for (i = 0; i < penetration_number; i = i + 1){
+        info = "Line,#" + ITOASCII(i+1) + ",#";
+		/* penetration = PM_GET_MEMBER_IN_SET(Selected_Objects, i); */
+		/* penetration_part = get_penetration_plate(penetration); */
+        row_index = A_GET(Selected_Rows,i);
+        for(k=2;k<Report_Column_Number;k=k+1;){
+            value = get_2darray(Report_Info, row_index, k);
+            put_2darray(select_info, i, k, value);
+            if(k == 100){
+                /*报表模板中有合并的单元格，在此补空值*/
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);
+	}
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    
+    /*汇总 判断相同的列*/
+    get_summation_info(select_info);
+    
+    info = "Table,#挡水圈护圈材料汇总" + ",#5,#1,#12";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    
+    srows = nrows_2darray(Summary);
+    for(i=0;i<srows;i=i+1;){   
+        info = "Line,#"+ITOASCII(i+1)+",#";
+        for(k=2;k<Report_Column_Number;k=k+1;){
+            value = get_2darray(Summary,i,k);
+            if(k != 3 & k != 8 & k != 10){
+                info = info + value + ",#";	
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);
+    }
+    return(0);   
+}
+
+/*将列表中数据全部导出*/
+write_to_temp_file_all(file)
 {    
 	/*项目信息*/
     res = Get_Project_Attribute(Tag_Project_Number);
@@ -1090,12 +1367,12 @@ write_to_temp_file(file)
     planning_unit = U_GET_STR(s_f1);
     drawing_number= U_GET_STR(s_f2);
 
-    info = "挡水圈清册" + ",#" + project_number + ",#" + project_descr + ",#" + planning_unit + ",#" + drawing_number + ",#";
+    info = "挡水圈护圈清册" + ",#" + project_number + ",#" + project_descr + ",#" + planning_unit + ",#" + drawing_number + ",#";
    	F_WRITE_STR(file,info);
    	F_WRITE_NEWLINE(file);	
 
     /*托盘表信息*/
-    info = "Table,#挡水圈清册" + ",#5,#1,#9";
+    info = "Table,#挡水圈护圈清册" + ",#5,#1,#9";
     F_WRITE_STR(file,info);
     F_WRITE_NEWLINE(file);	
     
@@ -1107,7 +1384,7 @@ write_to_temp_file(file)
         item_id = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ITEMID);
         for(k=2;k<Report_Column_Number;k=k+1;){
             value = get_2darray(Report_Info,item_id,k);
-            if(k == 2){         
+            if(k == 3){         
                 if(i==0){
                  info = info + ITOASCII(mto_number) + ",#";
                  prev = value;
@@ -1143,7 +1420,7 @@ write_to_temp_file(file)
     F_WRITE_NEWLINE(file);
     F_WRITE_NEWLINE(file);
     
-    info = "Table,#挡水圈材料汇总" + ",#5,#1,#8";
+    info = "Table,#挡水圈护圈材料汇总" + ",#5,#1,#8";
     F_WRITE_STR(file,info);
     F_WRITE_NEWLINE(file);	
     
@@ -1152,10 +1429,7 @@ write_to_temp_file(file)
         info = "Line,#"+ITOASCII(i+1)+",";
         for(k=2;k<Report_Column_Number;k=k+1;){
             value = get_2darray(Summary,i,k);
-            if(k == 2){
-                value = "#挡水圈";
-            }
-            if(k != 7 & k != 9){
+            if(k != 2 & k != 7 & k != 9){
                 info = info + value + ",#";	
             }
         }

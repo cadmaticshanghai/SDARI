@@ -237,20 +237,15 @@ get_block_name(hole)
 /* 虚拟孔的托盘为其所属的管段的托盘 */
 get_planning_unit(hole)
 {
-    planning_unit = "Unset";
+    planning_unit = "";
     xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
     res = PM_GET_BBOX_OF_OBJECT(hole, xmin, xmax, ymin, ymax, zmin, zmax); 
     pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 3);
     if(!ISINT(pipes)){
-        pipe = PM_GET_MEMBER_IN_SET(pipes,0);
-        spool_handle = PM_GET_OBJECT_GROUP(pipe,0);	/* 获取管段的handle */
-        if(!ISINT(spool_handle)){	
-            value = Get_Attribute_Value(spool_handle, Tag_Spool_PlanningUnit);
-            if(ISSTRING(value)){
-                planning_unit = value;
-                return(planning_unit);
-            }
-        }
+        parti = PM_GET_MEMBER_IN_SET(pipes,0);
+        /* 获取管段的托盘 */
+        planning_unit = get_planning_unit_from_part(parti);
+        return(planning_unit);
     }
 	return(planning_unit);
 }
@@ -259,18 +254,24 @@ get_planning_unit(hole)
 get_spool_name(hole)
 {
     spool_name = "";
+    clearance = 20;
     xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
     res = PM_GET_BBOX_OF_OBJECT(hole, xmin, xmax, ymin, ymax, zmin, zmax); 
+    xmin = xmin - clearance;
+    ymin = ymin - clearance;
+    zmin = zmin - clearance;
+    xmax = xmax + clearance;
+    ymax = ymax + clearance;
+    zmax = zmax + clearance;
     pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 3);
     if(!ISINT(pipes)){
         spool_number = PM_NR_MEMBERS_IN_SET(pipes);        
         for(i=0;i<spool_number;i=i+1;){
-            spooli = PM_GET_MEMBER_IN_SET(pipes,i);
-            spool_handle = PM_GET_OBJECT_GROUP(spooli,0);	/* 获取管段的handle */
-            if(!ISINT(spool_handle)){	
-                value = Get_Attribute_Value(spool_handle, Tag_Spool_Name);
+            parti = PM_GET_MEMBER_IN_SET(pipes,i);
+            value = get_spool_name_from_part(parti);
+            if(ISSTRING(value)){
                 isfind = string_find(spool_name, value);
-                if(ISSTRING(value) & !isfind){
+                if(!isfind){
                     spool_name = spool_name + value + ",";
                 }
             }
@@ -280,6 +281,16 @@ get_spool_name(hole)
         spool_name = HEAD(spool_name, STRLEN(spool_name)-1);
     }
     return(spool_name);
+}
+
+/*是否为空的组*/
+is_null_group(group_handle)
+{
+    parts = PM_GET_OBJECTS_IN_GROUP(group_handle);
+    if(!ISINT(parts)){
+        part_number = PM_NR_MEMBERS_IN_SET(parts);
+        U_MESSAGE("part_number="+ITOASCII(part_number));
+    }
 }
 
 /* 备注信息（现场孔/预开孔） */
@@ -359,7 +370,7 @@ get_hole_type_def(hole)
         for(i=0;i<comp_number;i=i+1;){
             part_handle = PM_GET_MEMBER_IN_SET(comps,i);
             
-            flagi=0;typei="";
+            flagi=0; typei="";
             get_hole_type_def_value(part_handle,flagi,typei);
             if(flagi>max_flag){
                 hole_type = typei;
@@ -374,9 +385,10 @@ get_hole_type_def(hole)
         for(i=0;i<comp_number;i=i+1;){
             part_handle = PM_GET_MEMBER_IN_SET(comps,i);
             if(part_handle!=hole){
-                penetration_name = PM_GET_OBJDATA(part_handle,1, Tag_Penetration_Name);  
-                if(penetration_name!=""){
-                    hole_type = penetration_name;
+                /* penetration_name = PM_GET_OBJDATA(part_handle,1, Tag_Penetration_Name);  */
+                penetration_type = PM_GET_OBJDATA(part_handle,1, ".bv");
+                if(penetration_type!=""){
+                    hole_type = penetration_type + "孔";
                 }
             }
         }
@@ -1178,7 +1190,16 @@ create_panel_underpart(mainform)
                                         W_PANEL_BUTTONVALUE, 202,
                                         W_PANEL_CALLBACK,    1,
                                         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							    
-														 							 
+
+	restore_default = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "restore_default");
+	W_REALIZE_PANELITEM(restore_default,   W_PANEL_ROW, 	    22, 
+	                                       W_PANEL_COL,         12,
+							               W_PANEL_BUTTONIMAGE, "恢复默认值", 
+							               W_PANEL_WIDTH,       10,
+							               W_PANEL_BUTTONVALUE, 202,
+							               W_PANEL_CALLBACK,    1,
+							               W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+                                           
 	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
 	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	      22, 
 	                                    W_PANEL_COL,         49,
@@ -1199,11 +1220,45 @@ create_panel_underpart(mainform)
                                 W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
 							 
 	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+    W_SET_PANELITEM_HANDLER(restore_default, "restore_default_handler");
 	W_SET_PANELITEM_HANDLER(model_browsing, "model_browsing_handler");
 	W_SET_PANELITEM_HANDLER(export_report, "export_to_excel");
 	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
 	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
 	return(panel_underpart);
+}
+
+restore_default_handler(item, event_type, button_value)
+{
+	/* check if already select objects in list */
+	hole_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (hole_number <= 0){
+		U_CONFIRM("请先选择开孔记录");
+		return(0);
+	}
+
+	/* 恢复默认值 */
+	for (i = 0; i < hole_number; i = i + 1){
+		hole = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+		access = Get_Object_Access_Status(hole);
+		if(access == "CheckOutByMe"){
+            hole_type = get_hole_type_def(hole);
+            if(hole_type!=""){
+                Set_Attribute_Value(hole,Tag_Hole_Type,hole_type);
+            }
+		}
+		else{
+			U_CONFIRM("你没有所选孔的修改权限");		
+		}
+	}
+    
+	/* refresh data grid */
+	get_report_info();
+	publish_model_info();
+
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
 }
 
 select_path_handler(item, event_type, dummy)

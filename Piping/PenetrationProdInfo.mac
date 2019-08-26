@@ -126,7 +126,6 @@ get_penetration_info()
 	return 0;
 }
 
-
 /* 抽取指定的复板信息 */
 get_penetration_data(obj_h, tags, tags_number, datas)
 {
@@ -310,8 +309,28 @@ get_fabrication_DrawingNumber_old(obj_h)
 	return(value1);
 }
 
-/* 管件号 */
+/* 管件号 20190822更新*/
 get_spool_name(double_plate)
+{
+    spool_name = "";
+    xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+    res = PM_GET_BBOX_OF_OBJECT(double_plate, xmin, xmax, ymin, ymax, zmin, zmax); 
+    pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 3);
+    if(!ISINT(pipes)){
+        pipe_number = PM_NR_MEMBERS_IN_SET(pipes);        
+        for(i=0;i<pipe_number;i=i+1;){
+            parti = PM_GET_MEMBER_IN_SET(pipes,i);
+
+            /* 获取管段号 */
+            spool_name = get_spool_name_from_part(parti);
+            return(spool_name);
+        }
+    }
+    return(spool_name);
+}
+
+/* 管件号 */
+get_spool_name_A(double_plate)
 {
     spool_name = "";
     xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
@@ -320,8 +339,14 @@ get_spool_name(double_plate)
     if(!ISINT(pipes)){
         spool_number = PM_NR_MEMBERS_IN_SET(pipes);        
         for(i=0;i<spool_number;i=i+1;){
-            spooli = PM_GET_MEMBER_IN_SET(pipes,i);
-            spool_handle = PM_GET_OBJECT_GROUP(spooli,0);	/* 获取管段的handle */
+            parti = PM_GET_MEMBER_IN_SET(pipes,i);
+
+            /* 获取管段的handle */
+            spool_handle = PM_GET_OBJECT_GROUP(parti,0);
+            
+            /* Sdari 适用 */
+            /* spool_handle = get_spool_handle(parti); */
+            
             if(!ISINT(spool_handle)){	
                 spool_name = Get_Attribute_Value(spool_handle, Tag_Spool_Name);
                 if(ISSTRING(spool_name)){
@@ -335,8 +360,48 @@ get_spool_name(double_plate)
     return(spool_name);
 }
 
-/* 复板的托盘为其所属的管段的托盘 */
+/*某些情形下不能获取*/
+get_spool_handle(part)
+{
+	spool_number = PM_GET_OBJDATA(part, 0, MMT_COSA_SPOOL_NAME);
+	if(spool_number ==0 ){
+		U_MESSAGE("还未生成管段");
+		return(-1);
+	}
+	line_name = PM_GET_OBJDATA(part, 0, MMT_TAG_PIPELINE_NAME);
+	member_path = PM_GET_OBJDATA(part, 0, MMT_TAG_MEMBERSHIPPATH);
+	group_id = SUBSTRING(STRINGTERM(SEARCH(member_path,"@"),":"),1);
+	obj_handle = PM_FIND_BY_OBJID(group_id);
+	return(obj_handle);
+}
+
+/* 复板的托盘为其所属的管段的托盘 20190822更新*/
 get_penetration_planning_unit(penetration)
+{
+    planning_unit = "";
+    pent_parts = PM_GET_OBJECTS_IN_GROUP(penetration);
+    part_number = PM_NR_MEMBERS_IN_SET(pent_parts);        
+    for(i=0;i<part_number;i=i+1;){
+        part = PM_GET_MEMBER_IN_SET(pent_parts,i);
+        /*part_id = PM_GET_OBJDATA(part,0, MMT_TAG_PARTID);*/
+        obj_type = PM_GET_OBJDATA(part,0, MMT_TAG_OBJTYPE);
+        if (obj_type==4){
+            xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+            res = PM_GET_BBOX_OF_OBJECT(part, xmin, xmax, ymin, ymax, zmin, zmax); 
+            pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,3);
+            if(!ISINT(pipes)){
+                parti = PM_GET_MEMBER_IN_SET(pipes,0);
+                /* 获取管段的托盘 */
+                planning_unit = get_planning_unit_from_part(parti);
+                return(planning_unit);
+            }
+        }
+    }
+	return(planning_unit);
+}
+
+/* 复板的托盘为其所属的管段的托盘 */
+get_penetration_planning_unit_A(penetration)
 {
     planning_unit = "Unset";
     pent_parts = PM_GET_OBJECTS_IN_GROUP(penetration);
@@ -345,14 +410,19 @@ get_penetration_planning_unit(penetration)
         part = PM_GET_MEMBER_IN_SET(pent_parts,i);
         /*part_id = PM_GET_OBJDATA(part,0, MMT_TAG_PARTID);*/
         obj_type = PM_GET_OBJDATA(part,0, MMT_TAG_OBJTYPE);
-        if (obj_type==3){
+        if (obj_type==4){
             xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
             res = PM_GET_BBOX_OF_OBJECT(part, xmin, xmax, ymin, ymax, zmin, zmax); 
-            obj_type = 3;
-            pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,obj_type);
+            pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,3);
             if(!ISINT(pipes)){
                 pipe = PM_GET_MEMBER_IN_SET(pipes,0);
-                spool_handle = PM_GET_OBJECT_GROUP(pipe,0);	/* 获取管段的handle */
+                
+                /* 获取管段的handle */
+                /*spool_handle = PM_GET_OBJECT_GROUP(pipe,0);*/	
+                
+                /*获取管段的handle，Sdari适用*/
+                spool_handle = get_spool_handle(pipe);
+                
                 if(!ISINT(spool_handle)){	
                     model_planning_unit = Get_Attribute_Value(spool_handle, Tag_Spool_PlanningUnit);
                     if(ISSTRING(model_planning_unit)){
@@ -864,7 +934,7 @@ filter_model( penetrations )
 
 get_block_name(obj_h)
 {
-	block_name = PM_GET_OBJDATA(obj_h,0,Tag_Block);				/*抽取复板的分段名称*/
+	block_name = PM_GET_OBJDATA(obj_h,0,Tag_BlockNumber);		/*抽取复板的分段名称*/
 	if(ISINT(block_name)){										/*如果抽取不到复板的分段名称，则抽取其总段名称*/
 		block_name = PM_GET_OBJDATA(obj_h,0,Tag_SupperBlock);	/*抽取复板的总段名称*/
 		if(ISINT(block_name)){									/*如果抽取不到复板的总段名称，则返回默认分段名999 */
@@ -913,7 +983,7 @@ pick_objects(item, event_type, button_value)
 	}
 
 	if (Model_Add_Mode == 1){
-	   PM_FREE_SET(Object_List);
+        PM_FREE_SET(Object_List);
 		Object_List = PM_INIT_SET();
 		Object_List = PM_COPY_SET(temp);
 	}
@@ -935,7 +1005,6 @@ pick_objects(item, event_type, button_value)
 		group = PM_GET_MEMBER_IN_SET(Object_List, i);
 		Highlight_Object(group,FALSE);
 	}
-
 	return(0);
 }
 

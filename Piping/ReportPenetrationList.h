@@ -1,9 +1,11 @@
 /*Tag definition of Penetration*/
 
-#define  Planning_Unit        "~PS1"                                 /* 挡水圈托盘号取值管子托盘 */
-#define  Surface_Treatment    "Udc"
+#define	Tag_Spool_PlanningUnit              "PS1"                   /*管段托盘代号*/
+#define	Tag_Spool_Name                      "PSA"                   /*管段管件号*/
+#define	Tag_BlockNumber					    ".m1"					/*分段名称*/
+#define	Tag_SupperBlock				        ".m0"					/*总段名称*/
+#define	Tag_Penetration_Type				".bv"					/*挡水圈类型*/
 
-#define	Tag_Spool_PlanningUnit              "PS1"                   /*挡水圈托盘代号*/
 #define	Tag_Penetration_FabDn			    "FB1"					/*挡水圈型号规格*/
 #define	Tag_Penetration_WeldType		    "FB2"					/*挡水圈焊接类型*/
 #define	Tag_Penetration_Remark      	    "FB3"					/*挡水圈备注信息*/
@@ -19,33 +21,89 @@ global string  Group_Type   = "19";
 global string  File_Path    = "C:\\";
 
 
-/*挡水圈编号*/
-auto_naming(planning_unit,models)
+/* 保留n位小数点有效数字 */
+round_float_as_string(float x, int n)
 {
-    index_number = "000";
-    for(i=1;i<1000;i=i+1;){
-        penetration_name = planning_unit + "-PH-" + HEAD(index_number,STRLEN(index_number) - STRLEN(ITOASCII(i))) + ITOASCII(i);
-        find = find_isnamed(penetration_name,models);
-        if(find<1){
-            return(penetration_name);
+    flg = 1;
+    for(i=0;i<n;i=i+1){
+        flg = flg*10;
+    }
+    temp = x*flg+0.5;
+    temp_str =STRINGTERM(FTOASCII(temp), ".");
+    part1 = HEAD(temp_str,STRLEN(temp_str)-n);
+    if(part1==""){
+        part1="0";
+    }
+    part2 = TAIL(temp_str,n);
+    if(part2=="0"){
+        for(i=1;i<n;i=i+1){
+            part2 = part2 + "0";
         }
     }
-    return("Undefined"); 
+    if(n==0){
+        return(part1);
+    }
+    return(part1+"."+part2);
+}
+/* 托盘 */
+get_planning_unit_from_part(part_handle)
+{
+    planning_unit = "Undefined";
+    
+    /* 取记录的托盘号 */
+    value = PM_GET_OBJDATA(part_handle,0, Tag_Spool_PlanningUnit);
+    if(ISSTRING(value)){
+        if(value!=""){
+            planning_unit = value;
+        }
+    }
+    if(planning_unit=="Undefined"){
+        /* 如果有分段，默认托盘为分段名 */
+        planning_unit = PM_GET_OBJDATA(part_handle,0, Tag_BlockNumber);
+        if(ISINT(planning_unit)){
+            planning_unit = PM_GET_OBJDATA(part_handle,0, Tag_SupperBlock);
+            if(ISINT(planning_unit)){
+                planning_unit = "999";
+            }
+        }
+    }
+    return(
+    planning_unit);
 }
 
-find_isnamed(penetration_name,models)
+/* 管件号 */
+/* 通过属性拼出管段号 */
+/* 托盘号-管线号-编号 */
+get_spool_name_from_part(part_handle)
 {
-	penetration_number = PM_NR_MEMBERS_IN_SET(models);
-	for (i = 0; i < penetration_number; i = i + 1;){
-		penetration = PM_GET_MEMBER_IN_SET(models, i);	
-        value = PM_GET_OBJDATA(penetration,0,Tag_Penetration_Name);
-        if(ISSTRING(value)){
-            if(penetration_name==value){
-                return (1);
-            }
-        }	
-	}
-    return (0);
+    spool_name = "Undefined";
+    
+    /* 取记录的管段号 */
+    value = PM_GET_OBJDATA(part_handle,0, Tag_Spool_Name);
+    if(ISSTRING(value)){
+        if(value!=""){
+            spool_name = value;
+        }
+    }
+
+    if(spool_name=="Undefined"){
+        planning_unit = get_planning_unit_from_part(part_handle);
+        /* U_MESSAGE("planning_unit="+planning_unit); */
+
+        pipe_line = PM_GET_OBJDATA(part_handle, 0, "pli");
+        /* U_MESSAGE("pipe_line="+pipe_line); */
+        
+        spool_number = PM_GET_OBJDATA(part_handle, 0, "spn");
+        if(ISINT(spool_number)){
+            /* U_CONFIRM("所选零件不属于任何管段"); */
+            spool_name = pipe_line;
+        }
+        else{
+            spool_name = planning_unit + "-" + pipe_line + "-" + spool_number;
+        }
+    }
+    /* U_MESSAGE("spool_name="+spool_name); */
+    return(spool_name);
 }
 
 relocate(penetration,description,length,area,weight)

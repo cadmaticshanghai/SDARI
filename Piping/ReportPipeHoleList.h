@@ -5,6 +5,8 @@
 
 #define	Tag_Spool_PlanningUnit              "PS1"                   /*管段托盘代号*/
 #define	Tag_Spool_Name                      "PSA"                   /*管段管件号*/
+#define	Tag_BlockNumber					    ".m1"					/*分段名称*/
+#define	Tag_SupperBlock				        ".m0"					/*总段名称*/
 
 #define	Tag_Penetration_FabDn			    "FB1"					/*贯通件型号规格*/
 #define	Tag_Penetration_WeldType		    "FB2"					/*贯通件焊接类型*/
@@ -18,38 +20,72 @@
 #define Tag_Project_Description              ".dG"                   /* 项目描述     */
 #define Tag_Project_Number                   "U32"                   /* 项目编号     */
 
+
 global string  File_Path    = "C:\\";
 global string System_1 = "N-C Hull HoleRequests";
 global string System_2 = "NAPA HolesRequests";
 
 
-/*贯通件编号*/
-auto_naming(planning_unit,models)
+
+/* 托盘 */
+get_planning_unit_from_part(part_handle)
 {
-    index_number = "000";
-    for(i=1;i<1000;i=i+1;){
-        hole_name = planning_unit + "-PH-" + HEAD(index_number,STRLEN(index_number) - STRLEN(ITOASCII(i))) + ITOASCII(i);
-        find = find_isnamed(hole_name,models);
-        if(find<1){
-            return(hole_name);
+    planning_unit = "Undefined";
+    
+    /* 取记录的托盘号 */
+    value = PM_GET_OBJDATA(part_handle,0, Tag_Spool_PlanningUnit);
+    if(ISSTRING(value)){
+        if(value!=""){
+            planning_unit = value;
         }
     }
-    return("Undefined"); 
+    if(planning_unit=="Undefined"){
+        /* 如果有分段，默认托盘为分段名 */
+        planning_unit = PM_GET_OBJDATA(part_handle,0, Tag_BlockNumber);
+        if(ISINT(planning_unit)){
+            planning_unit = PM_GET_OBJDATA(part_handle,0, Tag_SupperBlock);
+            if(ISINT(planning_unit)){
+                planning_unit = "999";
+            }
+        }
+    }
+    return(
+    planning_unit);
 }
 
-find_isnamed(hole_name,models)
+/* 管件号 */
+/* 通过属性拼出管段号 */
+/* 托盘号-管线号-编号 */
+get_spool_name_from_part(part_handle)
 {
-	hole_number = PM_NR_MEMBERS_IN_SET(models);
-	for (i = 0; i < hole_number; i = i + 1;){
-		hole = PM_GET_MEMBER_IN_SET(models, i);	
-        value = PM_GET_OBJDATA(hole,0,Tag_Penetration_Name);
-        if(ISSTRING(value)){
-            if(hole_name==value){
-                return (1);
-            }
-        }	
-	}
-    return (0);
+    spool_name = "Undefined";
+    
+    /* 取记录的管段号 */
+    value = PM_GET_OBJDATA(part_handle,0, Tag_Spool_Name);
+    if(ISSTRING(value)){
+        if(value!=""){
+            spool_name = value;
+        }
+    }
+
+    if(spool_name=="Undefined"){
+        planning_unit = get_planning_unit_from_part(part_handle);
+        /* U_MESSAGE("planning_unit="+planning_unit); */
+
+        pipe_line = PM_GET_OBJDATA(part_handle, 0, "pli");
+        /* U_MESSAGE("pipe_line="+pipe_line); */
+        
+        spool_number = PM_GET_OBJDATA(part_handle, 0, "spn");
+        if(ISINT(spool_number)){
+            /* U_CONFIRM("所选零件不属于任何管段"); */
+            spool_name = pipe_line;
+        }
+        else{
+            spool_name = planning_unit + "-" + pipe_line + "-" + spool_number;
+        }
+    }
+    /* U_MESSAGE("spool_name="+spool_name); */
+    return(spool_name);
 }
 
 /*字符串包含*/
