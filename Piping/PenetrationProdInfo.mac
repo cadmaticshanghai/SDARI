@@ -59,6 +59,7 @@ global handle	Access_List;
 /*
 **initiate script
 */
+
 init()
 {
 	Tag_Array = A_ALLOC(Column_Number, "STRING");

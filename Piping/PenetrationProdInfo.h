@@ -2,7 +2,7 @@
 #define	Tag_Penetration_FabDn			"FB1"							/*2.复板型号规格及标准号-制作图号及页码*/
 #define	Tag_Penetration_WeldType		"FB2"							/*3.复板焊接类型*/
 #define	Tag_Penetration_Remark      	"FB3"							/*4.复板备注信息*/
-#define	Tag_Penetration_Name        	"FB4"							/*5.复板名称*/
+#define	Tag_Penetration_Name        	"FB4"							/*5.复板零件名*/
 #define	Tag_Penetration_PlanningUnit	"PS1"							/*6.复板所属托盘*/
 
 #define	Tag_Block					".m1"							    /*分段名称*/
