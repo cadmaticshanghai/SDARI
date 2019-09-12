@@ -1,0 +1,2286 @@
+/* $Id: ReportStructureList.mac,v1.0.0 2015/12/25 Jack.leng $ */
+
+/*
+**	这个程序用于浏览及生成电气舾装件托盘表.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_errors.h"
+#include "include/dm_errors.h"
+#include "include/pm_drawings.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/cos.h"
+#include "include/dw.h"
+#include "include/pm_annot.h"
+#include	"include/dm_cos_schema.h"
+#include	"include/geoutils.h"
+#include "include/PmPipingUtils.h"
+#include "opt/pm/EloTools/include/viewutilsELO.h"
+#include "include/g2d_ext2df.h"
+#include	"include/quants.h"
+#include "include/pi_math.mac" 
+#include "include/pi.h"
+#include "include/PmDirectionUtils.h"
+
+global int  Debug = 1; 
+
+#include "$MarineToolkit/Electrical/ElectricalRepors.h"
+#include "$MarineToolkit/Include/String_Utility.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+
+
+/*
+**脚本语言中似乎无法直接获得一个数组的实际长度，定义一个全局变量用于保存生产信息的数量
+*/
+
+#define  Report1_Column_Number 12
+#define  Report2_Column_Number 12
+#define  Report3_Column_Number 12
+#define  Report4_Column_Number 12
+#define  Report5_Column_Number 12
+
+/*
+**定义界面语言
+**define interface language
+*/
+global handle  Block_Name,Planning_Unit,Model_Description,Single_Options,Summation_Option,Report_Type_Option;
+global handle  DisplayGrid;
+global handle  NULL_HANDLE = 0;
+global int     Grid_SelectedItem = 0;
+global int     Grid_SortColumn = -1;
+global int     Grid_SortDirection = 1;
+global handle  Object_List;          	  /*模型对象列表*/
+global int     Object_Number=0;         /*模型对象数量*/
+
+global handle  Report1_Info;			  /*报表信息列表*/
+global handle  Report1_Objects;         /*保存报表行对应的模型对象*/
+global int     Report1_Row_Number = 0;  /*报表行数*/
+
+global handle  Report2_Info;			  /*报表信息列表*/
+global handle  Report2_Objects;         /*保存报表行对应的模型对象*/
+global int     Report2_Row_Number = 0;  /*报表行数*/
+
+global handle  Report3_Info;			  /*报表信息列表*/
+global handle  Report3_Objects;         /*保存报表行对应的模型对象*/
+global int     Report3_Row_Number = 0;  /*报表行数*/
+
+global handle  Report4_Info;			  /*报表信息列表*/
+global handle  Report4_Objects;         /*保存报表行对应的模型对象*/
+global int     Report4_Row_Number = 0;  /*报表行数*/
+
+global handle  Report5_Info;			  /*报表信息列表*/
+global handle  Report5_Objects;         /*保存报表行对应的模型对象*/
+global int     Report5_Row_Number = 0;  /*报表行数*/
+
+global handle  High_Light_List;        /*模型加亮列表*/
+global handle  Selected_Rows;          /*选择的行*/
+global handle  Selected_Objects;
+global int     Selected_Objects_Number = 0;
+global int     AutoScale = 0;
+global int     AutoHighLight = 0;
+global int     Summation = 0;
+global handle  SummationIndexs1;
+global handle  SummationIndexs2;
+global handle  SummationIndexs3;
+global handle  SummationIndexs4;
+global handle  SummationIndexs5;
+global handle  MainWindow;
+global handle  wobj;
+global handle  Title1,Title2,Title3,Title4,Title5;
+global int      Grid_Column_Number = 0;
+global int	  Report_Type = 1;
+global handle  Report_Path,Report_Template;
+global string  DataFileName = "C:\\TEMP\\cable_struct_report.txt";
+
+global int    Bolt_K = 1;     /*螺栓系数*/
+global int    Nut_K  = 1;     /*螺母系数*/
+global int    Washer_K1 = 1;  /*弹簧垫圈系数*/
+global int    Washer_K2 = 2;  /*平垫圈系数*/
+
+
+/*
+**初始化相关对象
+*/
+init()
+{	
+	Title1 = A_ALLOC(Report1_Column_Number, "STRING");
+    A_PUT(Title1,0,"分段");
+    A_PUT(Title1,1,"托盘");
+    A_PUT(Title1,2,"序号");
+    A_PUT(Title1,3,"底座号");
+    A_PUT(Title1,4,"类型");
+    A_PUT(Title1,5,"内容");
+    A_PUT(Title1,6,"材质");
+    A_PUT(Title1,7,"数量");
+    A_PUT(Title1,8,"单位");
+    A_PUT(Title1,9,"重量");
+    A_PUT(Title1,10,"来源");
+    A_PUT(Title1,11,"备注");
+    
+	Title2 = A_ALLOC(Report2_Column_Number, "STRING");
+    A_PUT(Title2,0,"分段");
+    A_PUT(Title2,1,"托盘");
+    A_PUT(Title2,2,"序号");
+    A_PUT(Title2,3,"底座号");
+    A_PUT(Title2,4,"类型");
+    A_PUT(Title2,5,"内容");
+    A_PUT(Title2,6,"材质");
+    A_PUT(Title2,7,"数量");
+    A_PUT(Title2,8,"单位");
+    A_PUT(Title2,9,"重量");
+    A_PUT(Title2,10,"来源");
+    A_PUT(Title2,11,"备注");
+	
+	Title3 = A_ALLOC(Report3_Column_Number, "STRING");
+    A_PUT(Title3,0,"分段");
+    A_PUT(Title3,1,"托盘");
+    A_PUT(Title3,2,"序号");
+    A_PUT(Title3,3,"底座号");
+    A_PUT(Title3,4,"类型");
+    A_PUT(Title3,5,"内容");
+    A_PUT(Title3,6,"材质");
+    A_PUT(Title3,7,"数量");
+    A_PUT(Title3,8,"单位");
+    A_PUT(Title3,9,"重量");
+    A_PUT(Title3,10,"来源");
+    A_PUT(Title3,11,"备注");
+
+	Title4 = A_ALLOC(Report4_Column_Number, "STRING");
+    A_PUT(Title4,0,"分段");
+    A_PUT(Title4,1,"托盘");
+    A_PUT(Title4,2,"序号");
+    A_PUT(Title4,3,"底座号");
+    A_PUT(Title4,4,"类型");
+    A_PUT(Title4,5,"内容");
+    A_PUT(Title4,6,"材质");
+    A_PUT(Title4,7,"数量");
+    A_PUT(Title4,8,"单位");
+    A_PUT(Title4,9,"重量");
+    A_PUT(Title4,10,"来源");
+    A_PUT(Title4,11,"备注");
+    
+	Title5 = A_ALLOC(Report5_Column_Number, "STRING");
+    A_PUT(Title5,0,"分段");
+    A_PUT(Title5,1,"托盘");
+    A_PUT(Title5,2,"序号");
+    A_PUT(Title5,3,"底座号");
+    A_PUT(Title5,4,"类型");
+    A_PUT(Title5,5,"内容");
+    A_PUT(Title5,6,"材质");
+    A_PUT(Title5,7,"数量");
+    A_PUT(Title5,8,"单位");
+    A_PUT(Title5,9,"重量");
+    A_PUT(Title5,10,"来源");
+    A_PUT(Title5,11,"备注");
+}
+
+fresh()
+{
+	Report1_Info = alloc_2darray(1,1);
+	Report1_Objects = A_ALLOC(1);
+    Report1_Row_Number = 0;
+    SummationIndexs1 = A_ALLOC(1);
+    
+	Report2_Info = alloc_2darray(1,1);
+	Report2_Objects = A_ALLOC(1);
+    Report2_Row_Number = 0;
+    SummationIndexs2 = A_ALLOC(1);
+    
+	Report3_Info = alloc_2darray(1,1);
+	Report3_Objects = A_ALLOC(1);
+    Report3_Row_Number = 0;	
+    SummationIndexs3 = A_ALLOC(1);
+    
+    Report4_Info = alloc_2darray(1,1);
+	Report4_Objects = A_ALLOC(1);
+    Report4_Row_Number = 0;	
+    SummationIndexs4 = A_ALLOC(1);
+    
+    Report5_Info = alloc_2darray(1,1);
+	Report5_Objects = A_ALLOC(1);
+    Report5_Row_Number = 0;	
+    SummationIndexs5 = A_ALLOC(1);
+    
+	/*初始化模型集合*/
+	Object_List = PM_INIT_SET();
+	/*初始化加亮模型集合*/
+	High_Light_List = PM_INIT_SET();
+	/*初始化选中的模型集合*/
+	Selected_Objects = PM_INIT_SET();
+    Selected_Rows = A_ALLOC(1);
+    
+	W_SET_PANELITEM_ARGS(Report_Path, W_PANEL_VALUE, "C:/TEMP/");
+    W_SET_PANELITEM_ARGS(Report_Template, W_PANEL_VALUE, "P:/报表模板/电气舾装件托盘表.xlsx");
+}
+
+/*
+**Get the selected objects in grid
+*/
+get_selected_items()
+{
+	PM_SETOP_SUB(Selected_Objects, Selected_Objects);
+	selected_rows = W_GET_WINDOW_ARG( wobj, W_LISTW_MSVALUE );
+	total_lines = STRLEN(selected_rows);
+    A_FREE(Selected_Rows);
+    Selected_Rows = A_ALLOC(total_lines);
+    
+	k = 0;
+	for (i = 0; i < total_lines; i = i + 1){
+		temp_string = SUBSTRING(selected_rows,i);
+		flag = HEAD(temp_string,1);
+		if (flag == "1"){
+			W_SET_WINDOW_ARGS(wobj, W_LISTW_ROW, i);
+			selected_row = W_GET_WINDOW_ARG( wobj, W_LISTW_ITEMID );
+			if(Report_Type == 1){
+				model_handle = A_GET(Report1_Objects, selected_row);				
+			}
+			else if(Report_Type == 2){
+				model_handle = A_GET(Report2_Objects, selected_row);
+			}
+			else if(Report_Type == 3){
+				model_handle = A_GET(Report3_Objects, selected_row);
+			}
+            else if(Report_Type == 4){
+				model_handle = A_GET(Report4_Objects, selected_row);
+			}
+            else if(Report_Type == 5){
+				model_handle = A_GET(Report5_Objects, selected_row);
+			}
+            if(!ISINT(model_handle)){
+                PM_ADD_OBJECT_TO_SET(model_handle, Selected_Objects);
+            }
+            A_PUT(Selected_Rows, k, selected_row);
+            k = k + 1;
+		}
+	}
+	Selected_Objects_Number = k;
+	return(0);
+}
+
+model_list_mode(item, event_type, selection)
+{
+	if (selection == 0){
+		Model_Add_Mode = 0;
+	}
+	else{
+		Model_Add_Mode = 1;
+	}
+	return(0);
+}
+
+get_summation1_info(report)
+{
+    /*汇总 判断相同的列*/
+    judgecols = A_ALLOC(10, "INT");
+	A_PUT(judgecols,0,0);
+    A_PUT(judgecols,1,1);
+	A_PUT(judgecols,2,3);
+    A_PUT(judgecols,3,4);
+    A_PUT(judgecols,4,5);
+    A_PUT(judgecols,5,6);
+
+    /*汇总 需要汇总的列*/
+    sumcols = A_ALLOC(2, "INT");
+	A_PUT(sumcols,0,7);
+	A_PUT(sumcols,1,9);
+    
+    /*汇总后的索引*/
+    A_FREE(SummationIndexs1);
+    SummationIndexs1 = A_ALLOC(Report1_Row_Number);
+    
+    /*汇总*/
+    report = summation(report, judgecols, sumcols, SummationIndexs1);
+    A_FREE(judgecols);
+    A_FREE(sumcols);
+    return(0);
+}
+
+get_summation2_info(report)
+{
+    /*汇总 判断相同的列*/
+    judgecols = A_ALLOC(10, "INT");
+	A_PUT(judgecols,0,0);
+    A_PUT(judgecols,1,1);
+	A_PUT(judgecols,2,3);
+    A_PUT(judgecols,3,4);
+    A_PUT(judgecols,4,5);
+    A_PUT(judgecols,5,6);
+
+    /*汇总 需要汇总的列*/
+    sumcols = A_ALLOC(2, "INT");
+	A_PUT(sumcols,0,7);
+	A_PUT(sumcols,1,9);
+    
+    /*汇总后的索引*/
+    A_FREE(SummationIndexs2);
+    SummationIndexs2 = A_ALLOC(Report2_Row_Number);
+    
+    /*汇总*/
+    report = summation(report, judgecols, sumcols, SummationIndexs2);
+    A_FREE(judgecols);
+    A_FREE(sumcols);
+    return(0);
+}
+
+get_summation3_info(report)
+{
+    /*汇总 判断相同的列*/
+    judgecols = A_ALLOC(10, "INT");
+	A_PUT(judgecols,0,0);
+    A_PUT(judgecols,1,1);
+	A_PUT(judgecols,2,3);
+    A_PUT(judgecols,3,4);
+    A_PUT(judgecols,4,5);
+    A_PUT(judgecols,5,6);
+
+    /*汇总 需要汇总的列*/
+    sumcols = A_ALLOC(2, "INT");
+	A_PUT(sumcols,0,7);
+	A_PUT(sumcols,1,9);
+    
+    /*汇总后的索引*/
+    A_FREE(SummationIndexs3);
+    SummationIndexs3 = A_ALLOC(Report3_Row_Number);
+    
+    /*汇总*/
+    report = summation(report, judgecols, sumcols, SummationIndexs3);
+    A_FREE(judgecols);
+    A_FREE(sumcols);
+    return(0);
+}
+
+get_summation4_info(report)
+{
+    /*汇总 判断相同的列*/
+    judgecols = A_ALLOC(10, "INT");
+	A_PUT(judgecols,0,0);
+    A_PUT(judgecols,1,1);
+	A_PUT(judgecols,2,3);
+    A_PUT(judgecols,3,4);
+    A_PUT(judgecols,4,5);
+    A_PUT(judgecols,5,6);
+
+    /*汇总 需要汇总的列*/
+    sumcols = A_ALLOC(2, "INT");
+	A_PUT(sumcols,0,7);
+	A_PUT(sumcols,1,9);
+    
+    /*汇总后的索引*/
+    A_FREE(SummationIndexs4);
+    SummationIndexs4 = A_ALLOC(Report4_Row_Number);
+    
+    /*汇总*/
+    report = summation(report, judgecols, sumcols, SummationIndexs4);
+    A_FREE(judgecols);
+    A_FREE(sumcols);
+    return(0);
+}
+
+get_summation5_info(report)
+{
+    /*汇总 判断相同的列*/
+    judgecols = A_ALLOC(10, "INT");
+	A_PUT(judgecols,0,0);
+    A_PUT(judgecols,1,1);
+	A_PUT(judgecols,2,3);
+    A_PUT(judgecols,3,4);
+    A_PUT(judgecols,4,5);
+    A_PUT(judgecols,5,6);
+
+    /*汇总 需要汇总的列*/
+    sumcols = A_ALLOC(2, "INT");
+	A_PUT(sumcols,0,7);
+	A_PUT(sumcols,1,9);
+    
+    /*汇总后的索引*/
+    A_FREE(SummationIndexs5);
+    SummationIndexs5 = A_ALLOC(Report5_Row_Number);
+    
+    /*汇总*/
+    report = summation(report, judgecols, sumcols, SummationIndexs5);
+    A_FREE(judgecols);
+    A_FREE(sumcols);
+    return(0);
+}
+
+/*托架信息列表*/
+get_report1_info()
+{
+    /*过滤相应类型的模型*/
+    vector = DM_VECTOR_CREATE();
+    for(i = 0; i < Object_Number; i = i + 1;){
+        object = PM_GET_MEMBER_IN_SET(Object_List, i);	
+        if(is_cabletray_part(object)){
+            DM_VECTOR_PUSH_BACK(vector, object);
+        }
+    }
+    
+    if(DM_VECTOR_SIZE(vector)>0){
+        /*将报表信息保存到全局变量*/
+        free_2darray(Report1_Info);
+        Report1_Row_Number = DM_VECTOR_SIZE(vector);
+        Report1_Info = alloc_2darray(Report1_Row_Number,Report1_Column_Number);
+        Report1_Objects = A_ALLOC(Report1_Row_Number);   
+        for(i = 0; i < Report1_Row_Number; i = i + 1;){
+            object = DM_VECTOR_GET(vector,i);
+            A_PUT(Report1_Objects,i,object);	
+            /* 获取信息 */
+            get_object1_info(object, i);
+        }
+        
+        /*汇总*/
+        if(Summation==1){
+            get_summation1_info(Report1_Info);
+            Report1_Row_Number = nrows_2darray(Report1_Info);
+        }
+    }
+    DM_VECTOR_DELETE(vector); 
+    return(0);
+}
+
+/*获取指定托架的信息*/
+get_object1_info(object,i)
+{
+    /*分段*/
+    block_name = get_block_name(object);
+    put_2darray(Report1_Info,i,0,block_name);  
+   
+    /*托盘*/
+    planning_unit = get_planning_unit(object);
+    put_2darray(Report1_Info,i,1,planning_unit);  
+                
+    /*序号*/          
+    put_2darray(Report1_Info,i,2,ITOASCII(i+1)); 
+   
+    /*底座号*/  
+    seat_no = ""; 
+    put_2darray(Report1_Info,i,3,seat_no); 
+    
+    /*类型*/  
+    object_type = "托架";
+    put_2darray(Report1_Info,i,4,object_type); 
+         
+    /*内容名称*/ 
+    object_descr = get_object_description(object);     
+    put_2darray(Report1_Info,i,5,object_descr);      
+
+    /*材质*/
+    material = get_object_material(object);  
+    put_2darray(Report1_Info,i,6,material); 
+
+    /*数量*/      
+    count = "1";   
+    put_2darray(Report1_Info,i,7,count);   
+
+    /*单位*/      
+    unit = "件";
+    put_2darray(Report1_Info,i,8,unit);       
+   
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report1_Info,i,9,weight); 
+
+    /*来源*/  
+    source = "";
+    put_2darray(Report1_Info,i,10,source); 
+    
+    /*备注信息*/  
+    remark = "";
+    put_2darray(Report1_Info,i,11,remark);  
+    
+    return(0);
+}
+
+/*扁钢信息列表*/
+get_report2_info()
+{
+    /*过滤相应类型的模型*/
+    vector = DM_VECTOR_CREATE();
+    for(i = 0; i < Object_Number; i = i + 1;){
+        object = PM_GET_MEMBER_IN_SET(Object_List, i);	
+        if(is_flatbar_part(object)){
+            DM_VECTOR_PUSH_BACK(vector, object);
+        }
+    }
+    
+    if(DM_VECTOR_SIZE(vector)>0){
+        /*将报表信息保存到全局变量*/
+        free_2darray(Report2_Info); 
+        Report2_Row_Number = DM_VECTOR_SIZE(vector);
+        Report2_Info = alloc_2darray(Report2_Row_Number,Report2_Column_Number);
+        Report2_Objects = A_ALLOC(Report2_Row_Number);   
+        for(i = 0; i < Report2_Row_Number; i = i + 1;){
+            object = DM_VECTOR_GET(vector,i);
+            A_PUT(Report2_Objects,i,object);	
+            /* 获取信息 */
+            get_object2_info(object, i);
+        }
+
+        /*汇总*/
+        if(Summation==1){
+            get_summation2_info(Report2_Info);
+            Report2_Row_Number = nrows_2darray(Report2_Info);
+        }  
+    }
+    DM_VECTOR_DELETE(vector); 
+    return(0);
+}
+
+/*获取指定扁钢的信息*/
+get_object2_info(object,i)
+{
+    /*分段*/
+    block_name = get_block_name(object);
+    put_2darray(Report2_Info,i,0,block_name);  
+   
+    /*托盘*/
+    planning_unit = get_planning_unit(object);
+    put_2darray(Report2_Info,i,1,planning_unit);  
+                
+    /*序号*/          
+    put_2darray(Report2_Info,i,2,ITOASCII(i+1)); 
+   
+    /*底座号*/  
+    seat_no = ""; 
+    put_2darray(Report2_Info,i,3,seat_no); 
+    
+    /*类型*/  
+    object_type = "扁钢";
+    put_2darray(Report2_Info,i,4,object_type); 
+         
+    /*内容名称*/ 
+    object_descr = get_object_description(object);     
+    put_2darray(Report2_Info,i,5,object_descr);      
+
+    /*材质*/
+    material = get_object_material(object);  
+    put_2darray(Report2_Info,i,6,material); 
+
+    /*数量*/      
+    count = "1";   
+    put_2darray(Report2_Info,i,7,count);   
+
+    /*单位*/
+    unit = "个";
+    put_2darray(Report2_Info,i,8,unit);       
+   
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report2_Info,i,9,weight); 
+
+    /*来源*/  
+    source = "";
+    put_2darray(Report2_Info,i,10,source); 
+    
+    /*备注信息*/  
+    remark = "";
+    put_2darray(Report2_Info,i,11,remark);  
+    
+    return(0);
+}
+
+/*贯通件信息列表*/
+get_report3_info()
+{
+    /*过滤相应类型的模型*/
+    vector = DM_VECTOR_CREATE();
+    for(i = 0; i < Object_Number; i = i + 1;){
+        object = PM_GET_MEMBER_IN_SET(Object_List, i);	
+        if(is_penetration_part(object)){
+            DM_VECTOR_PUSH_BACK(vector, object);
+        }
+        else if(is_cabletube_part(object)){
+            DM_VECTOR_PUSH_BACK(vector, object);
+        }
+        else if(is_stuffing_part(object)){
+            DM_VECTOR_PUSH_BACK(vector, object);
+        }
+    }
+    
+    if(DM_VECTOR_SIZE(vector)>0){
+        /*将报表信息保存到全局变量*/
+        free_2darray(Report3_Info); 
+        Report3_Row_Number = DM_VECTOR_SIZE(vector);
+        Report3_Info = alloc_2darray(Report3_Row_Number,Report3_Column_Number);
+        Report3_Objects = A_ALLOC(Report3_Row_Number);   
+        for(i = 0; i < Report3_Row_Number; i = i + 1;){
+            object = DM_VECTOR_GET(vector,i);
+            A_PUT(Report3_Objects,i,object);	
+            /* 获取信息 */
+            get_object3_info(object, i);
+        }
+        
+        /*汇总*/
+        if(Summation==1){
+            get_summation3_info(Report3_Info);
+            Report3_Row_Number = nrows_2darray(Report3_Info);
+        }
+    }
+    DM_VECTOR_DELETE(vector); 
+    return(0);
+}
+
+/*获取指定贯通件的信息*/
+get_object3_info(object,i)
+{
+    /*分段*/
+    block_name = get_block_name(object);
+    put_2darray(Report3_Info,i,0,block_name);  
+   
+    /*托盘*/
+    planning_unit = get_planning_unit(object);
+    put_2darray(Report3_Info,i,1,planning_unit);  
+                
+    /*序号*/          
+    put_2darray(Report3_Info,i,2,ITOASCII(i+1)); 
+   
+    /*底座号*/  
+    seat_no = ""; 
+    put_2darray(Report3_Info,i,3,seat_no); 
+    
+    /*类型*/  
+    object_type = "贯通件";
+    put_2darray(Report3_Info,i,4,object_type); 
+         
+    /*内容名称*/ 
+    object_descr = get_object_description(object);     
+    put_2darray(Report3_Info,i,5,object_descr);      
+
+    /*材质*/
+    material = get_object_material(object);  
+    put_2darray(Report3_Info,i,6,material); 
+
+    /*数量*/      
+    count = "1";   
+    put_2darray(Report3_Info,i,7,count);   
+
+    /*单位*/      
+    unit = "件";
+    put_2darray(Report3_Info,i,8,unit);       
+   
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report3_Info,i,9,weight); 
+
+    /*来源*/  
+    source = "";
+    put_2darray(Report3_Info,i,10,source); 
+    
+    /*备注信息*/  
+    remark = "";
+    put_2darray(Report3_Info,i,11,remark);  
+    
+    return(0);
+}
+
+/*支撑件信息列表*/
+get_report4_info()
+{
+    /*过滤相应类型的模型*/
+    vector = DM_VECTOR_CREATE();
+    for(i = 0; i < Object_Number; i = i + 1;){
+        object = PM_GET_MEMBER_IN_SET(Object_List, i);	
+        if(is_trayleg_part(object)){
+            DM_VECTOR_PUSH_BACK(vector, object);
+        }
+    }
+    
+    if(DM_VECTOR_SIZE(vector)>0){
+        free_2darray(Report4_Info); 
+        mid_number = DM_VECTOR_SIZE(vector);
+        
+        /*计算紧固件数量*/
+        bolting_count = 0;
+        bar_vector = DM_VECTOR_CREATE();
+        for(i = 0; i < mid_number; i = i + 1;){
+            object = DM_VECTOR_GET(vector,i);
+            part_type = PM_GET_OBJDATA(object,0, MMT_TAG_OBJTYPE);
+            if(part_type=="5"){
+                /*每根角钢包含4条紧固件信息内容*/
+                bolting_count = bolting_count + 4;
+                DM_VECTOR_PUSH_BACK(bar_vector, object);
+            }
+        }
+        
+        Report4_Row_Number = mid_number+bolting_count;
+
+        /*将报表信息保存到全局变量*/
+        Report4_Info = alloc_2darray(Report4_Row_Number,Report4_Column_Number);
+        Report4_Objects = A_ALLOC(mid_number);   
+        for(i = 0; i < mid_number; i = i + 1;){
+            object = DM_VECTOR_GET(vector,i);
+            A_PUT(Report4_Objects,i,object);	
+            /* 获取模型信息 */
+            get_object4_info(object, i);
+        }
+        for(i = 0; i < DM_VECTOR_SIZE(bar_vector); i = i + 1;){
+            object = DM_VECTOR_GET(bar_vector,i);	
+            /* 获取紧固件信息 */
+            get_bar_bolting_info(object, mid_number + 4*i + 0, "螺栓 M8X30L");
+            get_bar_bolting_info(object, mid_number + 4*i + 1, "螺母 M8");
+            get_bar_bolting_info(object, mid_number + 4*i + 2, "弹簧垫圈 8");
+            get_bar_bolting_info(object, mid_number + 4*i + 3, "平垫圈 8");
+        }
+        DM_VECTOR_DELETE(bar_vector);
+
+        /*汇总*/
+        if(Summation==1){
+            get_summation4_info(Report4_Info);
+            Report4_Row_Number = nrows_2darray(Report4_Info);
+        }
+    }
+    DM_VECTOR_DELETE(vector); 
+    return(0);
+}
+
+/*获取指定支撑件的信息*/
+get_object4_info(object,i)
+{
+    /*分段*/
+    block_name = get_block_name(object);
+    put_2darray(Report4_Info,i,0,block_name);  
+   
+    /*托盘*/
+    planning_unit = get_planning_unit(object);
+    put_2darray(Report4_Info,i,1,planning_unit);  
+                
+    /*序号*/          
+    put_2darray(Report4_Info,i,2,ITOASCII(i+1)); 
+   
+    /*底座号*/  
+    seat_no = ""; 
+    put_2darray(Report4_Info,i,3,seat_no); 
+    
+    /*类型*/  
+    object_type = "支撑件";
+    put_2darray(Report4_Info,i,4,object_type); 
+         
+    /*内容名称*/ 
+    object_descr = get_object_description(object);     
+    put_2darray(Report4_Info,i,5,object_descr);      
+
+    /*材质*/
+    material = get_object_material(object);  
+    put_2darray(Report4_Info,i,6,material); 
+
+    /*数量*/      
+    count = get_count_info(object);   
+    put_2darray(Report4_Info,i,7,count);   
+
+    /*单位*/      
+    unit = get_unit_info(object);
+    put_2darray(Report4_Info,i,8,unit);       
+   
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report4_Info,i,9,weight); 
+
+    /*来源*/  
+    source = "";
+    put_2darray(Report4_Info,i,10,source); 
+    
+    /*备注信息*/  
+    remark = "";
+    put_2darray(Report4_Info,i,11,remark);  
+    
+    return(0);
+}
+
+/*获取指定支撑件的紧固件信息*/
+get_bar_bolting_info(object,i,bolting_type)
+{
+    /*托架层数*/
+    layer = get_tray_layer(object);
+    
+    /*分段*/
+    block_name = get_block_name(object);
+    put_2darray(Report4_Info,i,0,block_name);  
+   
+    /*托盘*/
+    planning_unit = get_planning_unit(object);
+    put_2darray(Report4_Info,i,1,planning_unit);  
+                
+    /*序号*/          
+    put_2darray(Report4_Info,i,2,ITOASCII(i+1)); 
+   
+    /*底座号*/  
+    seat_no = ""; 
+    put_2darray(Report4_Info,i,3,seat_no); 
+    
+    /*类型*/  
+    object_type = "支撑件";
+    put_2darray(Report4_Info,i,4,object_type); 
+         
+    /*内容名称*/ 
+    object_descr = bolting_type;     
+    put_2darray(Report4_Info,i,5,object_descr);      
+
+    /*材质*/
+    /* material = get_object_material(object);  */
+    material = "Q235-A";    
+    put_2darray(Report4_Info,i,6,material); 
+
+    /*数量*/
+    count_k = 1;
+    if(bolting_type=="平垫圈") count_k = 2;
+    count = ITOASCII(count_k*layer);
+    put_2darray(Report4_Info,i,7,count);   
+
+    /*单位*/      
+    unit = "个";
+    put_2darray(Report4_Info,i,8,unit);       
+   
+    /*重量*/
+    /* weight = rtrim_number(FTOASCII(0.01*count*layer)); */
+    weight = "";
+    put_2darray(Report4_Info,i,9,weight); 
+
+    /*来源*/  
+    source = "";
+    put_2darray(Report4_Info,i,10,source); 
+    
+    /*备注信息*/  
+    remark = "";
+    put_2darray(Report4_Info,i,11,remark);  
+    
+    return(0);
+}
+
+/*设备基座信息列表*/
+get_report5_info()
+{
+    /*过滤相应类型的模型*/
+    vector = DM_VECTOR_CREATE();
+    for(i = 0; i < Object_Number; i = i + 1;){
+        object = PM_GET_MEMBER_IN_SET(Object_List, i);	
+        if(is_equipseat_group(object)){
+            DM_VECTOR_PUSH_BACK(vector, object);
+        }
+    }
+    
+    if(DM_VECTOR_SIZE(vector)>0){
+        /*将报表信息保存到全局变量*/
+        free_2darray(Report5_Info); 
+        Report5_Row_Number = DM_VECTOR_SIZE(vector);
+        Report5_Info = alloc_2darray(Report5_Row_Number,Report5_Column_Number);
+        Report5_Objects = A_ALLOC(Report5_Row_Number);   
+        for(i = 0; i < Report5_Row_Number; i = i + 1;){
+            object = DM_VECTOR_GET(vector,i);
+            A_PUT(Report5_Objects,i,object);	
+            /* 获取信息 */
+            get_object5_info(object, i);
+        }
+        
+        /*汇总*/
+        if(Summation==1){
+            get_summation5_info(Report5_Info);
+            Report5_Row_Number = nrows_2darray(Report5_Info);
+        }
+    }
+    DM_VECTOR_DELETE(vector); 
+    return(0);
+}
+
+/*获取指定设备基座的信息*/
+get_object5_info(object,i)
+{
+    /*分段*/
+    block_name = get_block_name(object);
+    put_2darray(Report5_Info,i,0,block_name);  
+   
+    /*托盘*/
+    planning_unit = get_planning_unit(object);
+    put_2darray(Report5_Info,i,1,planning_unit);  
+                
+    /*序号*/
+    put_2darray(Report5_Info,i,2,ITOASCII(i+1)); 
+   
+    /*底座号*/  
+    seat_no = get_seat_no(object); 
+    put_2darray(Report5_Info,i,3,seat_no); 
+    
+    /*类型*/ 
+    object_type = "设备基座";
+    put_2darray(Report5_Info,i,4,object_type); 
+         
+    /*内容名称*/ 
+    object_descr = get_seat_description(object);     
+    put_2darray(Report5_Info,i,5,object_descr);      
+
+    /*材质*/
+    material = get_object_material(object);  
+    put_2darray(Report5_Info,i,6,material); 
+
+    /*数量*/      
+    count = "1";
+    put_2darray(Report5_Info,i,7,count);   
+
+    /*单位*/
+    unit = "件";
+    put_2darray(Report5_Info,i,8,unit);       
+   
+    /*重量*/
+    weight = get_weight_info(object);
+    put_2darray(Report5_Info,i,9,weight); 
+
+    /*来源*/  
+    source = "";
+    put_2darray(Report5_Info,i,10,source); 
+    
+    /*备注信息*/  
+    remark = "";
+    put_2darray(Report5_Info,i,11,remark);  
+    
+    return(0);
+}
+
+/*获取参数*/
+get_seat_parameters(object,title)
+{
+    para_str = "";
+	para = PM_GET_OBJDATA(object,0, Tag_Seat_Para);
+	if(ISSTRING(para)){	
+		/*get seat type & size from parameter of equipment GDL*/
+		flag = 1;
+		while(flag){
+			parameter = STRINGTERM(para,"//");
+			if(parameter != ""){
+				name = STRINGTERM(parameter,"=");
+				value = TAIL(parameter,STRLEN(parameter)-STRLEN(name)-1);
+				if(name == title){
+					para_str = value;
+					flag = 0;
+				}
+			}
+			else{
+				flag = 0;            
+			}
+			para = TAIL(para,STRLEN(para) - STRLEN(parameter) - 2);        
+		}
+	}
+    para_str = rtrim_number(para_str);
+	return(para_str);
+}
+
+/*获取指定模型的数量*/
+get_count_info(object)
+{
+    count = "1";
+    part_type = PM_GET_OBJDATA(object,0, MMT_TAG_OBJTYPE);
+    if(part_type=="5"){
+        part_len = 0.001*PM_GET_OBJDATA(object,0, "len");
+        count = round_float_as_string(part_len, 3);
+        count = rtrim_number(count);
+    }
+    /* else if(part_type=="4"){ */
+        /* part_area = 0.001 * 0.001 * PM_GET_OBJDATA(object,0, "_PA"); */
+        /* count = round_float_as_string(part_area, 5); */
+        /* count = rtrim_number(count); */
+    /* } */
+	return(count);
+}
+
+/*获取指定模型的单位*/
+get_unit_info(object)
+{
+    unit = "件";
+    part_type = PM_GET_OBJDATA(object,0, MMT_TAG_OBJTYPE);
+    if(part_type=="5"){
+        unit = "米";
+    }
+    else if(part_type=="4"){
+        /* unit = "平米"; */
+        unit = "个";
+    }
+	return(unit);
+}
+
+/*获取指定模型的重量*/
+get_weight_info(object)
+{
+    weight = PM_GET_OBJDATA(object,0, MMT_TAG_MASS);
+    mass = String_To_Float(weight);
+    
+    /*托架重量*/
+    res = is_cabletray_part(object);
+	if(res>0){
+        tray_type = PM_GET_OBJDATA(object,0, Tag_Tray_Type);
+        if(tray_type>0){
+            mass = mass * tray_type;
+        }
+	}
+    /*基座重量*/
+    res = is_equipseat_part(object);
+	if(res>0){
+        tray_type = PM_GET_OBJDATA(object,0, Tag_Tray_Type);
+        if(tray_type>0){
+            mass = mass * tray_type;
+        }
+	}
+    S_PRINTF(weight,"%.2f",mass);
+	return(weight);
+}
+
+/*获取指定模型的分段*/
+get_block_name(object)
+{
+    block_name = "Unset";
+    /*测试发现需要将语句执行2次才能提取到数据*/
+    /* part_1 = PM_GET_MEMBER_IN_SET(object,0); */
+    value = PM_GET_OBJDATA(object,0,MMT_TAG_OBJECT_IN_BLOCK);
+    value = PM_GET_OBJDATA(object,0,MMT_TAG_OBJECT_IN_BLOCK);
+    if(ISSTRING(value)){
+        block_name = value;
+    }
+    return(block_name);
+}
+
+/*获取指定模型的托盘*/
+get_planning_unit(object)
+{
+    planning_unit = "Unset";
+    value = PM_GET_OBJDATA(object,0,Tag_PlanningUnit);
+    if(ISSTRING(value)){
+        planning_unit = value;
+    }
+    else{
+        planning_unit = get_block_name(object);
+        if(planning_unit!="Unset"){
+            Set_Attribute_Value(object,Tag_PlanningUnit,planning_unit);
+        }
+    }
+	return(planning_unit);
+}
+
+/*获取指定模型的底座号*/
+get_seat_no(object)
+{
+    seat_no = "Unset";
+    value = PM_GET_OBJDATA(object,0,Tag_Seat_No);
+    if(ISSTRING(value)){
+        seat_no = value;
+    }
+	return(seat_no);
+}
+
+/*获取指定模型的型号*/
+get_seat_type(object)
+{
+    seat_type = "Unset";
+    value = PM_GET_OBJDATA(object,0,Tag_Seat_Type);
+    if(ISSTRING(value)){
+        seat_type = get_string_split(value,"_",1);
+    }
+	return(seat_type);
+}
+
+/*获取指定基座的描述名称*/
+get_seat_description(object)
+{
+    seat_descr = "Unset";
+    value = PM_GET_OBJDATA(object,0,Tag_Seat_Desc);
+    if(ISSTRING(value)){
+        seat_descr = value;
+    }
+	return(seat_descr);
+}
+
+/*获取指定模型的材质*/
+get_object_material(object)
+{
+    material = "Q235-A";
+    part_id  = PM_GET_OBJDATA(object,0, MMT_TAG_PARTID);
+    res = is_cabletray_part(object);
+	if(res>0){
+        value= DM_PARTID_DATA(part_id, "MC");
+        if(ISSTRING(value)) material = value;	
+        return(material);
+	}
+    res = is_flatbar_part(object);
+	if(res>0){
+        value= DM_PARTID_DATA(part_id, "MC");
+        if(ISSTRING(value)) material = value;	
+        return(material);
+	}
+    res = is_equipseat_group(object);
+	if(res>0){
+        material = "碳钢";	
+        return(material);
+	}
+    res = is_trayleg_part(object);
+	if(res>0){
+        value= DM_PARTID_DATA(part_id, "MC");
+        if(ISSTRING(value)) material = value;
+        return(material);
+	}
+    return(material);
+}
+
+/*获取指定模型的描述*/
+get_object_description(object)
+{
+    descr = "未定义";
+	part_type = PM_GET_OBJDATA(object,0, MMT_TAG_OBJTYPE);
+	part_id   = PM_GET_OBJDATA(object,0, MMT_TAG_PARTID);
+    
+	/* 1.电缆托架 */
+    res = is_cabletray_part(object);
+	if(res==1){
+		des = PM_GET_OBJDATA(object,0, Tag_Description);
+        tmp = get_string_split(des,"-",-1);
+        des = HEAD(des, STRLEN(des)-STRLEN(tmp)-1);
+		if(ISSTRING(des)) descr = des + "  (托架)";
+	}
+    else if(res==2){
+		des = PM_GET_OBJDATA(object,0, Tag_Description);
+        tmp = get_string_split(des,"-",-1);
+        des = HEAD(des, STRLEN(des)-STRLEN(tmp)-1);
+		if(ISSTRING(des)) descr = des + "  (不锈钢托架)";
+    }
+	/* 2.贯通件 */
+	else if(is_penetration_part(object)){
+		des = PM_GET_OBJDATA(object,0, ".dG");
+		if(ISSTRING(des)){
+            des = get_string_split(des," ",1);
+            descr = des + "  (贯通件)";
+		}
+	}
+	/* 3.扁钢 */
+	else if(is_flatbar_part(object)){
+		pid = PM_GET_OBJDATA(object,0, "pid");
+		if(ISSTRING(pid)){
+            des = DM_PARTID_DATA(pid,"DD");
+            if(ISSTRING(des)){
+                descr = des + "  (扁钢)";
+            }
+		}
+	}
+	/* 3.电缆管 */
+	else if(is_cabletube_part(object)){
+		des = PM_GET_OBJDATA(object,0, ".dG");
+		if(ISSTRING(des)){
+            des = get_string_split(des," ",1);
+            descr = des + "  (电缆管)";
+		}
+	}
+	/* 4.填料函 */
+	else if(is_stuffing_part(object)){
+		des = PM_GET_OBJDATA(object,0, ".dG");
+		if(ISSTRING(des)){
+            des = get_string_split(des," ",1);
+            descr = des + "  (填料函)";
+		}
+	}
+    /* 5.支撑件 */
+    else if(is_trayleg_part(object)){
+        if(part_type=="5"){
+            des = DM_PARTID_DATA(part_id, "DD");
+            descr = des + "  (角钢)";
+        }
+        else if(part_type=="4"){
+            /* des = DM_PARTID_DATA(part_id, "DD"); */
+            des = PM_GET_OBJDATA(object,0, Tag_Pad_Type);
+            descr = des + "  (垫板)";
+        }
+    }
+    /* 6.设备基座 */
+    else if(is_equipseat_group(object)){
+		des = PM_GET_OBJDATA(object,0, Tag_Seat_Desc);
+		if(ISSTRING(des)){
+            descr = des + "  (基座)";
+		}
+    }
+    return(descr);
+}
+
+/*
+**将全局变量object_prod_info中保存的生产信息显示到列表中；
+**根据全局变量Grid_SortColumn，Grid_SortDirection保存的信息对显示列表进行排序；
+*/
+publish_model_info()
+{
+	/* 将报表信息显示到窗口中 */	
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_DELETEROWS, -1);
+    if(Report_Type == 1){
+        Grid_Column_Number = Report1_Column_Number;
+        for (i = 0; i < Report1_Row_Number; i = i + 1;){
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_INSERTROWS, 1);
+            for (j = 0; j < Report1_Column_Number; j = j + 1;){
+                value = get_2darray(Report1_Info,i,j);
+                if (ISSTRING(value)){
+                    W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, value);
+                }
+            }
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ITEMID, i);
+        }
+        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 1);
+    }  
+    else if(Report_Type == 2){
+        Grid_Column_Number = Report2_Column_Number;
+        for (i = 0; i < Report2_Row_Number; i = i + 1;){
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_INSERTROWS, 1);
+            for (j = 0; j < Report2_Column_Number; j = j + 1;){
+                value = get_2darray(Report2_Info,i,j);
+                if (ISSTRING(value)){
+                    W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, value);
+                }
+            }
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ITEMID, i);
+        }
+        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 1);
+    }
+    else if(Report_Type == 3){
+        Grid_Column_Number = Report3_Column_Number;
+        for (i = 0; i < Report3_Row_Number; i = i + 1;){
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_INSERTROWS, 1);
+            for (j = 0; j < Report3_Column_Number; j = j + 1;){
+                value = get_2darray(Report3_Info,i,j);
+                if (ISSTRING(value)){
+                    W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, value);
+                }
+            }
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ITEMID, i);
+        }
+        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 1);
+    }
+    else if(Report_Type == 4){
+        Grid_Column_Number = Report4_Column_Number;
+        for (i = 0; i < Report4_Row_Number; i = i + 1;){
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_INSERTROWS, 1);
+            for (j = 0; j < Report4_Column_Number; j = j + 1;){
+                value = get_2darray(Report4_Info,i,j);
+                if (ISSTRING(value)){
+                    W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, value);
+                }
+            }
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ITEMID, i);
+        }
+        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 1);
+    }
+    else if(Report_Type == 5){
+        Grid_Column_Number = Report5_Column_Number;
+        for (i = 0; i < Report5_Row_Number; i = i + 1;){
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_INSERTROWS, 1);
+            for (j = 0; j < Report5_Column_Number; j = j + 1;){
+                value = get_2darray(Report5_Info,i,j);
+                if (ISSTRING(value)){
+                    W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, value);
+                }
+            }
+            W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ITEMID, i);
+        }
+        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 1);
+    }
+    auto_number();
+	/* 自动调整列宽度 Adjust the width of column automatically*/
+	for (i=0; i < Grid_Column_Number; i = i + 1;){
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_COLUMN, i, W_LISTW_COLUMNWIDTH, -1);
+	}
+	/* 对生产信息列表进行排序 */
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_COLUMN, Grid_SortColumn, W_LISTW_SORT, Grid_SortDirection);
+}
+
+/* 创建顶层窗体 */
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "电气舾装件托盘表" );	
+	return(mainform);
+}
+
+/* 创建显示报表内容的格栅 */
+create_grid(main_form)
+{
+	wobj = W_ADD_WINDOW(main_form, W_MULTISELECT, "DisplayGrid");	   
+	W_REALIZE_WINDOW(wobj,  W_FRAME_RIGHT_OF,    "Block_Name",
+                            W_FRAME_BELOW,       "panel_upperpart",
+                            W_LISTW_COLUMNS,     Report1_Column_Number,
+                            W_FRAME_SCROLLBAR,   W_SCROLLBAR_RIGHTEDGE,
+                            W_LISTW_HEADER_MODE, W_LISTW_HEADER_BUTTONS,
+                            W_FRAME_RESIZABLE,   W_RESIZE_HORIZONTALLY,
+                            W_LISTW_MODE_REPORT, 0,
+                            W_FRAME_COLS,        73, 
+                            W_FRAME_ROWS,        17,
+                            W_LISTW_CALLBACK,    1);						   
+	W_SET_WINDOW_HANDLER(wobj, "grid_handler");
+	
+	/* 设置格栅的列标题 */
+	set_column_title(wobj, Title1, Report1_Column_Number);				
+	return(wobj);
+}
+
+quit_handler(item, event_type, button_value)
+{
+	exit();
+	U_MESSAGE("退出托盘表窗口");
+	return(99);
+}
+
+grid_handler(window, event_type, row, column, item_id)
+{  	
+	if (event_type == W_EVENT_ITEM_SELECTED){
+		/* 处理格栅的排序 */
+		if (row < 0 & column >= 0){
+			sort_grid(column,window);
+			auto_number();
+		}		
+		else if(row >= 0 & column == 0){		
+			/* 获取选中的模型 */				
+			get_selected_items();			
+			auto_highlight();
+			auto_scale_model();			
+		}		
+	}	
+	/* 处理双击数据行的事件 */
+	else if (event_type == W_EVENT_ITEM_DOUBLECLICKED){	
+		/* 获取选中的模型 */			
+		get_selected_items();			
+		auto_highlight();
+		auto_scale_model();	
+        modify_info_handler(0, 0, 0);		
+	}
+	return(0);
+}
+
+auto_highlight()
+{
+	/* 处理模型加亮 */
+	if (AutoHighLight == 1){
+		/* 将已经加亮的模型恢复原来的颜色 */
+		model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			Highlight_Object(model,0);
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);
+		PM_FREE_SET(temp);
+		
+		/* 加亮选中的模型 */
+		model_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+		for (i = 0; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
+			Highlight_Object(model,1);
+			PM_ADD_OBJECT_TO_SET(model,High_Light_List);			
+		}
+	}
+}
+
+auto_scale_model()
+{
+	/* 处理模型自动缩放 */
+	if (AutoScale == 1){				
+		model_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+		if (model_number == 1){
+			model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,0);
+			Auto_Scale(model_handle);
+		}
+	}
+}
+
+sort_grid(column,window)
+{
+	/* A column header was clicked; sort the items */
+	if (Grid_SortColumn == column) {
+		if (Grid_SortDirection == 0) {
+			Grid_SortDirection = 1;
+		}
+		else {
+			Grid_SortDirection = 0;
+		}
+	}
+	else {
+		Grid_SortDirection = 1;
+	}
+	Grid_SortColumn = column;
+	W_SET_WINDOW_ARGS(window, W_LISTW_COLUMN, column, W_LISTW_SORT, Grid_SortDirection);
+}
+
+model_browsing_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);	
+	selected_model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	if (selected_model_number > 0){
+		current_model = PM_GET_MEMBER_IN_SET(High_Light_List, 0);
+		parts = PM_GET_OBJECTS_IN_GROUP(current_model);
+		part = PM_GET_MEMBER_IN_SET( parts, 0);
+		x0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGX);
+		y0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGY);
+		z0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGZ);
+		x = SCAN_QUANT(1,x0);
+		y = SCAN_QUANT(1,y0);
+		z = SCAN_QUANT(1,z0);
+		PM_SET_CURRENT_LOC(x, y, z);	
+	}
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);
+}
+
+filter_model_by_type(part)
+{
+    if(is_cabletray_part(part))    return(1);   /*托架*/
+    if(is_flatbar_part(part))      return(2);   /*扁铁*/
+    if(is_penetration_part(part))  return(3);   /*贯通件*/
+    if(is_cabletube_part(part))    return(3);   /*电缆管*/
+    if(is_stuffing_part(part))     return(3);   /*填料函*/
+    if(is_trayleg_part(part))      return(4);   /*支撑件*/
+    if(is_equipseat_part(part))    return(5);   /*设备基座*/
+    return(-1);
+}
+
+search_objects(item, event_type, button_value)
+{   
+    query = PM_INIT_QUERY("CABLETRAY", "EQUIPMENT", "GROUP", "BEAM", "STRUCTCMP");
+	parts = PM_EXECUTE_QUERY(query);
+	part_number = PM_NR_MEMBERS_IN_SET(parts);
+	if (part_number <= 0) return 0;
+
+    filter_model(parts);
+    
+	/* 将获得的模型添加到全局变量Object_List中 */
+    PM_FREE_SET(Object_List);
+    Object_List = PM_INIT_SET();		
+	Object_List = PM_COPY_SET(parts); 	
+	Object_Number = PM_NR_MEMBERS_IN_SET(Object_List);
+    
+    get_report1_info();
+    get_report2_info();
+    get_report3_info();
+    get_report4_info();
+    get_report5_info();
+    
+    publish_model_info(); 
+    if(Object_Number > 0){
+        auto_number();   
+    }
+    else{
+        U_MESSAGE("没有符合条件的模型");
+    }
+    PM_FREE_SET(parts);
+    return(0);
+}
+
+filter_model(models)
+{
+	/* 获取过滤条件 Get filter conditions*/
+	block_name    = W_GET_PANELITEM_ARG(Block_Name,W_PANEL_VALUE);
+	planning_unit = W_GET_PANELITEM_ARG(Planning_Unit,W_PANEL_VALUE);	
+	description   = W_GET_PANELITEM_ARG(Model_Description,W_PANEL_VALUE);
+	temp = PM_INIT_SET();
+    
+	/* 过滤掉不符合条件的模型 */
+	part_number = PM_NR_MEMBERS_IN_SET(models);	
+    U_MESSAGE("part_number="+ITOASCII(part_number));
+	for (i = 0; i < part_number; i = i + 1;){	
+        part = PM_GET_MEMBER_IN_SET(models,i);
+        /* type = PM_GET_OBJDATA(part, 0, MMT_TAG_OBJTYPE); */
+        elec_model_type = filter_model_by_type(part);
+        if(elec_model_type>0){
+            if(elec_model_type==5){
+                part = PM_GET_OBJECT_GROUP(part, 7);
+            }
+            /*个别零件有可能会因为位置的关系而没有这个属性值*/
+            model_block_name = PM_GET_OBJDATA(part,0,MMT_TAG_OBJECT_IN_BLOCK);
+            if(ISINT(model_block_name)){
+                model_block_name = "Unset";
+            }                                
+            model_planning_unit = PM_GET_OBJDATA(part,0,Tag_PlanningUnit);
+            if(ISINT(model_planning_unit)){
+                model_planning_unit = "Unset";
+            }
+            model_descr = get_object_description(part);
+
+            check_block =  PATTERN_MATCH(model_block_name,block_name);
+            check_planning = PATTERN_MATCH(model_planning_unit,planning_unit);	
+            check_descr = PATTERN_MATCH(model_descr,description);	
+            if(check_block & check_planning & check_descr){		
+                PM_ADD_OBJECT_TO_SET(part,temp);
+            }
+        }
+	}
+	PM_SETOP_SUB(models,models);
+	PM_SETOP_OR(models,temp);
+	PM_FREE_SET(temp);
+	return(0);
+}
+
+auto_number()
+{
+    if(Report_Type == 1){
+        row_numbers = Report1_Row_Number;
+    }
+    else if(Report_Type == 2){
+        row_numbers = Report2_Row_Number;
+    }
+    else if(Report_Type == 3){
+        row_numbers = Report3_Row_Number;
+    }
+    else if(Report_Type == 4){
+        row_numbers = Report4_Row_Number;
+    }
+    else if(Report_Type == 5){
+        row_numbers = Report5_Row_Number;
+    }
+
+    for(i=0;i<row_numbers;i=i+1){
+        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, i, W_LISTW_COLUMN, 2, W_LISTW_STRING, ITOASCII(i+1));
+    }
+    return(0);
+}
+
+modify_info_handler(item, event_type, button_value)
+{
+    if(Summation==1){
+		U_CONFIRM("请取消汇总重新查询后，再执行此操作");
+		return(0);
+    }
+	/* check if already select objects in list */
+	object_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (object_number <= 0){
+		U_CONFIRM("请先选择实体模型");
+		return(0);
+	}
+	/*定义菜单信息*/   
+	tag_number = 1;
+	tag_description = A_ALLOC(tag_number);
+	A_PUT(tag_description,0,"托盘");
+
+	tags = A_ALLOC(tag_number);
+	A_PUT(tags,0,Tag_PlanningUnit);
+
+    /*映射相应的列*/
+	maps = A_ALLOC(tag_number);
+	A_PUT(maps,0,1);
+
+	/* get column number of item that will be modified */
+	si = 1;
+	s = DM_CALL_SCRIPT("macro/Select.mac","U_Select","选择要修改的生产信息",tag_number,tag_description,si);
+	if(s<0) return(0);
+
+	attribute_tag  = A_GET(tags, s);
+	attribute_name = A_GET(tag_description, s);
+    first_select_row_index = A_GET(Selected_Rows,0);
+    column_number = A_GET(maps, s);
+    
+    if(Report_Type==1) report_info = Report1_Info;
+    if(Report_Type==2) report_info = Report2_Info;
+    if(Report_Type==3) report_info = Report3_Info;
+    if(Report_Type==4) report_info = Report4_Info;
+    if(Report_Type==5) report_info = Report5_Info;
+    old_value = get_2darray(report_info, first_select_row_index, column_number);
+
+	/* get new value */
+	U_INIT_DIALOG(" 请输入新的属性值 ");
+	dialog_handle = U_SET_STR(attribute_name,old_value,25);
+	if(U_DIALOG()<0) return(0);
+
+	new_val = U_GET_STR(dialog_handle);
+	if (new_val == ""){
+		U_CONFIRM("输入为空值");
+		return(0);
+	}
+
+	/* assign new value to selected objects */
+	for (i = 0; i < object_number; i = i + 1){
+		object = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+        object_name = PM_GET_OBJDATA(object,0, "nam");
+		access = Get_Object_Access_Status(object);
+		if(access == "CheckOutByMe"){
+			Set_Attribute_Value(object, attribute_tag, new_val);		
+		}
+		else{
+			U_CONFIRM("你没有<"+ object_name +">的修改权限");		
+		}
+	}
+	
+	/* refresh data grid */
+    if(Report_Type==1) get_report1_info();
+    if(Report_Type==2) get_report2_info();
+    if(Report_Type==3) get_report3_info();
+    if(Report_Type==4) get_report4_info();
+    if(Report_Type==5) get_report5_info();
+	publish_model_info();
+    
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
+}
+
+summation_options_selected(item, event_type, dummy)
+{
+    is_summation = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+    if(is_summation=="1"){
+        W_SET_PANELITEM_ARGS(Single_Options,W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Single_Options,W_PANEL_VALUE,"00");
+        Summation = 1;
+        AutoHighLight = 0;
+        AutoScale = 0;
+        /* 将已经加亮的模型恢复原来的颜色 */
+        model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+        for (i = 0 ; i < model_number; i = i + 1){
+            model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+            PM_HIGHLIGHT_OBJECT(model,0,FALSE);
+        }
+        temp = PM_INIT_SET();
+        High_Light_List = PM_COPY_SET(temp);	
+        PM_FREE_SET(temp);
+    }
+    else{
+        W_SET_PANELITEM_ARGS(Single_Options,W_PANEL_SENSITIVITY,1);
+        Summation = 0;
+    }
+}
+
+single_options_selected(item, event_type, dummy)
+{
+    if(Summation == 0){
+        s = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+        if( s == "00" ){
+            AutoHighLight = 0;
+            AutoScale = 0;	
+            /* 将已经加亮的模型恢复原来的颜色 */
+            model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+            for (i = 0 ; i < model_number; i = i + 1){
+                model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+                PM_HIGHLIGHT_OBJECT(model,0,FALSE);
+            }
+            temp = PM_INIT_SET();
+            High_Light_List = PM_COPY_SET(temp);	
+            PM_FREE_SET(temp);		
+        }
+        else if( s == "10"){
+            AutoHighLight = 1;
+            AutoScale = 0;	
+        }
+        else if( s == "11"){
+            AutoHighLight = 1;
+            AutoScale = 1;	
+        }
+        else if( s == "01"){
+            AutoHighLight = 0;
+            AutoScale = 1;
+            /* 将已经加亮的模型恢复原来的颜色 */
+            model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+            for (i = 0 ; i < model_number; i = i + 1){
+                model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+                PM_HIGHLIGHT_OBJECT(model,0,FALSE);
+            }
+            temp = PM_INIT_SET();
+            High_Light_List = PM_COPY_SET(temp);
+            PM_FREE_SET(temp);
+        }		
+    }
+	return(0);
+}
+
+create_panel_upperpart(mainform)
+{
+	panel_upperpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_upperpart");
+	W_REALIZE_WINDOW(panel_upperpart,   W_FRAME_X, 0,
+                                        W_FRAME_Y, 0,
+                                        W_FRAME_ROWS, 2,
+                                        W_FRAME_COLS, 70);
+							                  					
+	Block_Name = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "Block_Name");
+	W_REALIZE_PANELITEM(Block_Name, W_PANEL_ROW, 0, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_LABEL, "分段名称:   ",
+                                    W_PANEL_LENGTH, 15,
+                                    W_PANEL_VALUE, "*",
+                                    W_PANEL_CALLBACK, 1);
+							              
+	Planning_Unit = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "Planning_Unit");
+	W_REALIZE_PANELITEM(Planning_Unit,  W_PANEL_ROW,      0, 
+	                                    W_PANEL_COL,      28,
+                                        W_PANEL_LABEL,    "托盘代号:   ",
+                                        W_PANEL_LENGTH,   15,
+                                        W_PANEL_VALUE,    "*",
+                                        W_PANEL_SENSITIVITY,1,
+                                        W_PANEL_CALLBACK, 3);
+						                  
+	Model_Description = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "Model_Description");
+	W_REALIZE_PANELITEM(Model_Description,  W_PANEL_ROW,        1, 
+                                            W_PANEL_COL,        0,
+                                            W_PANEL_LABEL,      "描述名称:   ",
+                                            W_PANEL_LENGTH,     15,
+                                            W_PANEL_VALUE,      "*",
+                                            W_PANEL_SENSITIVITY,1,
+                                            W_PANEL_CALLBACK,   1);
+                                            
+	search_object = W_ADD_PANELITEM(panel_upperpart, W_PANEL_BUTTON, "search_object");
+	W_REALIZE_PANELITEM(search_object,  W_PANEL_ROW, 	     0, 
+	                                    W_PANEL_COL,         55,
+                                        W_PANEL_BUTTONIMAGE, "查找模型", 
+                                        W_PANEL_WIDTH,       15,
+                                        W_PANEL_BUTTONVALUE, 210,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+							                  	
+	pick_object = W_ADD_PANELITEM(panel_upperpart, W_PANEL_BUTTON, "pick_object");						                  
+	W_REALIZE_PANELITEM(pick_object,    W_PANEL_ROW, 	     1, 
+                                        W_PANEL_COL,         55,
+                                        W_PANEL_BUTTONIMAGE, "选择模型", 
+                                        W_PANEL_WIDTH,       15,
+                                        W_PANEL_BUTTONVALUE, 210,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							                  
+							 							 
+	Single_Options = W_ADD_PANELITEM(panel_upperpart, W_PANEL_TOGGLE, "Single_Options");
+	W_REALIZE_PANELITEM(Single_Options, W_PANEL_ROW,            1, 
+                                        W_PANEL_COL,            28,
+                                        W_PANEL_LABEL,          "",
+                                        W_PANEL_CHOICESTRING,   "加亮   ",
+                                        W_PANEL_CHOICESTRING,   "缩放   ",
+                                        W_PANEL_VALUE,          "00",
+                                        W_PANEL_CHOICESTYLE,	W_STYLE_PUSHBUTTONS,
+                                        W_PANEL_CALLBACK,       1);	
+							 
+	Summation_Option = W_ADD_PANELITEM(panel_upperpart, W_PANEL_TOGGLE, "Summation_Option");
+	W_REALIZE_PANELITEM(Summation_Option,   W_PANEL_ROW,            1, 
+                                            W_PANEL_COL,            45,
+                                            W_PANEL_LABEL,          "",
+                                            W_PANEL_CHOICESTRING,   "汇总   ",
+                                            W_PANEL_VALUE,          "00",
+                                            W_PANEL_CHOICESTYLE,	W_STYLE_PUSHBUTTONS,
+                                            W_PANEL_CALLBACK,       1);	
+                                    
+	Report_Type_Option = W_ADD_PANELITEM(panel_upperpart, W_PANEL_CHOICE, "Report_Type_Option");
+	W_REALIZE_PANELITEM(Report_Type_Option,	W_PANEL_ROW,            2, 
+                                            W_PANEL_COL,            0,
+                                            W_PANEL_LABEL,          "类型:  ",
+                                            W_PANEL_CHOICESTRING,   "托架    ",
+                                            W_PANEL_CHOICESTRING,   "扁钢    ",
+                                            W_PANEL_CHOICESTRING,   "贯通件  ",
+                                            W_PANEL_CHOICESTRING,   "支撑件  ",
+                                            W_PANEL_CHOICESTRING,   "设备基座",
+                                            W_PANEL_ORDINALVALUE,   0,
+                                            W_PANEL_CHOICESTYLE,	W_STYLE_PUSHBUTTONS,
+                                            W_PANEL_CALLBACK,       1);
+                                        
+	W_SET_PANELITEM_HANDLER(search_object, "search_objects");
+	W_SET_PANELITEM_HANDLER(pick_object, "pick_objects");
+	W_SET_PANELITEM_HANDLER(Single_Options, "single_options_selected");
+    W_SET_PANELITEM_HANDLER(Summation_Option, "summation_options_selected");
+    W_SET_PANELITEM_HANDLER(Report_Type_Option, "report_type_handler");
+	return(panel_upperpart);
+}
+
+report_type_handler(item, event_type, selection)
+{
+    set_report_type(selection+1);
+}
+
+set_report_type(report_type)
+{
+    Report_Type = report_type;
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_DELETEROWS, -1);
+	if(report_type == 1){
+		W_SET_WINDOW_ARGS(wobj,	W_LISTW_COLUMNS,	Report1_Column_Number);
+		set_column_title(wobj, Title1, Report1_Column_Number);        
+		if(Report1_Row_Number != 0){
+			publish_model_info();
+		}
+	}
+	else if(report_type == 2){
+		W_SET_WINDOW_ARGS(wobj,	W_LISTW_COLUMNS,	Report2_Column_Number);
+		set_column_title(wobj, Title2, Report2_Column_Number);
+		if(Report2_Row_Number != 0){
+			publish_model_info();
+		}
+	}
+	else if(report_type == 3){
+		W_SET_WINDOW_ARGS(wobj,	W_LISTW_COLUMNS,	Report3_Column_Number);
+		set_column_title(wobj, Title3, Report3_Column_Number);
+		if(Report3_Row_Number != 0){
+			publish_model_info();
+		}
+	}
+    else if(report_type == 4){
+		W_SET_WINDOW_ARGS(wobj,	W_LISTW_COLUMNS,	Report4_Column_Number);
+		set_column_title(wobj, Title4, Report4_Column_Number);
+		if(Report4_Row_Number != 0){
+			publish_model_info();
+		}
+	}
+    else if(report_type == 5){
+		W_SET_WINDOW_ARGS(wobj,	W_LISTW_COLUMNS,	Report5_Column_Number);
+		set_column_title(wobj, Title5, Report5_Column_Number);
+		if(Report5_Row_Number != 0){
+			publish_model_info();
+		}
+	}
+	return(0);
+}
+
+pick_objects(item, event_type, dummy)
+{
+    objects = PM_DEFINE_SET("请选择电气模型");
+    if(!ISINT(objects)){
+        /* 过滤掉不符合条件的模型 */
+        temp = PM_INIT_SET();
+        part_number = PM_NR_MEMBERS_IN_SET(objects);	
+        for (i = 0; i < part_number; i = i + 1;){	
+            part = PM_GET_MEMBER_IN_SET(objects,i);
+            elec_model_type = filter_model_by_type(part);
+            if(elec_model_type>0){
+                if(elec_model_type==5){
+                    group_handle = PM_GET_OBJECT_GROUP(part, 7);
+                    PM_ADD_OBJECT_TO_SET(group_handle,temp);
+                }
+                else{
+                    PM_ADD_OBJECT_TO_SET(part,temp);
+                }
+            }
+        }
+        PM_FREE_SET(objects);
+    
+        /* 将获得的模型添加到全局变量Object_List中 */
+        PM_FREE_SET(Object_List);
+        Object_List = PM_INIT_SET();		
+        Object_List = PM_COPY_SET(temp); 	
+        Object_Number = PM_NR_MEMBERS_IN_SET(Object_List);
+        
+        get_report1_info();
+        get_report2_info();
+        get_report3_info();
+        get_report4_info();
+        get_report5_info();
+        
+        if(elec_model_type==1){
+            W_SET_PANELITEM_ARGS(Report_Type_Option, W_PANEL_ORDINALVALUE, 0);
+        }
+        else if(elec_model_type==2){
+            W_SET_PANELITEM_ARGS(Report_Type_Option, W_PANEL_ORDINALVALUE, 1);
+        }
+        else if(elec_model_type==3){
+            W_SET_PANELITEM_ARGS(Report_Type_Option, W_PANEL_ORDINALVALUE, 2);
+        }
+        else if(elec_model_type==4){
+            W_SET_PANELITEM_ARGS(Report_Type_Option, W_PANEL_ORDINALVALUE, 3);
+        }
+        else if(elec_model_type==5){
+            W_SET_PANELITEM_ARGS(Report_Type_Option, W_PANEL_ORDINALVALUE, 4);
+        }
+        Report_Type = elec_model_type;
+        publish_model_info(); 
+        
+        if(Object_Number > 0){
+            auto_number();
+        }
+        else{
+            U_MESSAGE("没有符合条件的模型");
+        }
+        PM_FREE_SET(temp);
+    }
+}
+
+create_panel_underpart(mainform)
+{	
+	panel_underpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_underpart");
+	W_REALIZE_WINDOW(panel_underpart,   W_FRAME_X, 0,
+                                        W_FRAME_Y, 0);
+
+	Report_Template = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Template");
+	W_REALIZE_PANELITEM(Report_Template,    W_PANEL_ROW, 21, 
+                                            W_PANEL_COL, 0,
+                                            W_PANEL_LABEL, "报表模板:     ",
+                                            W_PANEL_LENGTH, 50,
+                                            W_PANEL_VALUE, "*",
+                                            W_PANEL_SENSITIVITY, 0,
+                                            W_PANEL_CALLBACK, 1);
+
+	select_template = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_template");
+	W_REALIZE_PANELITEM(select_template,    W_PANEL_ROW, 	     21, 
+                                            W_PANEL_COL,         61,
+                                            W_PANEL_BUTTONIMAGE, "选择模板", 
+                                            W_PANEL_WIDTH,       10,
+                                            W_PANEL_BUTTONVALUE, 202,
+                                            W_PANEL_CALLBACK,    1,
+                                            W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							                     
+
+	Report_Path = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Path");
+	W_REALIZE_PANELITEM(Report_Path,    W_PANEL_ROW,        22, 
+                                        W_PANEL_COL,        0,
+                                        W_PANEL_LABEL,      "保存路径:     ",
+                                        W_PANEL_LENGTH,     50,
+                                        W_PANEL_VALUE,      "*",
+                                        W_PANEL_SENSITIVITY,0,
+                                        W_PANEL_CALLBACK,   1);	
+							                     
+	select_path = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_path");
+	W_REALIZE_PANELITEM(select_path,    W_PANEL_ROW, 	     22, 
+                                        W_PANEL_COL,         61,
+                                        W_PANEL_BUTTONIMAGE, "选择路径", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);						                     
+							                  
+	export_report = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "export_report");
+	W_REALIZE_PANELITEM(export_report,  W_PANEL_ROW, 	     23, 
+	                                    W_PANEL_COL,         0,
+                                        W_PANEL_BUTTONIMAGE, "导出Excel", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+
+	clear_grid_data = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "clear_grid_data");
+	W_REALIZE_PANELITEM(clear_grid_data, W_PANEL_ROW, 	      23, 
+                                         W_PANEL_COL,         12,
+                                         W_PANEL_BUTTONIMAGE, "清空数据", 
+                                         W_PANEL_WIDTH,       10,
+                                         W_PANEL_BUTTONVALUE, 202,
+                                         W_PANEL_CALLBACK,    1,
+                                         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+                                        
+	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
+	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	     23, 
+	                                    W_PANEL_COL,         49,
+                                        W_PANEL_BUTTONIMAGE, "模型浏览", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+							 						 							 							 
+	quit = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "quit");
+	W_REALIZE_PANELITEM(quit,   W_PANEL_ROW, 	     23, 
+                                W_PANEL_COL,         61,
+                                W_PANEL_BUTTONIMAGE, "退出", 
+                                W_PANEL_WIDTH,       10,
+                                W_PANEL_BUTTONVALUE, 207,
+                                W_PANEL_CALLBACK,    1,
+                                W_PANEL_CLOSEBUTTON, 1,
+                                W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	W_SET_PANELITEM_HANDLER(model_browsing, "model_browsing_handler");
+	W_SET_PANELITEM_HANDLER(export_report, "export_to_excel");
+	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
+	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
+    W_SET_PANELITEM_HANDLER(clear_grid_data, "clear_grid_data_handler");
+	return(panel_underpart);
+}
+
+clear_grid_data_handler(item, event_type, dummy)
+{
+    fresh();
+    publish_model_info();
+}
+
+select_path_handler(item, event_type, dummy)
+{
+    path = U_GET_DIRECTORY("选择报表保存路径","C:/TEMP/","",0);
+    if(ISSTRING(path)){
+        W_SET_PANELITEM_ARGS(Report_Path, W_PANEL_VALUE, path+"/");
+    }
+}
+
+select_template_handler(item, event_type, dummy)
+{
+    flag = 0;
+    template = U_GET_FILENAME("请选择模板文件", "P:\\报表模板\\","电气舾装件托盘表.xlsx", "Excel File(*.xlsx)\nExcel File(*.xlsx)\nAll Files(*.*)",2,flag);
+    if(ISSTRING(template)){
+        W_SET_PANELITEM_ARGS(Report_Template,W_PANEL_VALUE,template);
+    }
+}
+
+export_to_excel(item, event_type, dummy)
+{
+    random_string = get_random_string();
+    DataFileName = "C:\\TEMP\\cable_struct_report"+random_string+".txt";
+	if (F_EXIST(DataFileName)){
+		check = F_DELETE_FILE(DataFileName);
+		if (check == -1){
+			U_MESSAGEBOX("请先关闭文件" + DataFileName, U_MB_ERROR, U_MB_OK, U_MB_OK);
+			return(-1);
+		}
+	}
+	
+	flag = F_CREATE_FILE(DataFileName);
+	if (flag == -1){
+		U_CONFIRM("用户对文件:" + DataFileName + "所在路径没有写权限" );
+		return(-1);
+	}
+
+	file = F_OPEN_FILE(DataFileName,"w");
+	
+    /* 获取模板文件 */
+    unix_tmp_path = W_GET_PANELITEM_ARG(Report_Template,W_PANEL_VALUE);
+	if(!F_EXIST(unix_tmp_path)){
+		msg = "模板文件 <" + unix_tmp_path + "> 不存在";
+		U_CONFIRM(msg);
+		return(-1);
+	}
+	/* 模板文件后缀名 */
+    unix_tmp_suffix = SEARCH(unix_tmp_path, ".");
+	
+	/* 获取.NET程序路径 */
+	unix_exe_path = SYS_GETENV("MarineToolkit") + "\\NET_Programs\\SDARI_Elec_Report.exe";
+
+	/*获取报表文件(excel)名称*/
+	U_INIT_DIALOG("请输入报表文件名称");
+	name_f = U_SET_STR("Excel文件名:", "", 20);
+	if(U_DIALOG() < 0) return(0);
+	
+	doc_name = U_GET_STR(name_f);
+	if(doc_name == ""){
+		msg = "文件名不能为空";
+		U_MESSAGEBOX(msg, U_MB_WARNING, U_MB_OK, U_OK);
+		return(0);
+	}
+	
+	/*获取报表文件的保存路径*/
+	unix_rep_path = W_GET_PANELITEM_ARG(Report_Path,W_PANEL_VALUE);
+	if(!F_EXIST(unix_rep_path)){
+		msg = "路径 <" + unix_rep_path + "> 不存在";
+		U_MESSAGEBOX(msg, U_MB_ERROR, U_MB_OK, U_OK);
+		return(-1);
+	}	
+	
+	unix_rep_file = unix_rep_path + doc_name + unix_tmp_suffix;
+	win_tmp_path = S_REPLACE(unix_tmp_path, "/", "\\");
+	win_exe_path = S_REPLACE(unix_exe_path, "/", "\\");
+	win_rep_file = S_REPLACE(unix_rep_file, "/", "\\");
+	
+	res = write_to_temp_file(file);
+	F_CLOSE_FILE(file);
+
+	cmd = win_exe_path + " " + win_tmp_path + " " + DataFileName + " " + win_rep_file;
+    if(res) SYS_EXEC_CMND(cmd);		
+	return(1);
+}
+
+get_total_count()
+{
+    count = 0;
+    for(i=0;i<Report1_Row_Number;i=i+1;){
+        part_count = String_To_Float(get_2darray(Report1_Info,i,19));
+        count = count + part_count;
+    }
+    value = "";
+    S_PRINTF(value ,"%.0f",count);
+    return(value);
+}
+
+get_total_weight()
+{
+    weight = 0;
+    for(i=0;i<Report1_Row_Number;i=i+1;){
+        part_weight = string_to_float(get_2darray(Report1_Info,i,20));
+        weight = weight + part_weight;
+    }
+    value = "";
+    S_PRINTF(value ,"%.2f",weight);
+    return(value);
+}
+
+get_string(row_number,order)
+{
+    W_SET_WINDOW_ARGS(DisplayGrid,W_LISTW_ROW,row_number);
+    item_id = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ITEMID);   
+    valve = get_2darray(Report1_Info,item_id,order+2);
+    return(valve);
+}
+
+write_to_temp_file(file)
+{ 
+	/*图名图号信息*/
+	U_INIT_DIALOG("请输入图号信息");
+    s_f1 = U_SET_STR("图  名:", "XXXXX分段电气舾装件托盘表", 25);
+    s_f2 = U_SET_STR("图  号:", "", 25);
+    if(U_DIALOG()<0){
+        U_MESSAGE("用户取消操作");
+        return(0);
+    }
+    drawing_name = U_GET_STR(s_f1);
+    drawing_no   = U_GET_STR(s_f2);
+	info = "电气舾装件托盘表" + ",#";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    info = "Title" + ",#" + drawing_name + ",#2,#5,#";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    info = "Title" + ",#" + drawing_no + ",#2,#10,#";
+   	F_WRITE_STR(file,info);
+   	F_WRITE_NEWLINE(file);	
+    
+    /*托盘表信息1*/
+    info = "Table,#托架" + ",#6,#3,#12";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    for(i=0;i<Report1_Row_Number;i=i+1;){   
+        info = "Line,#"+ITOASCII(i+1)+",#";
+        for(k=3;k<Report1_Column_Number;k=k+1;){
+            value = get_2darray(Report1_Info,i,k);
+            if(k == 8){
+                /*在这里增加合并单元格的列*/
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";	
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);	
+    }
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    
+    /*托盘表信息2*/
+    info = "Table,#扁钢" + ",#6,#3,#12";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    for(i=0;i<Report2_Row_Number;i=i+1;){   
+        info = "Line,#"+ITOASCII(i+1)+",#";
+        for(k=3;k<Report2_Column_Number;k=k+1;){
+            value = get_2darray(Report2_Info,i,k);
+            if(k == 8){
+                /*在这里增加合并单元格的列*/
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";	
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);	
+    }
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    
+    /*托盘表信息3*/
+    info = "Table,#贯通件" + ",#6,#3,#12";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    for(i=0;i<Report3_Row_Number;i=i+1;){   
+        info = "Line,#"+ITOASCII(i+1)+",#";
+        for(k=3;k<Report3_Column_Number;k=k+1;){
+            value = get_2darray(Report3_Info,i,k);
+            if(k == 8){
+                /*在这里增加合并单元格的列*/
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";	
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);	
+    }
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    
+    /*托盘表信息4*/
+    info = "Table,#支撑件" + ",#6,#3,#12";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    for(i=0;i<Report4_Row_Number;i=i+1;){   
+        info = "Line,#"+ITOASCII(i+1)+",#";
+        for(k=3;k<Report4_Column_Number;k=k+1;){
+            value = get_2darray(Report4_Info,i,k);
+            if(k == 8){
+                /*在这里增加合并单元格的列*/
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";	
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);	
+    }
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    
+    /*托盘表信息5*/
+    info = "Table,#设备基座" + ",#6,#3,#12";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);
+    for(i=0;i<Report5_Row_Number;i=i+1;){   
+        info = "Line,#"+ITOASCII(i+1)+",#";
+        for(k=3;k<Report5_Column_Number;k=k+1;){
+            value = get_2darray(Report5_Info,i,k);
+            if(k == 8){
+                /*在这里增加合并单元格的列*/
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";	
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);	
+    }
+    F_WRITE_NEWLINE(file);
+    F_WRITE_NEWLINE(file);
+    
+    return(1);   
+}
+
+main()
+{
+    init();
+    mainform  = create_top_frame();
+    Panel_upperpart = create_panel_upperpart(mainform);
+    DisplayGrid  = create_grid(mainform);
+    Panel_underpart = create_panel_underpart(mainform);
+    fresh();
+    MainWindow = mainform;
+
+    W_MAP_FRAME(mainform);
+    W_RUN_FRAME(mainform);
+    W_UNMAP_FRAME(mainform);
+    W_DESTROY_FRAME(mainform);
+}
+
+exit()
+{
+	/* 将已经加亮的模型恢复原来的颜色 */
+	model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	for (i = 0 ; i < model_number; i = i + 1){
+		model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+		PM_HIGHLIGHT_OBJECT(model,0,FALSE);
+	}
+	PM_FREE_SET(Object_List);
+	PM_FREE_SET(High_Light_List);
+	PM_FREE_SET(Selected_Objects);
+    
+    A_FREE(Title1);
+    A_FREE(Title2);
+    A_FREE(Title3);
+    A_FREE(Title4);
+    A_FREE(Title5);
+    
+    A_FREE(Report1_Info);
+    A_FREE(Report2_Info);
+    A_FREE(Report3_Info);
+    A_FREE(Report4_Info);
+    A_FREE(Report5_Info);
+    
+    A_FREE(SummationIndexs1);
+    A_FREE(SummationIndexs2);
+    A_FREE(SummationIndexs3);
+    A_FREE(SummationIndexs4);
+    A_FREE(SummationIndexs5);
+    
+	A_FREE(Report1_Objects);
+    A_FREE(Report2_Objects);
+    A_FREE(Report3_Objects);
+    A_FREE(Report4_Objects);
+    A_FREE(Report5_Objects);
+}
