@@ -1,0 +1,7 @@
+D:\dotNetScript\SDARI_Elec_Report\SDARI_Elec_Report\bin\Debug\SDARI_Elec_Report.exe.config
+D:\Script\MarineToolkit\NET_Programs\SDARI_Elec_Report.exe.config
+D:\Script\MarineToolkit\NET_Programs\SDARI_Elec_Report.exe
+D:\Script\MarineToolkit\NET_Programs\SDARI_Elec_Report.pdb
+D:\dotNetScript\SDARI_Elec_Report\SDARI_Elec_Report\obj\Debug\SDARI_Elec_Report.exe
+D:\dotNetScript\SDARI_Elec_Report\SDARI_Elec_Report\obj\Debug\SDARI_Elec_Report.pdb
+D:\dotNetScript\SDARI_Elec_Report\SDARI_Elec_Report\obj\Debug\SDARI_Elec_Report.csprojResolveAssemblyReference.cache
