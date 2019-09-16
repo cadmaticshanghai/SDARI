@@ -13,11 +13,11 @@
 #define	Tag_Pro_ShipNumber			"U32"		/* 项目号 */
 
 /*尺寸标注设置*/
-global int		DimLinePen = 1;
+global int			DimLinePen = 1;
 global string		DimLineWidthName = "0.25";
-global int		DimLineColor = 1;
+global int			DimLineColor = 1;
 global string		DimLineColorName = "red";
-global int		DimLineLayer = 104;
+global int			DimLineLayer = 104;
 global string		DimLineLayerName = "PM_dim_layer";
 global float		DimTextHeight = 2.5;
 global float		DimTextWidth = 1.5;
@@ -32,9 +32,10 @@ global float		DimSymHeight = 2.0;
 global int	View_X = 85, View_Y = 200;
 
 /*define view size*/
-global float	View_Size  = 150;
+global float	View_Size  = 100;
 global float	View_Scale = 50;
-global handle View_Info,View_Handles,View_Names,View_Positions;
+global float	View_Position_X = 140;
+global float	View_Position_Y = 105;
 
 global int Text_Colour = 1;
 global int Text_Height = 3;

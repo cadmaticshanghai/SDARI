@@ -49,25 +49,21 @@ global   handle	Object_List;
 global   handle	Drawing_Tag_Array, Column_Description_Array;
 global   handle	Object_Info;				   
 global   int		Object_Number = 0;	      
-global   int		Model_Add_Mode = 0;        
+global   int		Model_Add_Mode = 1;        
 global   handle	High_Light_List;           
 global   handle	Selected_Objects;
 global   int		Selected_Objects_Number = 0;
-global   int		AutoScale = 0;
-global   int		AutoHighLight = 0;
+global   int		AutoScale = 1;
+global   int		AutoHighLight = 1;
 global   handle	MainWindow;
 global   int		Maximum_Object_Number = 1000;
                   
 global   handle	Process, Cur_Drawing;
-global   string	Cur_UnitName = "",Cur_Drawing_Name = "";
+global   string	Penetration_Name = "",Cur_Drawing_Name = "";
 global   handle   Drawing_Form, Select_Form;
 global   string	Drawing_Form_Name = "";
 global   handle   Drawing,Drawing_View_Top,Drawing_View_AFT,Drawing_View_SB,Drawing_View_ISO;
 global   handle	Open_Next,Open_Previous;
-
-global   int		Reference_Point_Label_Number = 0;
-global   handle	Reference_Point_Label_Table;
-global   int		Model_Part_Number = 0; 		/* 舾装件零件个数	*/
 
 global   handle	Model_Handle, Model_Set;
 global   float		Support_Weight = 0.0;
@@ -89,12 +85,13 @@ global handle   Access_List;                /*用于保存模型权限状态的数组*/
 /*
 **初始化相关对象
 */
+
 init()
 {
 	Drawing_Tag_Array = A_ALLOC(Column_Number, "STRING");
 	A_PUT(Drawing_Tag_Array,0,Tag_Penetration_PlanningUnit);
-	A_PUT(Drawing_Tag_Array,1,MMT_TAG_OBJNAME);
-	A_PUT(Drawing_Tag_Array,2,"");
+	A_PUT(Drawing_Tag_Array,1,Tag_Spool_Name);
+	A_PUT(Drawing_Tag_Array,2,Tag_Penetration_Name);
 	A_PUT(Drawing_Tag_Array,3,"");
 	A_PUT(Drawing_Tag_Array,4,"");
 	
@@ -106,19 +103,6 @@ init()
 	A_PUT(Column_Description_Array,4,"总页数");
 
 	Object_Info = alloc_2darray(1,1);	
-	View_Info = alloc_2darray(1,1);
-	View_Positions = alloc_2darray(1,1);		
-	View_Handles = A_ALLOC(1);
-	View_Names = A_ALLOC(1);         	
-	View_Positions = alloc_2darray(4,2);
-	put_2darray(View_Positions,0,0,View1_X);
-	put_2darray(View_Positions,0,1,View1_Y);
-	put_2darray(View_Positions,1,0,View2_X);
-	put_2darray(View_Positions,1,1,View2_Y);	
-	put_2darray(View_Positions,2,0,View3_X);
-	put_2darray(View_Positions,2,1,View3_Y);	
-	put_2darray(View_Positions,3,0,View4_X);
-	put_2darray(View_Positions,3,1,View4_Y);
 	Model_Set = PM_INIT_SET();
     Access_List = A_ALLOC(1);	
 }
@@ -191,7 +175,7 @@ model_list_mode(item, event_type, selection)
 /*
 **get information of objects stored in Object_List and save to ProdInfo array；
 */
-get_model_info()
+get_penetration_info()
 {	
 	/* define array for information of model groups */
 	A_FREE(Object_Info);
@@ -201,92 +185,42 @@ get_model_info()
 	/* get information of model groups and save in array */	
 	for (i = 0; i < Object_Number; i = i + 1;){		
 		object_handle = PM_GET_MEMBER_IN_SET(Object_List, i);	
-		parts = get_structural_unit_parts(object_handle);
-		part0 = PM_GET_MEMBER_IN_SET(parts,0);
-		/*get block of model group*/
-		block_name = PM_GET_OBJDATA(part0,1,Tag_Block_Number);
-		if(ISSTRING(block_name)){
-		   put_2darray(Object_Info,i,0,block_name);
-		}
-		else{
-		   put_2darray(Object_Info,i,0,"Undefine");
-		}	
 		/*get planning unit of model group*/
-		planning_unit = PM_GET_OBJDATA(part0,1,Tag_PlanningUnit);
+		planning_unit = get_planning_unit(object_handle);
 		if(ISSTRING(planning_unit)){
-		   put_2darray(Object_Info,i,1,planning_unit);
+		   put_2darray(Object_Info,i,0,planning_unit);
 		}
 		else{
-		   put_2darray(Object_Info,i,1,"Undefine");
-		}			
-		/*get name of model group*/	
-		unit_name = PM_GET_OBJDATA(object_handle,0,MMT_TAG_OBJNAME);
-       
-		if(ISSTRING(unit_name)){
-		   put_2darray(Object_Info,i,2,unit_name);
+		   put_2darray(Object_Info,i,0,"未定义");
+		}	
+		
+		/*get name of pipe spool*/	
+		spool_name = get_spool_name(object_handle);
+		put_2darray(Object_Info,i,1,spool_name);
+
+		/*get name of double plate*/	
+		penetration_name = PM_GET_OBJDATA(object_handle,0,Tag_Penetration_Name);
+		if(ISSTRING(penetration_name)){
+			put_2darray(Object_Info,i,2,penetration_name);
 		}
 		else{
-		   put_2darray(Object_Info,i,2,unit_name);
+			put_2darray(Object_Info,i,2,"未定义");
 		}
-		/*status of model group*/
-		unit_status = PM_GET_OBJDATA(object_handle,0,Tag_DrawingStatus);
-		if(ISSTRING(unit_status)){
-		   put_2darray(Object_Info,i,3,unit_status);
-		}
-		else{
-		   put_2darray(Object_Info,i,3,"未检查");
-		}		
-		/*get drawing name and the date of creation*/
-		drawing_name = PM_GET_OBJDATA(object_handle,0,Tag_FabDrawingNo);
-		if(!ISINT(drawing_name)){
-		   put_2darray(Object_Info,i,4,drawing_name);
-		   date_string = Get_Creation_Date(drawing_name);
-		   if(!ISINT(date_string)){
-		      put_2darray(Object_Info,i,5,date_string);
-		   }
-		   else{
-		      put_2darray(Object_Info,i,5,"0000-00-00");
-		   }		   
-		}
-		else{
-		   put_2darray(Object_Info,i,4,"未生成");
-		   put_2darray(Object_Info,i,5,"0000-00-00");
-		}
+		
+		put_2darray(Object_Info,i,3,"");
+		put_2darray(Object_Info,i,4,"");
+		
         access = Get_Object_Access_Status(object_handle);
 		A_PUT(Access_List,i,access);
 	}	
 	return 0;
 }
 
-get_structural_unit_parts(obj_h)
-{
-    objects = PM_GET_OBJECTS_IN_GROUP(obj_h,1);
-	obj_number = PM_NR_MEMBERS_IN_SET(objects);
-	parts = PM_INIT_SET();
-	for(i=0;i<obj_number;i=i+1;){
-		nth = 0;
-		object = PM_GET_MEMBER_IN_SET(objects,i);
-		obj_type = PM_GET_OBJDATA(object,nth,MMT_TAG_OBJTYPE);
-		if(obj_type == "3"){
-			parts_number = PM_NR_PARTS_IN_PIPE(object);
-			for(j=0;j<parts_number;j=j+1;){
-				part_obj_id = PM_GET_OBJDATA(object,j+1,MMT_TAG_OBJID);
-				part_handle = PM_FIND_BY_OBJID(part_obj_id);
-				PM_ADD_OBJECT_TO_SET(part_handle,parts);
-			}
-		}	
-		else{
-			PM_ADD_OBJECT_TO_SET(object,parts);
-		}
-	}
-    return(parts);
-}
-
 /*
 **display informations stored in global array 'object_info' in grid；
 **sort grid according to the value of global argue Grid_SortColumn，Grid_SortDirection；
 */
-publish_model_info()
+publish_penetration_info()
 {
 	/* display informations of structural unit in grid */	
 	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
@@ -375,7 +309,6 @@ create_grid(main_form)
 	return(wobj);
 }
 
-
 quit_handler(item, event_type, button_value)
 {
 	exit();
@@ -409,17 +342,6 @@ grid_handler(window, event_type, row, column, item_id)
 	return(0);
 }
 
-assign_views_to_drawing()
-{   
-   for(i=0;i<4;i=i+1;){
-      view = A_GET(View_Names,i);
-      origin_x = get_2darray(View_Positions,i,0);
-      origin_y = get_2darray(View_Positions,i,1);
-      PM_ASSIGN_VIEW_TO_PAGE(view,origin_x,origin_y,View_Scale);
-   }
-   return(0);
-}
-
 auto_highlight()
 {
 	if (AutoHighLight == 1){
@@ -450,6 +372,13 @@ auto_scale_model()
 		if (model_number == 1){
 			model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,0);
 			Auto_Scale(model_handle);
+			x0 = PM_GET_OBJDATA(model_handle, 0, MMT_TAG_COGX);
+			y0 = PM_GET_OBJDATA(model_handle, 0, MMT_TAG_COGY);
+			z0 = PM_GET_OBJDATA(model_handle, 0, MMT_TAG_COGZ);
+			x = SCAN_QUANT(1,x0);
+			y = SCAN_QUANT(1,y0);
+			z = SCAN_QUANT(1,z0);
+			PM_SET_CURRENT_LOC(x, y, z);				
 		}
 	}
 }
@@ -493,11 +422,10 @@ model_browsing_handler(item, event_type, button_value)
 	W_MAP_FRAME(MainWindow);
 }
 
-
 search_objects(item, event_type, button_value)
 {   
     /* Delete all the data in grid */	
-    W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
     W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_DELETEROWS, -1); 
 	/* query all model groups*/
 	query = PM_INIT_QUERY("GROUP");
@@ -520,7 +448,20 @@ search_objects(item, event_type, button_value)
 					if (model_number !=0){
 						/*检查是否为复板（如果是护圈则去掉）*/
 						if(is_double_plate(group_handle)){
-							result = PM_ADD_OBJECT_TO_SET(group_handle,temp_list);
+							members = PM_GET_OBJECTS_IN_GROUP(group_handle);
+							members_number = PM_NR_MEMBERS_IN_SET(members);
+							for(j=0;j<members_number;j=j+1;){
+								member = PM_GET_MEMBER_IN_SET(members,j);
+								nth = 0;
+								type = PM_GET_OBJDATA(member,nth,MMT_TAG_OBJTYPE);
+								if(type == "4"){        
+									/* 护圈的计量单位为个数，没有面积的属性 */
+									area = 1.0 * PM_GET_OBJDATA(member,nth,MMT_TAG_BOM_AREA);
+									if(area > 0){
+										result = PM_ADD_OBJECT_TO_SET(member,temp_list);
+									}		
+								}	
+							}													
 						}							
 					}
 				}
@@ -568,8 +509,7 @@ is_double_plate(penetration)
 		member = PM_GET_MEMBER_IN_SET(members,i);
 		nth = 0;
 		type = PM_GET_OBJDATA(member,nth,MMT_TAG_OBJTYPE);
-		if(type == "4"){
-        
+		if(type == "4"){        
             /* 护圈的计量单位为个数，没有面积的属性 */
 			area = 1.0 * PM_GET_OBJDATA(member,nth,MMT_TAG_BOM_AREA);
 			if(area > 0){
@@ -590,42 +530,9 @@ filter_model(penetrations)
 	penetration_number = PM_NR_MEMBERS_IN_SET(penetrations);
 	for (i = 0; i < penetration_number; i = i + 1;){
 		penetration_handle = PM_GET_MEMBER_IN_SET(penetrations, i);
-		models = PM_GET_OBJECTS_IN_GROUP(penetration_handle);
-		model_number = PM_NR_MEMBERS_IN_SET(models);
-		find = 0;
-		sequence = 0;
-		while(!find){												/* 遍历贯通件中的模型，找出复板模型 */
-			model = PM_GET_MEMBER_IN_SET(models,sequence);
-			model_type = PM_GET_OBJDATA(model,0,MMT_TAG_OBJTYPE);
-			if(model_type == "4"){
-				find=1;
-			}
-			sequence = sequence + 1;
-		}
-		
-		if(find){													/* 如果贯通中包含复板，则将贯通加入临时集合 */
-            find = 0;
-            sequence = 0;
-            while(!find){												/* 遍历贯通件中的模型，查找复板所属管段的托盘名称 */
-                model = PM_GET_MEMBER_IN_SET(models,sequence);
-                model_type = PM_GET_OBJDATA(model,0,MMT_TAG_OBJTYPE);
-                if(model_type == "3"){
-                    find=1;
-                    model_planning_unit = PM_GET_OBJDATA(model,0,Tag_Spool_PlanningUnit);
-                    if(ISSTRING(model_planning_unit)){
-                        if(PATTERN_MATCH(model_planning_unit,planning_unit)){
-                            PM_ADD_OBJECT_TO_SET(penetration_handle,temp);
-                        }                       
-                    }
-                    else{
-                        planUnit = "999";
-                        if(PATTERN_MATCH(planUnit,planning_unit)){
-                            PM_ADD_OBJECT_TO_SET(penetration_handle,temp);
-                        }                                             
-                    }
-                }
-                sequence = sequence + 1;
-            }							
+		model_planning_unit = get_planning_unit(penetration_handle);
+		if(PATTERN_MATCH(model_planning_unit,planning_unit)){
+			PM_ADD_OBJECT_TO_SET(penetration_handle,temp);
 		}
 	}
 	PM_SETOP_SUB(penetrations,penetrations);
@@ -650,7 +557,7 @@ pick_objects(item, event_type, button_value)
 	flag = TRUE;
 	temp = PM_INIT_SET();
 	while(flag){	
-		pick_part = PM_PICK_OBJECT("请选择基座", tmp, "BEAM","STRUCTCMP","STANDCMP" );
+		pick_part = PM_PICK_OBJECT("请选择复板", tmp, "STRUCTCMP");
 		if (!ISINT(pick_part)){
 			groups_handle = get_model_handle(pick_part);
 			if (!ISINT(groups_handle)){
@@ -682,8 +589,8 @@ pick_objects(item, event_type, button_value)
 	}
 	
 	/* 获取并发布生产信息 */
-	get_model_info();
-	publish_model_info();
+	get_penetration_info();
+	publish_penetration_info();
 	
 	for (i = 0; i < Object_Number; i = i + 1;){
 		group = PM_GET_MEMBER_IN_SET(Object_List, i);		
@@ -924,7 +831,6 @@ reset_access_status(model_h,flag)
     return(0);
 }
 
-
 create_command(mainform)
 {	
 	command = W_ADD_WINDOW(mainform, W_PANEL, "command");
@@ -1125,7 +1031,7 @@ delete_drawing_handler(item, event_type, button_value)
     else if(res == 0){
         for(i=0;i<units_number;i=i+1;){   	   
             unit_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
-            drawing_name = Get_Attribute_Value(unit_handle,Tag_FabDrawingNo);
+            drawing_name = Get_Attribute_Value(unit_handle,Tag_Penetration_FabDn);
             if(ISSTRING(drawing_name) & drawing_name != "Unset"){          
                 current_version = String_To_Int(SUBSTRING(SEARCH(drawing_name,"-V"),2));      	
                 for(k=0;k<current_version;k=k+1;){
@@ -1149,7 +1055,7 @@ delete_drawing_handler(item, event_type, button_value)
     else if(res == 1){  	   
         for(i=0;i<units_number;i=i+1;){   	   
             unit_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
-            drawing_name = Get_Attribute_Value(unit_handle,Tag_FabDrawingNo);
+            drawing_name = Get_Attribute_Value(unit_handle,Tag_Penetration_FabDn);
             if(ISSTRING(drawing_name) & drawing_name != "Unset"){
                 current_version = String_To_Int(SUBSTRING(SEARCH(drawing_name,"-V"),2));   	
                 for(k=0;k<=current_version;k=k+1;){
@@ -1168,7 +1074,7 @@ delete_drawing_handler(item, event_type, button_value)
                     }
                 } 
             } 
-            res = Set_Attribute_Value(unit_handle,Tag_FabDrawingNo,"Unset");         
+            res = Set_Attribute_Value(unit_handle,Tag_Penetration_FabDn,"Unset");         
             /* display drawing name in grid if it is existed*/
             id = find_model_grid_id(unit_handle);
             if(id != -1){
@@ -1270,7 +1176,7 @@ open_drawing_handler(item, event_type, button_value)
 	}
 	
 	model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,0);
-	drawing_name = Get_Attribute_Value(model_handle,Tag_FabDrawingNo);
+	drawing_name = Get_Attribute_Value(model_handle,Tag_Penetration_FabDn);
 	if(ISINT(drawing_name)){
 	   U_CONFIRM("尚未生成图形");
 	   return(0);
@@ -1325,7 +1231,7 @@ print_drawing_handler(item, event_type, button_value)
 	for(i=0;i<models_number;i=i+1;){
    	model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
    	model_name = PM_GET_OBJDATA(model_handle,0,MMT_TAG_OBJNAME);
-   	drawing_name = Get_Attribute_Value(model_handle,Tag_FabDrawingNo);
+   	drawing_name = Get_Attribute_Value(model_handle,Tag_Penetration_FabDn);
    	if(ISINT(drawing_name)){
    	   mess = "基座<" + model_name + ">尚未生成图形";
    	   U_MESSAGE(mess);
@@ -1344,7 +1250,7 @@ print_drawing_handler(item, event_type, button_value)
 
    	model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
    	model_name = PM_GET_OBJDATA(model_handle,0,MMT_TAG_OBJNAME);
-   	drawing_name = Get_Attribute_Value(model_handle,Tag_FabDrawingNo);
+   	drawing_name = Get_Attribute_Value(model_handle,Tag_Penetration_FabDn);
 	      	   
    	current_drawing = PM_GET_ACTIVE_DRW_NAME();
    	if(current_drawing != ""){
@@ -1394,7 +1300,7 @@ export_pdf_handler(item, event_type, button_value)
 	for(i=0;i<models_number;i=i+1;){
    	model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
    	model_name = PM_GET_OBJDATA(model_handle,0,MMT_TAG_OBJNAME);
-   	drawing_name = Get_Attribute_Value(model_handle,Tag_FabDrawingNo);
+   	drawing_name = Get_Attribute_Value(model_handle,Tag_Penetration_FabDn);
    	if(ISINT(drawing_name)){
    	   mess = " 复板<" + model_name + ">尚未生成图形";
    	   U_MESSAGE(mess);
@@ -1463,7 +1369,7 @@ export_dxf_handler(item, event_type, button_value)
 	for(i=0;i<models_number;i=i+1;){
    	model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
    	model_name = PM_GET_OBJDATA(model_handle,0,MMT_TAG_OBJNAME);
-   	drawing_name = Get_Attribute_Value(model_handle,Tag_FabDrawingNo);
+   	drawing_name = Get_Attribute_Value(model_handle,Tag_Penetration_FabDn);
    	if(ISINT(drawing_name)){
    	   mess = "复板<" + model_name + ">尚未生成图形";
    	   U_MESSAGE(mess);
@@ -1529,97 +1435,96 @@ select_drawing_form_handler(item, event_type, button_value)
 
 create_drawing_handler(item, event_type, button_value)
 {
-	/* check if select model groups in grid */
-	models_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
-	
-	if (models_number <= 0){
-		U_CONFIRM("请先选择复板");
-		return(0);
+	drawing_name = W_GET_PANELITEM_ARG(Dra_Number,W_PANEL_VALUE);
+	if(drawing_name == "*"){
+		U_CONFIRM("请先输入图号");
+		W_SET_PANELITEM_ARGS(Dra_Number,W_PANEL_KBDFOCUS,0);
+		return(0);		
 	}
-			
-	/* create drawing for selected model groups */
-	x0 = 0;y0 = 0;z0 = 0;
-	PM_GET_CURRENT_LOC(x0,y0,z0);
-	start_time = GET_TIME(); 
-	for(i=0;i<models_number;i=i+1;){	   
-        Model_Handle = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
-        Model_Set = get_structural_unit_parts(Model_Handle);  	   
-        process_info = ITOASCII(i+1) + "/" + ITOASCII(models_number);
-        W_SET_PANELITEM_ARGS(Process, W_PANEL_VALUE, process_info);
-        model_name = PM_GET_OBJDATA(Model_Handle,0,MMT_TAG_OBJNAME);
-        drawing_info = "正在处理复板：" + model_name;
-        W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);
-        Cur_UnitName = model_name;
-        res = generate_drawing();
-        if(res == -1){
-            mess = "无法生成复板:" + Cur_UnitName + "的制作图";
-            U_MESSAGE(mess);
-        }
-	}	
-    end_time = GET_TIME();
-    consumption = end_time - start_time;
-    drawing_info = "处理完毕，共耗时" + ITOASCII(consumption) + "秒";
-    W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);
-    PM_SET_CURRENT_LOC(x0,y0,z0);
+	/* check if selected model in grid */
+	models_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	/*if selected any model, then only recreate page of selected model*/
+	if (models_number > 0){
+		update_drawing();
+	}
+	/*if selected nothing, then create drawing for all model*/
+	else{
+		create_drawing();
+	}
     return(0);	
 }
 
-generate_drawing()
-{  
+update_drawing()
+{
+	U_CONFIRM("更新图纸");
+	return(0);
+}
+
+/*create drawing*/
+create_drawing()
+{
 	drawing_name = get_drawing_name();
 	if(ISINT(drawing_name)){
 		return(-1);   
 	}
 	
 	Cur_Drawing_Name = drawing_name;
-   
-	/*create drawing*/
-	res = create_drawing(); 
-	if(res == -1){
+	
+	bom_set = PM_INIT_SET();
+	header_tag_rec = DM_INIT_TAGREC();
+	dname = "";
+	icgd_name = Drawing_Form_Name;
+	res = PM_CREATE_DRAWING(Cur_Drawing_Name, "复板制造图", PM_DRW_CFLG_GLOBAL, bom_set, icgd_name, header_tag_rec, dname);
+	DM_FREE_TAGREC(header_tag_rec);
+	PM_FREE_SET(bom_set);
+	if(res != 0){
+		mess = "无法创建图形:" + Cur_Drawing_Name;
+		U_MESSAGE(mess);	
 		return(-1);
 	}
-      
+	
 	res = PM_OPEN_DRAWING(Cur_Drawing_Name,PM_DRW_OFLG_EDIT,"","");
 	if(res != 0){
 		mess = "无法打开图形:" + Cur_Drawing_Name;
 		U_MESSAGE(mess);
 		return(-1);
-	}
-   
-	/*create views*/
-	res = create_view();    
-		if(res != 0){
-		mess = "无法在图形:" + Cur_Drawing_Name + "中创建视图";
-		U_MESSAGE(mess);
-		return(-1);
-	} 
-   
-	/*assign view to drawing*/  
-	res = assign_views_to_drawing();
-	if(res != 0){
-		mess = "无法将视图分配给图形:" + Cur_Drawing_Name;
-		U_MESSAGE(mess);
-		return(-1);
-	}
+	}  	
+	create_pages();  
+	return(0); 
+}
 
-    /*生成材料表*/
-	get_mto_table();
-    /*绘制材料表*/
-	InitDrawingSettings();
-	style_name = "";
-	drafting_style = GetFirstDraftingStyle(style_name);
-	dw = PM_START_PAGE_ANNOTATION(style_name);
-	DW_ACTIVATEVIEW(dw);
-	draw_mto_table();
-	PM_TERMINATE_PAGE_ANNOTATION(1);
-	/*set drawing title information*/
-	set_header_field();
-	view_h = A_GET(View_Handles,3);
+create_pages()
+{
+	/* create drawing pages for selected penetrations */
+	x0 = 0;y0 = 0;z0 = 0;
+	PM_GET_CURRENT_LOC(x0,y0,z0);
+	start_time = GET_TIME(); 
+	for(i=0;i<Object_Number;i=i+1;){	   
+		Model_Handle = PM_GET_MEMBER_IN_SET(Object_List, i); 	   
+		process_info = ITOASCII(i+1) + "/" + ITOASCII(Object_Number);
+		W_SET_PANELITEM_ARGS(Process, W_PANEL_VALUE, process_info);
+		drawing_info = "正在处理复板：";
+		nth = 0;
+		model_name = PM_GET_OBJDATA(Model_Handle,nth,Tag_Penetration_Name);
+		if(ISSTRING(model_name)){
+			drawing_info = drawing_info + model_name;		
+		}		
+		W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);
+		Penetration_Name = model_name;
+		res = create_page(i+1);
+		if(res == -1){
+			mess = "无法生成复板:" + Penetration_Name + "的制作图";
+			U_MESSAGE(mess);
+		}
+		/*save drawing name to the attribute of model group*/
+		Set_Attribute_Value(Model_Handle,Tag_Penetration_FabDn,Cur_Drawing_Name);		
+	}	
+	end_time = GET_TIME();
+	consumption = end_time - start_time;
+	drawing_info = "处理完毕，共耗时" + ITOASCII(consumption) + "秒";
+	W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);
+	PM_SET_CURRENT_LOC(x0,y0,z0);
 	
-	/* add label */
-	/*path = SYS_GETENV("PMS_HOME") + "/opt/pm/EloTools/macro/AutoLabeling.mac";
-	PM_CALL_SCRIPT(path,"AutoLabeling","~P0", "舾装零件编号", "舾装零件编号", 101, 2, 7, 2.5, 0.0, 0.0, 0, 0, 1);
-	*/
 	/*save drawing*/ 
 	res = PM_SAVE_ACTIVE_DRW();
 	if(res != 0){
@@ -1646,86 +1551,131 @@ generate_drawing()
 	return(0);
 }
 
+create_page(page_number)
+{
+	icgd_name = Drawing_Form_Name;
+	res = PM_ADD_PAGE_TO_DRW(icgd_name,0);
+	PM_ACTIVATE_PAGE_IN_DRW(page_number);
+	/*create views*/
+	res = create_view(page_number);    
+	if(res != 0){
+		mess = "无法在图形<" + Cur_Drawing_Name + ">的第<" + ITOASCII(page_number) + ">页中创建视图";
+		U_MESSAGE(mess);
+		return(-1);
+	}
+   		
+	style_name = "";
+	drafting_style = GetFirstDraftingStyle(style_name); 
+	dw = PM_START_PAGE_ANNOTATION(style_name);
+	DW_ACTIVATEVIEW(dw); 
+	DW_COLOR(Text_Colour);
+	DW_TSIZE(Text_Height);           
+	
+	PM_TERMINATE_PAGE_ANNOTATION(1);
+	return(0);
+}
+
+/*创建基座视图*/
+create_view(page_number)
+{
+	view_name = "TOP_" + ITOASCII(page_number);
+	screen = "";
+	display = "";
+	in_drawing = 1;
+	view_handle = PM_CREATE_VIEW(view_name,in_drawing, screen, display);
+	res = set_view_parameter(view_handle);
+	if(res < 0){
+		return(-1);
+	}
+	models = PM_INIT_SET();
+	PM_ADD_OBJECT_TO_SET(Model_Handle,models);
+	PM_VISUALIZE_SET_TO_VIEW(models,view_handle);
+	res = PM_ASSIGN_VIEW_TO_PAGE(view_name, View_Position_X, View_Position_Y, View_Scale);
+	if(res != 0){
+		mess = "无法将视图分配给图形<" + Cur_Drawing_Name + ">的第<" + ITOASCII(page_number) + ">页";
+		U_MESSAGE(mess);
+		return(-1);
+	}
+	return(0);
+}
+
+/*set model view parameters*/
+set_view_parameter(handle view_handle)
+{
+	/* get model group limits */
+	xmin = 0; ymin = 0; zmin = 0;xmax = 0;ymax = 0;zmax = 0;
+	res = PM_GET_BBOX_OF_OBJECT(Model_Handle,xmin,xmax, ymin,ymax, zmin,zmax);
+	if(res == -1){
+		message = "无法计算复板:" + Penetration_Name + "所占的三维空间范围,无法生成复板制作图";
+		U_MESSAGE(message);
+	return(-1);
+	}
+	nth = 0;
+	
+	xlen = xmax - xmin + 100;
+	ylen = ymax - ymin + 100;
+	zlen = zmax - zmin + 100;
+	min = xlen;
+	max = xlen;
+	if (ylen > max){
+		max = ylen;	
+	}
+	if(ylen < min){
+		min = ylen;
+	}
+	if(zlen > max){
+		max = zlen;	
+	}
+	if(zlen < min){
+		min = zlen;	
+	}
+	
+	/* set view direction */
+	axr = 1.0 * PM_GET_OBJDATA(Model_Handle,nth,MMT_TAG_AXIS_ROT_ANGLE);
+	axs = 1.0 * PM_GET_OBJDATA(Model_Handle,nth,MMT_TAG_AXIS_SLP_ANGLE);
+	xdx = COS(axs) * COS(axr);
+	xdy = COS(axs) * SIN(axr);
+	xdz = SIN(axs);	
+	sxr = 1.0 * PM_GET_OBJDATA(Model_Handle,nth,MMT_TAG_SAXIS_ROT_ANGLE);
+	sxs = 1.0 * PM_GET_OBJDATA(Model_Handle,nth,MMT_TAG_SAXIS_SLP_ANGLE);
+	ydx = COS(sxs) * COS(sxr);
+	ydy = COS(sxs) * SIN(sxr);
+	ydz = SIN(sxs);		
+	zdx = 0; zdy = 0; zdz = 0;
+	VEC_CROSS_PRODUCT(xdx,xdy,xdz,ydx,ydy,ydz,zdx,zdy,zdz);
+	VEC_UNITV(zdx,zdy,zdz);
+	zdx = - zdx;
+	zdy = - zdy;
+	zdz = - zdz;
+	PM_SET_VIEW_PARAMETERS(view_handle, "VDIR", zdx,zdy,zdz);
+		
+	/* set view point */
+	x0 = 1.0 * PM_GET_OBJDATA(Model_Handle,nth,MMT_TAG_ORIG_X);
+	y0 = 1.0 * PM_GET_OBJDATA(Model_Handle,nth,MMT_TAG_ORIG_Y);
+	z0 = 1.0 * PM_GET_OBJDATA(Model_Handle,nth,MMT_TAG_ORIG_Z);
+	PM_SET_VIEW_PARAMETERS(view_handle, "POINT", x0,y0,z0);  
+	   
+	/* set view up direction */   
+	PM_SET_VIEW_PARAMETERS(view_handle, "VUP", ydx,ydy,ydz);  
+
+	/* set view limits */
+	umin = -max;
+	umax = max;
+	vmin = -max;
+	vmax = max;
+	depth = min;
+	PM_SET_VIEW_PARAMETERS(view_handle, "LIMITS", umin, umax, vmin, vmax, depth); 
+
+	/* set view scale */
+	View_Scale = max/View_Size;
+	Get_Drawing_View_Scale(View_Scale);
+	return(0);
+}
 
 
 /* 设置标题栏中的相关信息 */
 set_header_field()
 { 
-    page_header_rec = DM_INIT_TAGREC();
-    res = PM_GET_HEADER_FROM_ACTIVE_PAGE(page_header_rec);
-    if(res != 0){
-        U_CONFIRM("无法获取标题栏数据");
-        return(0);
-    }
-    
-    /* 项目信息 */ 	
-    pro_number = W_GET_PANELITEM_ARG(Pro_Number,W_PANEL_VALUE);
-    if(pro_number != ""){
-        DM_SET_TAGVAL(page_header_rec,Tag_Drawing_ShipNumber,pro_number);   
-    }
-    
-	/*图号信息*/
-    drawing_number = W_GET_PANELITEM_ARG(Dra_Number,W_PANEL_VALUE);
-	if(drawing_number == "*"){
-		nth = 0;
-		drawing_number = PM_GET_OBJDATA(Model_Handle, nth, Tag_FabDrawingNo);
-	}
-    if(ISSTRING(drawing_number)){
-        DM_SET_TAGVAL(page_header_rec,Tag_Drawing_DrawingNumber,drawing_number);   
-    }  
-
-	/*图名信息*/
-	nth = 0;
-    drawing_name = PM_GET_OBJDATA(Model_Handle, nth, Tag_FabDrawingName);
-    if(ISSTRING(drawing_name)){
-        DM_SET_TAGVAL(page_header_rec,Tag_Drawing_ModuleName,drawing_name);   
-    } 
-		       
-    /*页码信息*/
-    id = find_model_grid_id(Model_Handle);
-    if(id != -1){
-        W_SET_WINDOW_ARGS(DisplayGrid,W_LISTW_FINDID,id);
-        row = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ROW);
-        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, row, W_LISTW_COLUMN, 6);
-        page_number = W_GET_WINDOW_ARG(DisplayGrid, W_LISTW_STRING);
-        if(ISSTRING(page_number)){
-            DM_SET_TAGVAL(page_header_rec,Tag_Drawing_PageNumber,page_number);
-        }
-        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, row, W_LISTW_COLUMN, 7);
-        total_page = W_GET_WINDOW_ARG(DisplayGrid, W_LISTW_STRING);
-        if(ISSTRING(total_page)){
-            DM_SET_TAGVAL(page_header_rec,Tag_Drawing_TotalPage,total_page);
-        } 
-    }
-	
-	/* 重量信息 */
-    nth = 0;
-    weight = 1.0 * PM_GET_OBJDATA(Model_Handle, nth, Tag_TotalWeight);
-	if(weight == 0){	
-		weight = get_model_weight();
-	}
- 	weight_s = "";
-	S_PRINTF(weight_s, "%.2f", weight); 
-	DM_SET_TAGVAL(page_header_rec,Tag_Drawing_TotalWeight,weight_s);
-	
-	
-    /* 舾装件描述 */
-    nth = 0;
-    unit_name = PM_GET_OBJDATA(Model_Handle, nth, Tag_UnitDescription);
-    if(ISSTRING(unit_name)){
-        DM_SET_TAGVAL(page_header_rec,Tag_Drawing_UnitName,unit_name);
-    }
-
-    /* 油漆面积 - 表面积 */
-/*     nth = 0;
-    area = 1.0 * PM_GET_OBJDATA(Model_Handle, nth, Tag_SurfaceArea);
-	area_s = "";
-	S_PRINTF(area_s, "%.2f", area);
-	DM_SET_TAGVAL(page_header_rec,Tag_Drawing_ModuleName,area_s); */
-    
-	/*设置标题栏信息*/
-	res = PM_SET_HEADER_TO_ACTIVE_DRW(page_header_rec);
-    DM_FREE_TAGREC(page_header_rec);
 	return(0);        
 }
 
@@ -1744,18 +1694,22 @@ get_model_weight()
 /*get drawing name*/
 get_drawing_name()
 {
-	nth = 0;
-	drawing_name = PM_GET_OBJDATA(Model_Handle, nth, Tag_FabDrawingNo);
-	/* 如果舾装件制造图号已经赋值 */
-	if(ISSTRING(drawing_name)){
-		doc_guid = "";
-		res = PM_FIND_DRAWING_WITH_NAME(drawing_name,doc_guid);
-		/* 如果不存在这个名字的图形，则直接返回这个名字 */
-		if( res<= 0 ){
-			return(drawing_name);
-		}
-		/* 如果图形已经存在，则删除图形 */
-		else{
+	drawing_name = W_GET_PANELITEM_ARG(Dra_Number,W_PANEL_VALUE);
+	if(drawing_name == "*" | drawing_name == ""){
+		U_CONFIRM("请先输入图号");
+		W_SET_PANELITEM_ARGS(Dra_Number,W_PANEL_KBDFOCUS,0);
+		return(-1);		
+	}
+	doc_guid = "";
+	res = PM_FIND_DRAWING_WITH_NAME(drawing_name,doc_guid);
+	/* 如果不存在这个名字的图形，则直接返回这个名字 */
+	if( res<= 0 ){
+		return(drawing_name);
+	}
+	/* 如果图形已经存在，则删除图形 */
+	else{
+		anwser = U_YESNO("图形已经存在，是否删除图形？",U_YES);
+		if(anwser){		
 			res = PM_DELETE_DRAWING(drawing_name);
 			/*删除成功*/
 			if(res == 0){
@@ -1764,49 +1718,13 @@ get_drawing_name()
 			else{
 				mess = "无法删除图形<" + drawing_name + ">";
 				U_MESSAGE(mess);
-				return(-1);			
-			}		
+				return(-1);		
+			}
 		}
-	}
-	/* 如果舾装件制造图号未赋值 */
-	else{
-		mess = "舾装件<" + Cur_UnitName + ">图号未赋值";
-		U_MESSAGE(mess);
-		return(-1);		
+		else{
+			return(-1);
+		}		
 	}  
-}
-
-/*create drawing*/
-create_drawing()
-{
-	bom_set = PM_INIT_SET();
-	header_tag_rec = DM_INIT_TAGREC();
-	dname = "";
-	icgd_name = Drawing_Form_Name;
-	res = PM_CREATE_DRAWING(Cur_Drawing_Name, "PipeModelDrawing", PM_DRW_CFLG_GLOBAL, bom_set, icgd_name, header_tag_rec, dname);
-	DM_FREE_TAGREC(header_tag_rec);
-	if(res != 0){
-	  return(-1);
-	}
-   
-	/*save drawing name to the attribute of model group*/
-	Set_Attribute_Value(Model_Handle,Tag_FabDrawingNo,Cur_Drawing_Name);
-	PM_SAVE(0,1,1);
-
-	/*display drawing name in grid*/
-	id = find_model_grid_id(Model_Handle);
-	if(id != -1){
-		W_SET_WINDOW_ARGS(DisplayGrid,W_LISTW_FINDID,id);
-		row = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ROW);
-		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, row, W_LISTW_COLUMN, 4, W_LISTW_STRING, Cur_Drawing_Name);
-	}
-
-	/*display date of drawing creation in grid*/
-	date_string = Get_Creation_Date(Cur_Drawing_Name);
-	if(!ISINT(date_string)){
-		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, row, W_LISTW_COLUMN, 5, W_LISTW_STRING, date_string);
-	}   
-	return(0); 
 }
 
 find_model_grid_id(handle model_handle)
@@ -1820,273 +1738,42 @@ find_model_grid_id(handle model_handle)
    return(-1);
 }
 
-/* calculate view parameters
-   0.    ViewName       view name
-   1~3.  Point          view point
-   4~6.  Vdir           view direction
-   7~9.  Vup            view up direction
-*/
-get_model_view_para()
-{   
-   /* get model group limits */
-   xmin = 0; ymin = 0; zmin = 0;xmax = 0;ymax = 0;zmax = 0;
-   res = PM_GET_BBOX_OF_SET(Model_Set,xmin,xmax, ymin,ymax, zmin,zmax);
-   if(res == -1){
-      message = "无法计算基座:" + Cur_UnitName + "所占的三维空间范围,无法生成基座制作图";
-      U_MESSAGE(message);
-      return(-1);
-   }
-         
-   /* set margin of view */
-   xmin=xmin-100;
-   ymin=ymin-100;
-   zmin=zmin-100;
-   xmax=xmax+100;
-   ymax=ymax+100;
-   zmax=zmax+100;
-
-   /* calculate view scale */  
-   length_x = xmax-xmin; 
-   length_y = ymax-ymin;
-   length_z = zmax-zmin;
-   xx = length_x*length_x;
-   yy = length_y*length_y;
-   zz = length_z*length_z;
-   length = SQRT(xx+yy+zz);
-   View_Scale = length/View_Size;
-   Get_Drawing_View_Scale(View_Scale);
-   
-   free_2darray(View_Info);
-   View_Info = alloc_2darray(4,15);
-   /* set view name */
-   view_name = "Side";
-   put_2darray(View_Info,0,0,view_name);
-   view_name = "Front";
-   put_2darray(View_Info,1,0,view_name);
-   view_name = "Top";
-   put_2darray(View_Info,2,0,view_name);
-   view_name = "ISO1";
-   put_2darray(View_Info,3,0,view_name);
-   /* calculate view point */
-   view_point_x = (xmax - xmin)/2+xmin;
-   view_point_y = ymin;
-   view_point_z = (zmax - zmin)/2+zmin;
-   put_2darray(View_Info,0,1,view_point_x);
-   put_2darray(View_Info,0,2,view_point_y);
-   put_2darray(View_Info,0,3,view_point_z);
-   view_point_x = xmin;
-   view_point_y = (ymax - ymin)/2+ymin;
-   view_point_z = (zmax - zmin)/2+zmin;
-   put_2darray(View_Info,1,1,view_point_x);
-   put_2darray(View_Info,1,2,view_point_y);
-   put_2darray(View_Info,1,3,view_point_z);   
-   view_point_x = (xmax - xmin)/2+xmin;
-   view_point_y = (ymax - ymin)/2+ymin;
-   view_point_z = zmax;
-   put_2darray(View_Info,2,1,view_point_x);
-   put_2darray(View_Info,2,2,view_point_y);
-   put_2darray(View_Info,2,3,view_point_z);  
-    
-   /* calculate view direction */
-   view_dir_x = 0;
-   view_dir_y = -1;
-   view_dir_z = 0;
-   put_2darray(View_Info,0,4,view_dir_x);
-   put_2darray(View_Info,0,5,view_dir_y);
-   put_2darray(View_Info,0,6,view_dir_z);   
-   view_dir_x = -1;
-   view_dir_y = 0;
-   view_dir_z = 0;
-   put_2darray(View_Info,1,4,view_dir_x);
-   put_2darray(View_Info,1,5,view_dir_y);
-   put_2darray(View_Info,1,6,view_dir_z);   
-   view_dir_x = 0;
-   view_dir_y = 0;
-   view_dir_z = 1;
-   put_2darray(View_Info,2,4,view_dir_x);
-   put_2darray(View_Info,2,5,view_dir_y);
-   put_2darray(View_Info,2,6,view_dir_z);  
-    
-   /* calculate view up direction */
-   view_up_dir_x = 0;
-   view_up_dir_y = 0;
-   view_up_dir_z = 1;
-   put_2darray(View_Info,0,7,view_up_dir_x);
-   put_2darray(View_Info,0,8,view_up_dir_y);
-   put_2darray(View_Info,0,9,view_up_dir_z);   
-   view_up_dir_x = 0;
-   view_up_dir_y = 0;
-   view_up_dir_z = 1;
-   put_2darray(View_Info,1,7,view_up_dir_x);
-   put_2darray(View_Info,1,8,view_up_dir_y);
-   put_2darray(View_Info,1,9,view_up_dir_z);   
-   view_up_dir_x = 0;
-   view_up_dir_y = 1;
-   view_up_dir_z = 0;
-   put_2darray(View_Info,2,7,view_up_dir_x);
-   put_2darray(View_Info,2,8,view_up_dir_y);
-   put_2darray(View_Info,2,9,view_up_dir_z);
-    
-   /* calculate view limits */
-   view_umin = -(xmax-xmin)/2;
-   view_umax = (xmax-xmin)/2;
-   view_vmin = -(zmax-zmin)/2;
-   view_vmax = (zmax-zmin)/2;
-   view_depth = ymax-ymin;
-   put_2darray(View_Info,0,10,view_umin);
-   put_2darray(View_Info,0,11,view_umax);
-   put_2darray(View_Info,0,12,view_vmin); 
-   put_2darray(View_Info,0,13,view_vmax);   
-   put_2darray(View_Info,0,14,view_depth);
-   view_umin = -(ymax-ymin)/2;
-   view_umax = (ymax-ymin)/2;
-   view_vmin = -(zmax-zmin)/2;
-   view_vmax = (zmax-zmin)/2;
-   view_depth = xmax-xmin;
-   put_2darray(View_Info,1,10,view_umin);
-   put_2darray(View_Info,1,11,view_umax);
-   put_2darray(View_Info,1,12,view_vmin); 
-   put_2darray(View_Info,1,13,view_vmax);   
-   put_2darray(View_Info,1,14,view_depth);
-   view_umin = -(xmax-xmin)/2;
-   view_umax = (xmax-xmin)/2;
-   view_vmin = -(ymax-ymin)/2;
-   view_vmax = (ymax-ymin)/2;
-   view_depth = zmax-zmin;
-   put_2darray(View_Info,2,10,view_umin);
-   put_2darray(View_Info,2,11,view_umax);
-   put_2darray(View_Info,2,12,view_vmin); 
-   put_2darray(View_Info,2,13,view_vmax);   
-   put_2darray(View_Info,2,14,view_depth);
-   
-   /* calculate view parameters of ISO view */
-   rot = AxoRotAngle;
-   slope = AxoSlopeAngle;
-   vpx=0;vpy=0;vpz=0;vdx=0;vdy=0;vdz=0;udx=0;udy=0;udz=0;umin=0;vmin=0;umax=0;vmax=0;depth=0;
-   compute_axo_params(rot, slope, xmin,xmax, ymin,ymax, zmin, zmax, vpx, vpy, vpz, vdx, vdy, vdz, udx, udy, udz, umin, vmin, umax, vmax, depth);   
-   /*ISO view point*/
-   put_2darray(View_Info,3,1,vpx);
-   put_2darray(View_Info,3,2,vpy);
-   put_2darray(View_Info,3,3,vpz);   
-   /*ISO view direction*/
-   put_2darray(View_Info,3,4,vdx);
-   put_2darray(View_Info,3,5,vdy);
-   put_2darray(View_Info,3,6,vdz);
-   /*ISO view up direction*/  
-   put_2darray(View_Info,3,7,udx);
-   put_2darray(View_Info,3,8,udy);
-   put_2darray(View_Info,3,9,udz); 
-   /* ISO view limits */
-   put_2darray(View_Info,3,10,umin);
-   put_2darray(View_Info,3,11,umax);
-   put_2darray(View_Info,3,12,vmin); 
-   put_2darray(View_Info,3,13,vmax);   
-   put_2darray(View_Info,3,14,depth);   
+get_spool_name(obj_h)
+{
+	nth = 0;
+	type = PM_GET_OBJDATA(obj_h,0,MMT_TAG_OBJTYPE);
+	xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+	res = PM_GET_BBOX_OF_OBJECT(obj_h, xmin, xmax, ymin, ymax, zmin, zmax); 
+	obj_type = 3;
+	pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,obj_type);
+	spool_name = "未定义";
+	if(!ISINT(pipes)){
+		pipe = PM_GET_MEMBER_IN_SET(pipes,0);
+		nth = 1;
+		name = PM_GET_OBJDATA(pipe,nth,Tag_Spool_Name);	
+		if(!ISINT(name)){
+			spool_name = name;	/* 抽取管段的管段名*/
+		}
+	}
+	return(spool_name);
 }
 
-/*
-	Compute axo view params.
-	The code is borrowed from DefViews.mac
-	
-	Input args; rot, slope, xmin,xmax, ymin,ymax, zmin, zmax
-	Output args: vpx, vpy, vpz, vdx, vdy, vdz, umin, vmin, umax, vmax, depth
-*/
-
-compute_axo_params(rot, slope, xmin,xmax, ymin,ymax, zmin, zmax, vpx, vpy, vpz, vdx, vdy, vdz, udx, udy, udz, umin, vmin, umax, vmax, depth)
+get_planning_unit(obj_h)
 {
-	xxmin = xmin; 
-	xxmax= xmax; 
-	yymin= ymin; 
-	yymax= ymax; 
-	zzmin= zmin; 
-	zzmax= zmax;
-
-	set_m_x = (xxmin+xxmax)/2;
-	set_m_y = (yymin+yymax)/2;
-	set_m_z = (zzmin+zzmax)/2;
-	
-	xx2=(xxmax - xxmin)*(xxmax - xxmin);
-	yy2=(yymax - yymin)*(yymax - yymin);
-	zz2=(zzmax - zzmin)*(zzmax - zzmin);
-	
-	mbb_diag = SQRT( xx2+ yy2+ zz2);
-
-    vdx = COS(rot)*COS(slope);
-    vdy = SIN(rot)*COS(slope);
-    vdz = SIN(slope);
-    
-    udx = COS(rot)*COS(slope+90);
-    udy = SIN(rot)*COS(slope+90);
-    udz = SIN(slope+90);    
-    
-    /*
-    if( DEBUG )U_MESSAGE("rot "+FTOASCII(rot)+" slope "+FTOASCII(slope)+"vd "
-    	+FTOASCII(vdx)+", "+FTOASCII(vdy)+", "+FTOASCII(vdz));
-    	*/
-
-	/*
-		Position view point on the surface of a sphere with radius long enough so that
-		the front plane does not clip objects in the active set.
-	*/
-
-	vpx = set_m_x + vdx*(mbb_diag/2 + 100);
-	vpy = set_m_y + vdy*(mbb_diag/2 + 100);
-	vpz = set_m_z + vdz*(mbb_diag/2 + 100);
-
-	d = mbb_diag/2 + 100;
-
-	/* Use default limits for axo view */
-	umin = -d; umax = d; vmin = -d; vmax = d; depth = mbb_diag + 200;
-
-	return(0);
-}
-
-/*创建基座视图*/
-create_view()
-{
-   get_model_view_para();
-   View_Handles = A_ALLOC(4);
-   View_Names = A_ALLOC(4);
-   for(i=0;i<4;i=i+1;){
-      view_name = get_2darray(View_Info,i,0);
-      A_PUT(View_Names,i,view_name);
-      screen = "";
-      display = "";
-      in_drawing = 1;
-      view_handle = PM_CREATE_VIEW(view_name,in_drawing, screen, display);
-      set_view_parameter(view_handle,i);
-      PM_VISUALIZE_SET_TO_VIEW(Model_Set,view_handle);
-      A_PUT(View_Handles,i,view_handle);
-   }
-   return(0);
-}
-
-/*set model view parameters*/
-set_view_parameter(handle view_handle,int i)
-{
-   /* set view point */
-   view_point_x = get_2darray(View_Info,i,1);
-   view_point_y = get_2darray(View_Info,i,2);
-   view_point_z = get_2darray(View_Info,i,3);
-   PM_SET_VIEW_PARAMETERS(view_handle, "POINT", view_point_x,view_point_y,view_point_z);   
-   /* set view direction */
-   view_dir_x = get_2darray(View_Info,i,4);
-   view_dir_y = get_2darray(View_Info,i,5);
-   view_dir_z = get_2darray(View_Info,i,6);
-   PM_SET_VIEW_PARAMETERS(view_handle, "VDIR", view_dir_x,view_dir_y,view_dir_z);
-   /* set view up direction */
-   view_up_dir_x = get_2darray(View_Info,i,7);
-   view_up_dir_y = get_2darray(View_Info,i,8);
-   view_up_dir_z = get_2darray(View_Info,i,9);
-   PM_SET_VIEW_PARAMETERS(view_handle, "VUP", view_up_dir_x,view_up_dir_y,view_up_dir_z);  
-   /* set view limits */
-   umin = get_2darray(View_Info,i,10);
-   umax = get_2darray(View_Info,i,11);
-   vmin = get_2darray(View_Info,i,12);
-   vmax = get_2darray(View_Info,i,13);
-   depth = get_2darray(View_Info,i,14);
-   PM_SET_VIEW_PARAMETERS(view_handle, "LIMITS", umin, umax, vmin, vmax, depth); 
-   return(0);
+	nth = 0;
+	xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+	res = PM_GET_BBOX_OF_OBJECT(obj_h, xmin, xmax, ymin, ymax, zmin, zmax); 
+	obj_type = 3;
+	pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax,obj_type);
+	planning_unit = "未定义";
+	if(!ISINT(pipes)){
+		pipe = PM_GET_MEMBER_IN_SET(pipes,0);
+		name = PM_GET_OBJDATA(pipe,0,Tag_Spool_PlanningUnit);	
+		if(!ISINT(name)){
+			planning_unit = name;
+		}
+	}
+	return(planning_unit);
 }
 
 main()
@@ -2108,7 +1795,7 @@ main()
 
 exit()
 {
-   current_drawing = PM_GET_ACTIVE_DRW_NAME();
+	current_drawing = PM_GET_ACTIVE_DRW_NAME();
 	if(current_drawing != ""){
 	   PM_SAVE_ACTIVE_DRW();
 	   PM_CHECK_IN_ACTIVE_DRW();
@@ -2127,13 +1814,7 @@ exit()
 	PM_FREE_SET(Model_Set);
 	A_FREE(Drawing_Tag_Array);
 	A_FREE(Column_Description_Array);
-	A_FREE(View_Handles);
-	A_FREE(View_Names);
 	free_2darray(Object_Info);
-	free_2darray(View_Info);
-	free_2darray(View_Positions);
-	free_2darray(Part_Label_Array);
-	free_2darray(Mto_Label_Table);
     A_FREE(Access_List);
 }
 
@@ -2153,679 +1834,4 @@ export_active_drw(format, template_dwr, output_dir)
 	return(r);
 }
 
-/*获取舾装件零件表信息及零件号标注相关信息*/
-/*零件表内容
-1 - mto number      零件编号
-2 - description     零件描述
-3 - material        零件描述
-4 - quantity        长度或者数量
-5 - Weight/unit     单位重量
-6 - Weight          重量
-7 - remark          备注
-*/
 
-/*零件标注信息内容
-1 - part number   零件编号
-2 - anno_x        零件标注点X坐标
-3 - anno_y        零件标注点Y坐标
-4 - anno_z        零件标注点Z坐标
-*/
-get_mto_table()
-{
-	/*定义用于临时保存零件信息的数组*/
-	temp_mto = alloc_2darray(Max_Parts_Number,Mto_Column_Number + 2);
-    for(i=0;i<Max_Parts_Number;i=i+1;){
-        put_2darray(temp_mto,i,0,"NOPART");    
-    }
-	temp_anno = alloc_2darray(Max_Parts_Number,4);
-    part_number = PM_NR_MEMBERS_IN_SET(Model_Set);
-    mto_number = 0;
-	/*处理零件信息*/
-	for(i=0;i<part_number;i=i+1;){
-        part = PM_GET_MEMBER_IN_SET(Model_Set,i);
-        nth = 0;
-        part_no = PM_GET_OBJDATA(part,nth,Tag_PartNo);
-        /*零件未编号*/
-        if(ISINT(part_no)){
-            U_CONFIRM("舾装件中包含未编号的零件，零件表无法生成");
-            return(-1);       
-        }
-        /*零件已经编号*/
-        else{
-            get_part_info(part,part_no,temp_mto,mto_number);        
-        }        
-	}
-
-	/*初始化材料表全局数组*/
-	free_2darray(Mto_Table);
-	Mto_Table = alloc_2darray(mto_number - 1,Mto_Column_Number + 2);
-	Mto_Number = mto_number - 1;
-
-	/*将材料表信息从临时数组拷贝到全局数组*/
-	for (n = 0; n < mto_number - 1; n = n + 1;){
-		for(m = 0; m < Mto_Column_Number + 2; m = m + 1){
-			info = get_2darray(temp_mto,n,m);
-			put_2darray(Mto_Table, n, m, info);
-		}
-	}
-
-	if(Debug){
-		U_MESSAGE("*****************材料表内容****************************");
-		for(i=0;i<Mto_Number;i=i+1;){
-			s1 = get_2darray(Mto_Table,i,0);
-			s2 = get_2darray(Mto_Table,i,1);
-			s3 = get_2darray(Mto_Table,i,2);
-			s4 = get_2darray(Mto_Table,i,3);
-			s5 = FTOASCII(get_2darray(Mto_Table,i,4));
-			s6 = FTOASCII(get_2darray(Mto_Table,i,5));
-			s7 = FTOASCII(get_2darray(Mto_Table,i,6));
-			s8 = get_2darray(Mto_Table,i,7);
-			mess = s1 + ";" + s2 + ";" + s3 + ";" + s4 + ";" + s5 + ";" + s6 + ";" + s7;
-			U_MESSAGE(mess);
-		}
-	}
-
-	/*初始化材料表标注信息全局数组*/
-	free_2darray(Mto_Label_Table);
-	Mto_Label_Table = alloc_2darray(Mto_Number,4);
-
-	/*将材料表标注信息从临时数组拷贝到全局数组*/
-	for (n = 0; n < Mto_Number; n = n + 1;){
-		for(m = 0; m < 4; m = m + 1){
-			info = get_2darray(temp_anno,n,m);
-			put_2darray(Mto_Label_Table, n, m, info);
-		}
-	}
-
-	/*释放临时数组的资源*/
-	free_2darray(temp_mto);
-	free_2darray(temp_anno);
-	return(0);
-}
-
-get_part_info(part,part_no,temp_mto,mto_number)
-{
-    nth = 0;
-    type = PM_GET_OBJDATA(part,nth,MMT_TAG_OBJTYPE);
-    if(type == "1"){        /*设备*/
-        get_equipment_info(part,part_no,temp_mto,mto_number);
-    }
-    else if(type == "2"){    /*标准件*/   
-        get_standard_part_info(part,part_no,temp_mto,mto_number);
-    }
-    else if(type == "4"){    /*标准舾装件及板材*/ 
-        qty = PM_GET_OBJDATA(part,nth,MMT_TAG_BOM_QUANTITY);
-        if(ISSTRING(qty)){  /*标准舾装件*/
-            get_std_structural_comp_info(part,part_no,temp_mto,mto_number);
-        }
-        else{               /*板材*/
-            get_steel_plate_info(part,part_no,temp_mto,mto_number);        
-        }        
-    }
-    else if(type == "5"){    /*型材*/   
-        get_beam_info(part,part_no,temp_mto,mto_number);
-    }  
-    else if(type == "3"){    /*管路零件*/  
-        qty = PM_GET_OBJDATA(part,nth,MMT_TAG_BOM_QUANTITY);
-        if(ISSTRING(qty)){  /*管件*/
-            get_standard_part_info(part,part_no,temp_mto,mto_number);
-        }
-        else{               /*管材*/
-            get_beam_info(part,part_no,temp_mto,mto_number);        
-        } 
-    } 	
-}
-
-get_equipment_info(part,part_no,temp_mto,mto_number)
-{
-    part_index = String_To_Int(part_no) - 1;
-    part_no_init = get_2darray(temp_mto,part_index,0);
-    nth = 0;
-    part_id = PM_GET_OBJDATA(part,nth,MMT_TAG_PARTID);
-    if(part_no_init == "NOPART"){
-		mto_number = mto_number + 1;
-        /*1. 零件编号*/
-        put_2darray(temp_mto,part_index,0,part_no);
-        /*2. 零件名称*/           
-		description = "";
-		des = PM_GET_OBJDATA(part,nth,Tag_StructuralComponent_Description);		
-		if(ISSTRING(des)){
-			description = des;
-		}
-		put_2darray(temp_mto,part_index,1,description);
-        /*3. 零件规格*/          
-		size = "";
-		value = PM_GET_OBJDATA(part,nth,Tag_StructuralComponent_TypeSize);		
-		if(ISSTRING(value)){
-			size = value;
-		}
-        put_2darray(temp_mto,part_index,2,size);
-		
-        /*4. 材料*/
-		material = "钢";
-		value = PM_GET_OBJDATA(part,nth,Tag_StructuralComponent_Material);		
-		if(ISSTRING(value)){
-			material = value;
-		}		
-        put_2darray(temp_mto,part_index,3,material);
-		
-        /*5. 辅数量*/
-        put_2darray(temp_mto,part_index,4,1);   
-
-        /*6. 数量*/
-        put_2darray(temp_mto,part_index,5,1);
-		
-        /*5. 单重*/
-/*         weight = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-		if(weight > 0){
-			put_2darray(temp_mto,part_index,4,weight);
-		}
-        else{
-			put_2darray(temp_mto,part_index,4,0);
-		} */
-		
-        /*7. 总重*/
-		weight = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-		if(weight > 0){
-			put_2darray(temp_mto,part_index,6,weight);
-		}
-        else{
-			put_2darray(temp_mto,part_index,6,0);
-		}
-		
-        /*8. 备注*/ 
-        remark = PM_GET_OBJDATA(part,nth,Tag_Remark);
-        if(ISSTRING(remark)){
-            put_2darray(temp_mto,part_index,7,remark);
-        }
-        else{
-            put_2darray(temp_mto,part_index,7,"");   
-        }          
-    }
-    else{
-        /*5. 辅数量*/
-        part_number = get_2darray(temp_mto,part_index,4) + 1;
-        put_2darray(temp_mto,part_index,4,part_number);
-        /*6. 数量*/
-        part_number = get_2darray(temp_mto,part_index,5) + 1;
-        put_2darray(temp_mto,part_index,5,part_number); 
-        /*7. 总重*/ 
-        weight = part_number * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-        put_2darray(temp_mto,part_index,6,weight);    
-    }
-	put_2darray(temp_mto,part_index,8,"个");
-	put_2darray(temp_mto,part_index,9,"个");
-}
-
-get_standard_part_info(part,part_no,temp_mto,mto_number)
-{
-    part_index = String_To_Int(part_no) - 1;
-    part_no_init = get_2darray(temp_mto,part_index,0);
-    nth = 0;
-    part_id = PM_GET_OBJDATA(part,nth,MMT_TAG_PARTID);
-    if(part_no_init == "NOPART"){
-		mto_number = mto_number + 1;
-        /*1. 零件编号*/
-        put_2darray(temp_mto,part_index,0,part_no);
-        /*2. 零件名称*/        
-        description = "";
-		des = DM_PARTID_DATA(part_id,"DE");
-        if(ISSTRING(des)){
-            description = des;
-        }
-		put_2darray(temp_mto,part_index,1,description);
-		
-		/*3. 零件规格*/ 
-		size = "";
-        value = DM_PARTID_DATA(part_id,"DD");
-        if(ISSTRING(value)){
-            size = value;
-        }
-		put_2darray(temp_mto,part_index,2,size);
-	        
-        /*4. 材料*/
-        materail = DM_PARTID_DATA(part_id,"MC");
-        if(ISSTRING(materail)){
-            put_2darray(temp_mto,part_index,3,materail);        
-        }
-        else{
-            put_2darray(temp_mto,part_index,3,"钢");
-        } 
-		
-        /*5. 辅数量*/
-        put_2darray(temp_mto,part_index,4,1);
-		
-        /*6. 数量*/
-        put_2darray(temp_mto,part_index,5,1);        
-        /*5. 单重*/
-/*         weight = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-		if(weight > 0){
-			put_2darray(temp_mto,part_index,4,weight);
-		}
-		else{
-			put_2darray(temp_mto,part_index,4,0);
-		}
-        put_2darray(temp_mto,part_index,4,weight); */
-		
-        /*7. 总重*/  
-		weight = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);		
-		if(weight > 0){
-			put_2darray(temp_mto,part_index,6,weight);
-		}
-		else{
-			put_2darray(temp_mto,part_index,6,0);
-		}  
-		
-        /*8. 备注*/ 
-        remark = PM_GET_OBJDATA(part,nth,Tag_Remark);
-        if(ISSTRING(remark)){
-            put_2darray(temp_mto,part_index,7,remark);
-        }
-        else{
-            put_2darray(temp_mto,part_index,7,"");   
-        }          
-    }
-    else{
-        /*5. 辅数量*/
-        part_number = get_2darray(temp_mto,part_index,4) + 1;
-        put_2darray(temp_mto,part_index,4,part_number); 
-        /*6. 数量*/
-        part_number = get_2darray(temp_mto,part_index,5) + 1;
-        put_2darray(temp_mto,part_index,5,part_number); 		
-        /*7. 总重*/ 
-        weight = part_number * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-        put_2darray(temp_mto,part_index,6,weight);    
-    }
-	put_2darray(temp_mto,part_index,8,"个");
-	put_2darray(temp_mto,part_index,9,"个");	
-}
-
-get_std_structural_comp_info(part,part_no,temp_mto,mto_number)
-{
-    part_index = String_To_Int(part_no) - 1;
-    part_no_init = get_2darray(temp_mto,part_index,0);
-    nth = 0;
-    part_id = PM_GET_OBJDATA(part,nth,MMT_TAG_PARTID);
-    if(part_no_init == "NOPART"){
-		mto_number = mto_number + 1;
-        /*1. 零件编号*/
-        put_2darray(temp_mto,part_index,0,part_no);
-		
-        /*2. 零件名称*/        
-        description = ""; 
-		des = PM_GET_OBJDATA(part,nth,Tag_StructuralComponent_Description);
-        if(ISSTRING(des)){
-            description = des;
-        }               
-        put_2darray(temp_mto,part_index,1,description);
-		
-		/*3. 零件规格*/
-		size = "";
-        value = PM_GET_OBJDATA(part,nth,Tag_StructuralComponent_TypeSize); 		
-        if(ISSTRING(value)){
-            size = value;
-        }
-		put_2darray(temp_mto,part_index,2,size);
-		
-        /*4. 材料*/
-		materail = PM_GET_OBJDATA(part,nth,Tag_StructuralComponent_Material);
-        if(ISSTRING(materail)){
-            put_2darray(temp_mto,part_index,3,materail);        
-        }
-        else{
-            put_2darray(temp_mto,part_index,3,"钢");
-        }
-
-        /*5. 辅数量*/
-        put_2darray(temp_mto,part_index,4,1);
-		
-        /*6. 数量*/
-        put_2darray(temp_mto,part_index,5,1); 
-		
-		/*7. 总重*/
-        weight = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-		if(weight > 0){
-			put_2darray(temp_mto,part_index,6,weight);
-		}
-		else{
-			put_2darray(temp_mto,part_index,6,0);
-		}
-		
-        /*8. 备注*/ 
-        remark = PM_GET_OBJDATA(part,nth,Tag_Remark);
-        if(ISSTRING(remark)){
-            put_2darray(temp_mto,part_index,7,remark);
-        }
-        else{
-            put_2darray(temp_mto,part_index,7,"");   
-        }               
-    }
-    else{
-        /*5. 辅数量*/
-        part_number = get_2darray(temp_mto,part_index,4) + 1;
-        put_2darray(temp_mto,part_index,4,part_number);	
-        /*6. 数量*/
-        part_number = get_2darray(temp_mto,part_index,5) + 1;
-        put_2darray(temp_mto,part_index,5,part_number); 
-        /*7. 总重*/ 
-        weight = part_number * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-        put_2darray(temp_mto,part_index,6,weight);    
-    }
-	put_2darray(temp_mto,part_index,8,"个");
-	put_2darray(temp_mto,part_index,9,"个");	
-}
-
-get_steel_plate_info(part,part_no,temp_mto,mto_number)
-{
-    part_index = String_To_Int(part_no) - 1;
-    part_no_init = get_2darray(temp_mto,part_index,0);
-    nth = 0;
-    part_id = PM_GET_OBJDATA(part,nth,MMT_TAG_PARTID);
-    if(part_no_init == "NOPART"){
-		mto_number = mto_number + 1;
-        /*1. 零件编号*/
-        put_2darray(temp_mto,part_index,0,part_no);
-		
-        /*2. 零件名称*/        
-        description = "";
-        des = DM_PARTID_DATA(part_id,"DE");
-        if(ISSTRING(des)){
-            description = des;
-        }		
-		put_2darray(temp_mto,part_index,1,description);
-		
-		/*3. 零件规格*/
-		size = "";
-        value = DM_PARTID_DATA(part_id,"DD");
-        if(ISSTRING(value)){
-            size = value;
-        }
-        put_2darray(temp_mto,part_index,2,size);
-		
-        /*4. 材料*/
-        materail = DM_PARTID_DATA(part_id,"MC");
-        if(ISSTRING(materail)){
-            put_2darray(temp_mto,part_index,3,materail);        
-        }
-        else{
-            put_2darray(temp_mto,part_index,3,"钢");
-        } 
-		
-        /*5. 辅数量*/
-        put_2darray(temp_mto,part_index,4,1);
-		
-        /*6. 数量*/
-        area = 1.0 * PM_GET_OBJDATA(part,nth,"_PA") / 1000000.0;
-        put_2darray(temp_mto,part_index,5,area);   
-		
-        /*5. 单重*/
-/*         unit_weight = DM_PARTID_DATA(part_id,"DC1");
-        if(!ISSTRING(unit_weight)){
-            put_2darray(temp_mto,part_index,4,1.0 * unit_weight);
-        }
-        else{
-            put_2darray(temp_mto,part_index,4,0);
-        } */
-		
-        /*7. 总重*/  
-        weight = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-		if(weight >0){
-			put_2darray(temp_mto,part_index,6,weight);
-		}
-		else{
-			put_2darray(temp_mto,part_index,6,0);
-		}
-                
-        /*8. 备注*/ 
-        remark = PM_GET_OBJDATA(part,nth,Tag_Remark);
-        if(ISSTRING(remark)){
-            put_2darray(temp_mto,part_index,7,remark);
-        }
-        else{
-            put_2darray(temp_mto,part_index,7,"");   
-        }          
-    }
-    else{
-        /*5. 辅数量*/
-        part_number = get_2darray(temp_mto,part_index,4) + 1;
-        put_2darray(temp_mto,part_index,4,part_number);	
-	
-        /*6. 数量*/
-        area = get_2darray(temp_mto,part_index,5) + 1.0 * PM_GET_OBJDATA(part,nth,"_PA") / 1000000.0;
-        put_2darray(temp_mto,part_index,5,area); 
-		
-        /*7. 总重*/ 
-        weight = get_2darray(temp_mto,part_index,6) + 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-        put_2darray(temp_mto,part_index,6,weight);    
-    }
-	put_2darray(temp_mto,part_index,8,"个");
-	put_2darray(temp_mto,part_index,9,"平米");	
-}
-
-get_beam_info(part,part_no,temp_mto,mto_number)
-{
-    part_index = String_To_Int(part_no) - 1;
-    part_no_init = get_2darray(temp_mto,part_index,0);
-    nth = 0;
-    part_id = PM_GET_OBJDATA(part,nth,MMT_TAG_PARTID);
-    if(part_no_init == "NOPART"){
-		mto_number = mto_number + 1;
-        /*1. 零件编号*/
-		
-        put_2darray(temp_mto,part_index,0,part_no);
-        /*2. 零件名称*/        
-        description = "";
-        des = DM_PARTID_DATA(part_id,"DE");
-        if(ISSTRING(des)){
-            description = des;
-        }		
-		put_2darray(temp_mto,part_index,1,description);
-		
-		/*3. 零件规格*/   
-		size = "";
-        value = DM_PARTID_DATA(part_id,"DD");
-        if(ISSTRING(value)){
-            size = value;
-        }
-        put_2darray(temp_mto,part_index,2,size);
-		
-        /*4. 材料*/
-        materail = DM_PARTID_DATA(part_id,"MC");
-        if(ISSTRING(materail)){
-            put_2darray(temp_mto,part_index,3,materail);        
-        }
-        else{
-            put_2darray(temp_mto,part_index,3,"钢");
-        } 
-
-        /*5. 辅数量*/
-        put_2darray(temp_mto,part_index,4,1);		
-				
-        /*6. 长度*/
-        length = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_LENGTH);
-        put_2darray(temp_mto,part_index,5,length); 
-		
-        /*5. 单重*/
-/*         unit_weight = DM_PARTID_DATA(part_id,"DB1");
-        if(!ISSTRING(unit_weight)){
-            put_2darray(temp_mto,part_index,4,1.0 * unit_weight);
-        }
-        else{
-            put_2darray(temp_mto,part_index,4,0);
-        } */
-		
-        /*7. 总重*/  
-        weight = 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-		if(weight > 0){
-			put_2darray(temp_mto,part_index,6,weight); 
-		}
-		else{
-			put_2darray(temp_mto,part_index,6,0);
-		}
-               
-        /*8. 备注*/ 
-        remark = PM_GET_OBJDATA(part,nth,Tag_Remark);
-        if(ISSTRING(remark)){
-            put_2darray(temp_mto,part_index,7,remark);
-        }
-        else{
-            put_2darray(temp_mto,part_index,7,"");   
-        }          
-    }
-    else{
-	
-        /*5. 辅数量*/
-        part_number = get_2darray(temp_mto,part_index,4) + 1;
-        put_2darray(temp_mto,part_index,4,part_number);	
-	
-        /*6. 数量*/
-        length = get_2darray(temp_mto,part_index,5) + 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_LENGTH);
-        put_2darray(temp_mto,part_index,5,length); 
-		
-        /*7. 总重*/ 
-        weight = get_2darray(temp_mto,part_index,6) + 1.0 * PM_GET_OBJDATA(part,nth,MMT_TAG_MASS);
-        put_2darray(temp_mto,part_index,6,weight);    
-    }
-	put_2darray(temp_mto,part_index,8,"根");
-	put_2darray(temp_mto,part_index,9,"mm");
-}
-
-draw_mto_table()
-{
-	if(Mto_Number == 0){
-		return(0);
-	}
-	DW_COLOR(Mto_Table_Line_Colour);
-	DW_LTYPE(Mto_Table_Line_Type,Mto_Table_Pattern_Length);
-	DW_TSIZE(2,1.8,0.2);
-
-	/*绘制横线*/
-	line_number = Mto_Number;
-	for(i=0;i<line_number;i=i+1;){
-		x1 = Mto_Table_Orign_X;
-		x2 = Mto_Table_Orign_X + Mto_Table_W;
-		y1 = Mto_Table_Orign_Y + (i+1) * Mto_Table_H;
-		y2 = y1;
-		DW_POLY(x1,y1,x2,y2);
-	}
-	/*绘制竖线*/
-	h1 = line_number * Mto_Table_H;
-	x1 = Mto_Table_Orign_X;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	x1 = x1 + Mto_Table_Column1_W;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	x1 = x1 + Mto_Table_Column2_W;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	x1 = x1 + Mto_Table_Column3_W;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	x1 = x1 + Mto_Table_Column4_W;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	x1 = x1 + Mto_Table_Column5_W;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	x1 = x1 + Mto_Table_Column6_W;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	x1 = x1 + Mto_Table_Column7_W;
-	y1 = Mto_Table_Orign_Y;
-	x2 = x1;
-	y2 = y1 + h1;
-	DW_POLY(x1,y1,x2,y2);
-	
-	/*写材料表内容*/
-	DW_TATTR(0.0,0.0,4);
-	offset = 3;
-	for(i=0;i<Mto_Number;i=i+1;){
-		x = Mto_Table_Orign_X + 1;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = get_2darray(Mto_Table,i,0);
-		DW_TEXT(x, y, text);
-
-		x = x + Mto_Table_Column1_W;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = get_2darray(Mto_Table,i,1);
-		DW_TEXT(x, y, text);
-
-		x = x + Mto_Table_Column2_W;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = get_2darray(Mto_Table,i,2);
-		DW_TEXT(x, y, text);
-
-		x = x + Mto_Table_Column3_W;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = get_2darray(Mto_Table,i,3);
-		value = get_2darray(Mto_Table,i,3);		
-		DW_TEXT(x, y, text);
-
-		x = x + Mto_Table_Column4_W;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = "";
-		value = get_2darray(Mto_Table,i,4);
-		if(ISINT(value)){
-			text = ITOASCII(value);
-		}
-		else{
-			S_PRINTF(text,"%.2f",value);
-		}
-		unit_name = get_2darray(Mto_Table,i,8);
-		text = text + unit_name;
-		DW_TEXT(x, y, text);
-		
-		x = x + Mto_Table_Column5_W;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = "";
-		value = get_2darray(Mto_Table,i,5);
-		if(ISINT(value)){
-			text = ITOASCII(value);
-		}
-		else{
-			if(unit_name == "根"){
-				text = ITOASCII(value);
-			}
-			else{
-				S_PRINTF(text,"%.2f",value);
-			}			
-		}
-		unit_name = get_2darray(Mto_Table,i,9);
-		text = text + unit_name;
-		DW_TEXT(x, y, text);
-		
-		x = x + Mto_Table_Column6_W;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = "";
-		value = get_2darray(Mto_Table,i,6);
-		if(ISINT(value)){
-			text = ITOASCII(value);
-		}
-		else{
-			S_PRINTF(text,"%.2f",value);
-		}
-		DW_TEXT(x, y, text);
-
-		x = x + Mto_Table_Column7_W;
-		y = Mto_Table_Orign_Y + Mto_Table_H * i + offset;
-		text = get_2darray(Mto_Table,i,7);
-		if(ISSTRING(text)){
-			DW_TEXT(x, y, text);
-		}		
-	}
-}
