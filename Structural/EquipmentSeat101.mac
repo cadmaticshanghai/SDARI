@@ -1,0 +1,3944 @@
+/* $Id: EquipmentSeat101.mac,v1.0.0 2019/08/30 Jack.Leng $ */
+
+/*
+**	这个程序用于参数化生成基座.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/quants.h"
+#include "include/dm_cos_schema.h"
+
+#include "$MarineToolkit/Structural/EquipmentSeat.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Structural_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+
+global handle   Seat_Handle;
+global handle   MainWindow;
+global string    Icon_Path   = "$MarineToolkit/ICONS/EquipmentSeat/";
+
+/* 面板 */
+global handle Template, Information, Material, Command, Parameters, Position, Orientation;
+
+/* 控件 */
+global handle System_Name, Select_System, Seat_Name, Pick_Seat, Seat_Description, Planning_Unit;
+global handle Seat_Part1, Seat_Part2;
+global handle Select_Seat_Part1, Select_Seat_Part2;
+global handle Seat_Para_L, Seat_Para_W, Seat_Para_H, Seat_Para_L1, Seat_Para_W1;
+global handle Seat_Para_d, Seat_Para_r, Seat_Para_c;
+
+global handle Seat_Trag_Pad_Switch;
+global handle Seat_Position_X,Seat_Position_Xref,Seat_Position_Xoff;
+global handle Seat_Position_Y,Seat_Position_Yref,Seat_Position_Yoff;
+global handle Seat_Position_Z,Seat_Position_Zref,Seat_Position_Zoff;
+global handle Rotate_By_X_L,Rotate_By_X_R,Rotate_By_Y_L,Rotate_By_Y_R,Rotate_By_Z_L,Rotate_By_Z_R;
+global handle Seat_Rotate_Angle_X,Seat_Rotate_Angle_Y,Seat_Rotate_Angle_Z;
+global handle Move_By_X_P,Move_By_X_N,Move_By_Y_P,Move_By_Y_N,Move_By_Z_P,Move_By_Z_N;
+global handle Seat_Move_Distance_X,Seat_Move_Distance_Y,Seat_Move_Distance_Z;
+global handle Create_Seat;
+
+/* 基座信息 */
+global string Info_System_Name = "";
+global int    Info_System_Id = 0;
+global string Info_Seat_Name = "";
+global string Info_Seat_Desc = "Undefined";
+global string Info_Planning_Unit = "999";
+global string Info_Seat_Type = "EquipmentSeat101";
+
+/* part id of seat material */
+global string Seat_Part1_Pid = "";
+global string Seat_Part2_Pid = "";
+global string Seat_Hole_Pid  = "";
+
+/* seat size */
+global float Seat_Size_L  = 0;
+global float Seat_Size_W  = 0;
+global float Seat_Size_H  = 0;
+global float Seat_Size_L1 = 0;
+global float Seat_Size_W1 = 0;
+global float Seat_Size_d  = 0;
+global float Seat_Size_r  = 0;
+global float Seat_Size_c  = 0;
+
+/* part data */
+global handle Part11,Part12,Part13,Part14;
+global handle Part15,Part16,Part17,Part18;
+global handle Part21,Part22,Part23,Part24;
+global handle Part31,Part32,Part33,Part34;
+
+/*seat position*/
+global float Seat_X0 = 0; 
+global float Seat_Y0 = 0;
+global float Seat_Z0 = 0;
+
+/*seat direction*/
+global float Seat_X_Dx = 1;
+global float Seat_X_Dy = 0;
+global float Seat_X_Dz = 0;
+global float Seat_Y_Dx = 0;
+global float Seat_Y_Dy = 1;
+global float Seat_Y_Dz = 0;
+
+/*seat modify flag*/
+global int Modify_flag = 0;
+
+/*with pad flag*/
+global string Trag_Pad_Switch = "on";
+
+/*
+**创建顶层窗体
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "基座");	
+	return(mainform);	
+}
+
+/*
+**创建用于显示基座模板的面板
+*/
+create_template_panel(mainform)
+{  
+    /* 获取图标保存路径 */
+    icon_path = Icon_Path;
+    /* 图标完整文件名（包含路径） */
+    pic = icon_path + "EquipmentSeat101.bmp";
+   
+    /* 向主窗体添加一个面板，用于显示参数化模型样板 */
+	Template = W_ADD_WINDOW(mainform, W_PANEL, "Template");
+	W_REALIZE_WINDOW(Template, 	W_FRAME_X, 		0,
+							    W_FRAME_Y, 		0,
+							    W_FRAME_WIDTH,  450,
+							    W_FRAME_HEIGHT,	530);	
+								
+	LblImage_h = W_ADD_PANELITEM(Template, W_PANEL_MESSAGE, "LblImage_h");	
+	W_REALIZE_PANELITEM(LblImage_h, 	W_PANEL_X, 			0,
+										W_PANEL_Y, 			0,
+										W_PANEL_WIDTH,		450,
+										W_PANEL_HEIGHT,		550);	
+	W_SET_PANELITEM_ARGS(LblImage_h,	W_PANEL_LABELIMAGE,	pic,
+										W_PANEL_SHOW, 		1);
+	return(Template);
+}
+
+/*
+**创建用于处理基座基本信息的面板
+*/
+create_info_panel(mainform)
+{
+    /* 创建用于显示基座主要信息的面板 */
+    Information = W_ADD_WINDOW(mainform, W_PANEL, "Information");
+   
+    /* 设置面板参数 */
+	W_REALIZE_WINDOW(Information,	W_FRAME_X, 		465,
+							        W_FRAME_Y, 		0,
+							        W_FRAME_WIDTH, 	400,
+							        W_FRAME_HEIGHT,	100);
+							            
+	title = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"基座信息");
+
+    seperate_line = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);
+    /* 基座所属系统 */
+	System_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "System_Name");
+	W_REALIZE_PANELITEM(System_Name,	W_PANEL_ROW, 		1, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"所属系统:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK,	1);
+	W_SET_PANELITEM_HANDLER(System_Name, "system_name_handler");   
+	
+	Select_System = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Select_System");
+	W_REALIZE_PANELITEM(Select_System,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			34,
+                  						W_PANEL_BUTTONIMAGE, 	"选择系统", 
+                  						W_PANEL_WIDTH, 			10,
+                  						W_PANEL_BUTTONVALUE,	100,
+                  						W_PANEL_CALLBACK, 		1,
+                  						W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_System, "select_system_handler"); 			
+
+    /* 基座编号 */
+	Seat_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Seat_Name");
+	W_REALIZE_PANELITEM(Seat_Name,	W_PANEL_ROW, 		2, 
+                                        W_PANEL_COL, 		0,
+                                        W_PANEL_LABEL, 		"基座编号:   ",
+                                        W_PANEL_LENGTH, 	25,
+                                        W_PANEL_VALUE, 		"Undefined",
+                                        W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Seat_Name, "seat_name_handler"); 
+	
+	Pick_Seat = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Pick_Seat");
+	W_REALIZE_PANELITEM(Pick_Seat,	W_PANEL_ROW, 			2, 
+                                        W_PANEL_COL, 			34,
+                                        W_PANEL_BUTTONIMAGE, 	"选择基座", 
+                                        W_PANEL_WIDTH, 			10,
+                                        W_PANEL_BUTTONVALUE,	101,
+                                        W_PANEL_CALLBACK, 		1,
+                                        W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Pick_Seat, "pick_seat_handler"); 	
+	
+    /* 基座名称 */
+	Seat_Description = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Seat_Description");
+	W_REALIZE_PANELITEM(Seat_Description, 	W_PANEL_ROW, 		3, 
+                                                W_PANEL_COL, 		0,
+                                                W_PANEL_LABEL, 		"基座名称:   ",
+                                                W_PANEL_LENGTH, 	25,
+                                                W_PANEL_VALUE, 		"Undefined",
+                                                W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Seat_Description, "seat_description_handler"); 
+
+	/* 基座托盘 */
+	Planning_Unit = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Planning_Unit");
+	W_REALIZE_PANELITEM(Planning_Unit,	W_PANEL_ROW, 		4, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"托盘名称:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Planning_Unit, "seat_planning_unit_handler");
+	  
+    return(Information);
+}
+
+system_name_handler(item, event_type, dummy)
+{
+  return(0); 
+}
+
+seat_name_handler(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		seat_name = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		seat_handle = PM_FIND_BY_NAME(seat_name);
+      
+		/* 如果指定的模型已经存在，则做如下处理 */
+		if (seat_handle != 0){
+			group_type = PM_GET_OBJDATA(seat_handle, 0, MMT_TAG_GROUPTYPE);
+			/* 指定的模型不是基座模型 */
+			if (group_type != Group_Type){
+				U_CONFIRM("模型已经存在，但不是基座模型");
+				W_SET_PANELITEM_ARGS(Seat_Name, W_PANEL_VALUE, "Undefined");	
+				return(0);
+			} 
+			/* 指定的模型是基座模型 */
+			else{
+				type = PM_GET_OBJDATA(seat_handle, 0, SeatType);
+				if(type != Info_Seat_Type){
+					info = "基座已经存在且类型为" + type + ",这个程序只能处理类型为" + Info_Seat_Type + "的基座。";
+					U_CONFIRM(info);
+					return(0);
+				}   	             
+				res = U_YESNO("模型已经存在，是否修改？",1);
+				if (res == 1){
+					reload_seat_data(seat_name);
+					W_SET_PANELITEM_ARGS(Create_Seat, W_PANEL_SENSITIVITY,0);
+					Modify_flag = 1;
+					return(0);
+				}
+				else{
+					W_SET_PANELITEM_ARGS(item, W_PANEL_VALUE, "Undefined");
+					return(0);
+				}
+			}        
+		}
+		else{
+			W_SET_PANELITEM_ARGS(Create_Seat, W_PANEL_SENSITIVITY,1); 
+			Modify_flag = 0;        
+		}
+	}
+	return(0); 
+}
+
+/*三角板*/
+create_triangle_curve(float width,float height, float t1,float t2, float gap,float radius)
+{
+    curve = "";
+    if(radius == 0){
+        p1x = -gap;
+        p1y = -gap;
+        p2x = width+((t1+gap)*(width-t2)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(height-t1);
+        p2y = -gap;
+        p3x = -gap;
+        p3y = height+((t2+gap)*(height-t1)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(width-t2);
+        
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".");
+        curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys;
+    }
+    else{
+        p1x = -gap;
+        p1y = -gap+radius;
+        p2x = -gap+radius-radius*COS(45);
+        p2y = -gap+radius-radius*COS(45);
+        p3x = -gap + radius;
+        p3y = -gap;
+        angle = ATAN((width-t2)/(height-t1));
+        p4x = width+((t1+gap)*(width-t2)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(height-t1);
+        p4x = p4x-radius/(TAN(angle/2)) ;
+        p4y = -gap;
+        p5x = p4x+radius*COS(angle/2);
+        p5y = -gap+radius-radius*SIN(angle/2);
+        p6x = p4x+radius*COS(90-angle);
+        p6y = p4y+radius+radius*SIN(90-angle);
+        p9x = -gap;
+        p9y = height+((t2+gap)*(height-t1)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(width-t2);
+        angle1 = (90-angle)/2;
+        p9y = p9y-radius/SIN(angle1);
+        p8x = p9x+radius-radius*SIN(angle1);
+        p8y = p9y+radius*COS(angle1);
+        p7x = p9x+radius+radius*COS(90-angle);
+        p7y = p9y+radius*SIN(90-angle);
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".")+",";
+        p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+        p4ys = STRINGTERM(FTOASCII(p4y),".")+",";
+        p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+        p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+        p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+        p6ys = STRINGTERM(FTOASCII(p6y),".")+",";
+        p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+        p7ys = STRINGTERM(FTOASCII(p7y),".")+",";
+        p8xs = STRINGTERM(FTOASCII(p8x),".")+",";
+        p8ys = STRINGTERM(FTOASCII(p8y),".")+",";
+        p9xs = STRINGTERM(FTOASCII(p9x),".")+",";
+        p9ys = STRINGTERM(FTOASCII(p9y),".")+",";
+        p1ys0 = STRINGTERM(FTOASCII(p1y),".");
+   	    curve = curve+p1xs+p1ys+"ARP,"+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys+"ARP,"+p5xs+p5ys+p6xs+p6ys+p7xs+p7ys+"ARP,"+p8xs+p8ys+p9xs+p9ys+p1xs+p1ys0;
+    }
+    /* width1 = width+((t1+gap)*(width-t2)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(height-t1) + gap; */
+    /* height = height+((t2+gap)*(height-t1)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(width-t2) + gap; */
+    /* width  = width1; */
+    return(curve);
+}
+
+/*矩形板*/
+create_rect_curve_with_radius(float length, float width, float radius)
+{
+    curve = "";
+    if(radius == 0){
+        p1x = length/2;
+        p1y = width/2;
+        p2x = p1x;
+        p2y = - p1y;
+        p3x = - p1x;
+        p3y = - p1y;
+        p4x = - p1x;
+        p4y = p1y;
+        
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".")+",";
+        p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+        p4ys = STRINGTERM(FTOASCII(p4y),".");
+        curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;
+    }
+    else{
+        p1x = -length/2;
+        p1y = width/2-radius;
+        p2x = p1x;
+        p2y = - p1y;
+        p3x = p1x - radius*SIN(45) + radius;
+        p3y = p2y - radius*COS(45);
+        p4x = -length/2 + radius;
+        p4y = -width/2;
+        p5x = -p4x;
+        p5y = p4y;
+        p6x = - p3x;
+        p6y = p3y;
+        p7x = - p2x;
+        p7y = p2y;
+        p8x = p7x;
+        p8y = - p7y;
+        p9x = p6x;
+        p9y = -p6y;
+        p10x = p5x;
+        p10y = -p5y;
+        p11x = p4x;
+        p11y = -p4y;
+        p12x = p3x;
+        p12y = -p3y;
+
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".")+",";
+        p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+        p4ys = STRINGTERM(FTOASCII(p4y),".")+",";
+        p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+        p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+        p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+        p6ys = STRINGTERM(FTOASCII(p6y),".")+",";
+        p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+        p7ys = STRINGTERM(FTOASCII(p7y),".")+",";
+        p8xs = STRINGTERM(FTOASCII(p8x),".")+",";
+        p8ys = STRINGTERM(FTOASCII(p8y),".")+",";
+        p9xs = STRINGTERM(FTOASCII(p9x),".")+",";
+        p9ys = STRINGTERM(FTOASCII(p9y),".")+",";
+        p10xs = STRINGTERM(FTOASCII(p10x),".")+",";
+        p10ys = STRINGTERM(FTOASCII(p10y),".")+",";
+        p11xs = STRINGTERM(FTOASCII(p11x),".")+",";
+        p11ys = STRINGTERM(FTOASCII(p11y),".")+",";
+        p12xs = STRINGTERM(FTOASCII(p12x),".")+",";
+        p12ys = STRINGTERM(FTOASCII(p12y),".")+",";
+        p1ys0 = STRINGTERM(FTOASCII(p1y),".");
+        curve = curve+p1xs+p1ys+p2xs+p2ys+"ARP,"+p3xs+p3ys+p4xs+p4ys+p5xs+p5ys+"ARP,"+p6xs+p6ys+p7xs+p7ys+p8xs+p8ys+"ARP,"+p9xs+p9ys+p10xs+p10ys+p11xs+p11ys+"ARP,"+p12xs+p12ys+p1xs+p1ys0;
+    }
+	return(curve);
+}
+
+/*矩形板*/
+create_rect_curve(float length, float width)
+{	
+	p1x = length/2;
+	p1y = width/2;				
+	p2x = p1x;
+	p2y = -p1y;			
+	p3x = -p1x;
+	p3y = -p1y;				
+	p4x = -p1x;
+	p4y = p1y;		
+	 	
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".");	
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;     
+	return(curve);   
+}
+
+/*凹槽板*/
+create_aocao_curve(float size11,float size12,float size21,float size22,float offset)
+{	
+	p1x = size11/2;
+	p1y = size12/2;				
+	p2x = p1x;
+	p2y = -p1y;			
+	p3x = -p1x;
+	p3y = -p1y;				
+	p4x = -p1x;
+	p4y = p1y;		
+	p5x = offset-0.5*size21;
+	p5y = p1y;	
+	p6x = offset-0.5*size21;
+	p6y = p1y-size22;	
+	p7x = offset+0.5*size21;
+	p7y = p1y-size22;	
+	p8x = offset+0.5*size21;
+	p8y = p1y;
+    
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".")+",";	
+	p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+	p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+	p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+	p6ys = STRINGTERM(FTOASCII(p6y),".")+",";	
+	p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+	p7ys = STRINGTERM(FTOASCII(p7y),".")+",";	
+	p8xs = STRINGTERM(FTOASCII(p8x),".")+",";
+	p8ys = STRINGTERM(FTOASCII(p8y),".");	
+    
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys+p5xs+p5ys+p6xs+p6ys+p7xs+p7ys+p8xs+p8ys;     
+	return(curve);   
+}
+
+create_subplate_curve(float L1, float W1, float c, float d)
+{	
+	p1x = d;
+	p1y = c;				
+	p2x = - L1 + d;
+	p2y = c;			
+	p3x = - L1 + d;
+	p3y = - W1 + c;				
+	p4x = d;
+	p4y = - W1 + c;		
+	 	
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".");	
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;     
+	return(curve);   
+}
+
+seat_description_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		Info_Seat_Desc = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("EquipmentSeat101", "Info_Seat_Desc", Info_Seat_Desc);
+		if(Modify_flag){
+			set_seat_para(Seat_Handle);
+		}
+	}
+	return(0); 
+}
+
+seat_planning_unit_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		Info_Planning_Unit = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("EquipmentSeat101", "Planning_Unit", Info_Planning_Unit);
+	}
+	return(0); 
+}
+
+select_system_handler(item, event_type, button_value)
+{
+	system_name = PM_SELECT_SYSTEM();
+	if(ISINT(system_name)){
+		U_MESSAGE("系统选择取消");
+		return(0);
+	}
+	else {
+		U_MESSAGE("选择系统<" + system_name + ">");
+		Info_System_Name = system_name;
+		Info_System_Id = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+		SET_STRING_DEFAULT("EquipmentSeat101", "System_Name", system_name);
+	}			
+	return(0);   
+}
+
+pick_seat_handler(item, event_type, button_value)
+{
+	tmp = 0;
+	picked_object_handle = PM_PICK_OBJECT("请选择基座", tmp, "STRUCTCMP","BEAM");
+	if (!ISINT(picked_object_handle)){	   
+		/*获取基座的名称*/
+		group_handle = PM_GET_OBJECT_GROUP(picked_object_handle, Group_Type_I);
+		if (ISINT(group_handle)){
+			U_CONFIRM("此零件不属于任何基座");
+			W_SET_PANELITEM_ARGS(Seat_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);
+		}
+	    
+		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
+		/* 判断基座类型是否匹配 */
+		type = PM_GET_OBJDATA(group_handle, 0, SeatType);
+		if(ISINT(type)){
+			U_CONFIRM("此零件不属于任何基座");
+			W_SET_PANELITEM_ARGS(Seat_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);	      
+		}
+		if(type != Info_Seat_Type){
+			info = "选择的基座类型为" + type + ",这个程序只能处理类型为" + Info_Seat_Type + "的基座。";
+			U_CONFIRM(info);
+			return(0);
+		}	   	      		
+		/*获取基座的尺寸参数及其它相关信息*/
+        initialize();	
+		reload_seat_data(group_name);	
+		W_SET_PANELITEM_ARGS(Create_Seat, W_PANEL_SENSITIVITY,0);
+		Modify_flag = 1;					
+	} 
+	return(0); 
+}
+
+reload_seat_data(string seat_name)
+{
+    W_SET_PANELITEM_ARGS(Seat_Name, W_PANEL_VALUE, seat_name);	
+    group_handle = PM_FIND_BY_NAME(seat_name);
+    Seat_Handle = group_handle;
+    read_model_size();
+   
+    /*获取并设置基座的零件信息*/
+    parts = PM_GET_OBJECTS_IN_GROUP(Seat_Handle);
+    p_number = PM_NR_MEMBERS_IN_SET(parts);
+    part1_1 = "";
+    part1_5 = "";
+    part1_6 = "";
+    part2_1 = "";
+    part3_1 = "";
+    seat_trag_pad_switch("0");
+    W_SET_PANELITEM_ARGS(Seat_Trag_Pad_Switch, W_PANEL_VALUE, "0");
+    /*获取并设置基座零件的零件材料*/
+    for (i = 0; i < p_number; i = i + 1;){
+        part = PM_GET_MEMBER_IN_SET(parts, i);
+        part_number = Get_Attribute_Value(part,PartNumber);
+        if (part_number == "1-1"){
+            part1_1 = part;
+            part_id = PM_GET_OBJDATA(part1_1, 0, MMT_TAG_PARTID);
+            Seat_Part1_Pid = part_id;
+            descr = Pid_To_Description(part_id);
+            W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, descr);
+            SET_STRING_DEFAULT("EquipmentSeat101", "Seat_Part1_Pid", part_id);  
+        }    
+        else if (part_number == "1-5"){
+            part1_5 = part; 
+        }   
+        else if (part_number == "1-6"){
+            part1_6 = part; 
+        }          
+        else if (part_number == "2-1"){
+            part2_1 = part;
+            part_id = PM_GET_OBJDATA(part2_1, 0, MMT_TAG_PARTID);
+            Seat_Part2_Pid = part_id;
+            descr = Pid_To_Description(part_id);
+            W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, descr);
+            SET_STRING_DEFAULT("EquipmentSeat101", "Seat_Part2_Pid", part_id);
+            seat_trag_pad_switch("1");   
+            W_SET_PANELITEM_ARGS(Seat_Trag_Pad_Switch, W_PANEL_VALUE, "1");   
+        }  
+        else if (part_number == "3-1"){
+            part3_1 = part; 
+            part_id = PM_GET_OBJDATA(part3_1, 0, MMT_TAG_PARTID);
+            Seat_Hole_Pid = part_id;
+            SET_STRING_DEFAULT("EquipmentSeat101", "Seat_Hole_Pid", part_id);  
+        } 
+    }
+
+	/*获取基座所属系统 */
+	part0 = PM_GET_MEMBER_IN_SET(parts, 0);
+	sys = PM_GET_OBJDATA(part0,0,"sys");
+	if (!ISINT(sys)){
+        Info_System_Name = sys;
+	    Info_System_Id = PM_GET_SYSTEM_ID(Info_System_Name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, Info_System_Name);
+		SET_STRING_DEFAULT("EquipmentSeat101", "System_Name", Info_System_Name);	   
+    } 
+    
+	/*获取基座的描述 */
+	des = PM_GET_OBJDATA(part0,0,SeatDes);
+	if(!ISINT(des)){
+        Info_Seat_Desc = des;
+		W_SET_PANELITEM_ARGS(Seat_Description, W_PANEL_VALUE, des);
+		SET_STRING_DEFAULT("EquipmentSeat101", "Info_Seat_Desc", des);
+    }
+    
+	/*获取基座的托盘 */
+	pla = PM_GET_OBJDATA(part0,0,PlanningUnit);
+	if(!ISINT(pla)){
+        planningunit = pla;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, pla);
+		SET_STRING_DEFAULT("EquipmentSeat101", "Planning_Unit", pla);
+    }
+
+	/*获取基座的方向 */
+    ux=0;uy=0;uz=0;
+    vx=0;vy=0;vz=0;
+    get_part_orientation(part1_1, ux,uy,uz, vx,vy,vz);
+    Seat_X_Dx = ux;
+    Seat_X_Dy = uy;
+    Seat_X_Dz = uz;
+    Seat_Y_Dx = vx;
+    Seat_Y_Dy = vy;
+    Seat_Y_Dz = vz;
+
+	/*获取基座的坐标 */
+	px1 = 0.0;	 py1 = 0.0;	  pz1 = 0.0;	
+    x2 = 0.0;	 y2 = 0.0;	  z2 = 0.0;
+	x_dx = 0.0;	 x_dy = 0.0;  x_dz = 0.0;
+	end1x = 0.0; end1y = 0.0; end1z = 0.0;
+	end2x = 0.0; end2y = 0.0; end2z = 0.0;	
+	Get_Beam_Para(part1_5, px1,py1,pz1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+    
+	x1 = 0.0;	 y1 = 0.0;	  z1 = 0.0;	
+    px2 = 0.0;	 py2 = 0.0;	  pz2 = 0.0;
+	x_dx = 0.0;	 x_dy = 0.0;  x_dz = 0.0;
+	end1x = 0.0; end1y = 0.0; end1z = 0.0;
+	end2x = 0.0; end2y = 0.0; end2z = 0.0;	
+	Get_Beam_Para(part1_6, x1,y1,z1,px2,py2,pz2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+    
+	x0 = (px1 + px2)/2.0;
+	y0 = (py1 + py2)/2.0;
+	z0 = (pz1 + pz2)/2.0;
+    
+    wx=0;wy=0;wz=0;
+    Vector3d_CrossProduct(ux,uy,uz, vx,vy,vz, wx,wy,wz);
+    Point_Move(x0,y0,z0, x0,y0,z0, wx,wy,wz, -Seat_Size_H);
+
+	Seat_X0 = x0;
+	Seat_Y0 = y0;
+	Seat_Z0 = z0;
+    W_SET_NUMERIC_VALUE(Seat_Position_X, Seat_X0);
+    W_SET_NUMERIC_VALUE(Seat_Position_Y, Seat_Y0);
+    W_SET_NUMERIC_VALUE(Seat_Position_Z, Seat_Z0);
+
+    /* 将绝对坐标转换成相对坐标并显示到面板中 */
+    /* convert abstract coordinate value into reference and display on panel */
+    x_ref = "";y_ref = "";z_ref = "";
+    x_offset = 0;y_offset = 0;z_offset = 0;
+    res = GetReferenceCoords(Seat_X0, Seat_Y0, Seat_Z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+    if (res == 0){
+        W_SET_PANELITEM_ARGS(Seat_Position_Xref, W_PANEL_VALUE, x_ref);
+        W_SET_PANELITEM_ARGS(Seat_Position_Yref, W_PANEL_VALUE, y_ref);
+        W_SET_PANELITEM_ARGS(Seat_Position_Zref, W_PANEL_VALUE, z_ref);
+        W_SET_NUMERIC_VALUE(Seat_Position_Xoff, x_offset);
+        W_SET_NUMERIC_VALUE(Seat_Position_Yoff, y_offset);
+        W_SET_NUMERIC_VALUE(Seat_Position_Zoff, z_offset);
+    }
+    else if (res == -1){
+        W_SET_PANELITEM_ARGS(Seat_Position_Xref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Seat_Position_Yref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Seat_Position_Zref, W_PANEL_VALUE, "Unset");
+        W_SET_NUMERIC_VALUE(Seat_Position_Xoff, 0);
+        W_SET_NUMERIC_VALUE(Seat_Position_Yoff, 0);
+        W_SET_NUMERIC_VALUE(Seat_Position_Zoff, 0); 
+        U_CONFIRM("参考坐标系定义不正确");
+    }   
+    return(0);
+}
+
+create_material_panel(mainform)
+{
+    /* 创建用于显示基座材料信息的面板 */
+    Material = W_ADD_WINDOW(mainform, W_PANEL, "Material");
+   
+    /* 设置面板参数 */
+	W_REALIZE_WINDOW(Material, 	W_FRAME_X, 		465,
+							    W_FRAME_Y, 		135,
+							    W_FRAME_WIDTH, 	400,
+							    W_FRAME_HEIGHT,	50);
+							            
+    title = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "title");
+    W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"基座材料");
+                               
+    seperate_line = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "seperate_line");
+    W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+									       
+	Seat_Part1 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Seat_Part1");	
+	W_REALIZE_PANELITEM(Seat_Part1, W_PANEL_ROW, 1, 
+                                    W_PANEL_COL, 0,
+                                    W_PANEL_LABEL, "角钢:   ",
+                                    W_PANEL_LENGTH, 100,
+                                    W_PANEL_DISPLEN, 26,
+                                    W_PANEL_VALUE, "Undefined");  
+							               	
+	Select_Seat_Part1 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Part1");	
+	W_REALIZE_PANELITEM(Select_Seat_Part1,  W_PANEL_ROW, 1, 
+                                            W_PANEL_COL, 34,
+                                            W_PANEL_BUTTONIMAGE, "选择角钢", 
+                                            W_PANEL_WIDTH, 10,
+                                            W_PANEL_BUTTONVALUE, 201,
+                                            W_PANEL_CALLBACK, 1,
+                                            W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	                  							
+    W_SET_PANELITEM_HANDLER(Select_Seat_Part1, "select_seat_part1_handler"); 			
+
+	Seat_Part2 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Seat_Part2");	
+	W_REALIZE_PANELITEM(Seat_Part2, W_PANEL_ROW, 2, 
+                                    W_PANEL_COL, 0,
+                                    W_PANEL_LABEL, "垫板:   ",
+                                    W_PANEL_LENGTH, 26,
+                                    W_PANEL_VALUE, "Undefined",
+                                    W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Seat_Part2, "seat_part2_handler"); 
+	
+	Select_Seat_Part2 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Part2");	
+	W_REALIZE_PANELITEM(Select_Seat_Part2,  W_PANEL_ROW, 2, 
+                                            W_PANEL_COL, 34,
+                                            W_PANEL_BUTTONIMAGE, "选择钢板", 
+                                            W_PANEL_WIDTH, 10,
+                                            W_PANEL_BUTTONVALUE, 203,
+                                            W_PANEL_CALLBACK, 0,
+                                            W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Seat_Part2, "select_seat_part2_handler");
+
+    Seat_Trag_Pad_Switch = W_ADD_PANELITEM(Material, W_PANEL_TOGGLE, "Seat_Trag_Pad_Switch");
+	W_REALIZE_PANELITEM(Seat_Trag_Pad_Switch,   W_PANEL_ROW,            3,
+                                                W_PANEL_COL,            0,
+                                                W_PANEL_LABEL,          "",
+                                                W_PANEL_CHOICESTRING,   "垫板  ",
+                                                W_PANEL_VALUE,          "1",
+                                                W_PANEL_CHOICESTYLE,    W_STYLE_PUSHBUTTONS,
+                                                W_PANEL_CALLBACK,       1);
+    W_SET_PANELITEM_HANDLER(Seat_Trag_Pad_Switch, "seat_trag_pad_switch_handler");
+    
+    return(Material);
+}
+
+seat_trag_pad_switch_handler(item, event_type, dummy)
+{
+    res = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+	seat_trag_pad_switch(res);
+}
+
+seat_trag_pad_switch(flag)
+{
+	if(flag=="0"){
+        W_SET_PANELITEM_ARGS(Seat_Para_c, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Seat_Para_r, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Select_Seat_Part2, W_PANEL_SENSITIVITY,0);
+        Trag_Pad_Switch = "off";
+        SET_STRING_DEFAULT("EquipmentSeat101", "Trag_Pad_Switch", "off");
+
+	}
+	else if(flag=="1"){
+        W_SET_PANELITEM_ARGS(Seat_Para_c, W_PANEL_SENSITIVITY,1);
+        W_SET_PANELITEM_ARGS(Seat_Para_r, W_PANEL_SENSITIVITY,1);
+	    W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_SENSITIVITY,1);
+	    W_SET_PANELITEM_ARGS(Select_Seat_Part2, W_PANEL_SENSITIVITY,1);
+	    Trag_Pad_Switch = "on";
+	    SET_STRING_DEFAULT("EquipmentSeat101", "Trag_Pad_Switch", "on");
+	}
+    if(Modify_flag){
+        st = PM_UM_OPEN_CHANGE("修改基座三角垫板");
+        calculate_seat_para();
+        delete_seat_members();
+        res = create_seat(); 
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }  
+        st = PM_UM_CLOSE_CHANGE();
+    }
+}
+
+seat_part1_handler(item, event_type, dummy)
+{	
+	pid = Seat_Part1_Pid;
+	if(ISSTRING(pid)){
+		if(!Is_Equal_Angle_Bar(pid)){
+			beam_descr = Pid_To_Description(pid);
+			W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, beam_descr);
+			SET_STRING_DEFAULT("EquipmentSeat101", "Seat_Part1", pid);
+		}
+	}	
+	return(0);
+}
+
+seat_part2_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+select_seat_part1_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择材料(角钢)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "BEAM L*");	
+	pid = DM_BROWSE_PARTCODE(Seat_Part1_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Seat_Part1_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("EquipmentSeat101", "Seat_Part1", pid);
+	}	
+	if(Modify_flag){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择角钢");
+        delete_seat_members();
+        calculate_seat_para();
+        res = create_seat();
+        /* 如果修改不成功，回滚到原来状态 */
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }           
+        st = PM_UM_CLOSE_CHANGE(); 	   
+	}
+	return(0); 
+}
+
+select_seat_part2_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择垫板的材料(钢板)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "PLATE*");
+	pid = DM_BROWSE_PARTCODE(Seat_Part2_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Seat_Part2_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("EquipmentSeat101", "Seat_Part2", pid);
+	}
+	if(Modify_flag){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择垫板材料");
+        delete_seat_members();
+        calculate_seat_para();
+        res = create_seat();
+        /* 如果修改不成功，回滚到原来状态 */
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }
+        st = PM_UM_CLOSE_CHANGE();
+	}
+	return(0); 
+}
+
+create_seat_handler(item, event_type, button_value)
+{
+    /* 获取基座名称 */
+    Info_Seat_Name = W_GET_PANELITEM_ARG(Seat_Name, W_PANEL_VALUE);     
+    if (Info_Seat_Name == "Undefined"){
+        U_CONFIRM("请先输入基座编号");
+        return(0);
+    }
+
+    /* 定义UNDO缓存 */
+    st = PM_UM_OPEN_CHANGE("创建基座" + Info_Seat_Name);
+
+    /* 定义基座组 */  
+    group_h = Create_Group(Group_Type, Info_Seat_Name);
+    if(ISINT(group_h)){
+        U_CONFIRM("无法创建基座模型组，请检查是否已经定义了这种类型的模型组？");
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        return(0);
+    } 
+   
+    Seat_Handle = group_h; 
+   
+    /* 选择创建的平面 */
+	x0 = 0;y0 = 0;z0 = 0;
+	trace_handle = PM_NEW_TRACEP();  
+	PM_GET_CURRENT_LOC(x0,y0,z0);  
+	res = PM_GET_POINT("请选择基座位置", trace_handle, x0, y0, z0); 
+	if( res < 0 ){
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();   
+		return(0);
+	}
+    
+    Seat_X0 = x0; 
+    Seat_Y0 = y0;
+    Seat_Z0 = z0;
+	W_SET_NUMERIC_VALUE(Seat_Position_X, x0);
+	W_SET_NUMERIC_VALUE(Seat_Position_Y, y0);
+	W_SET_NUMERIC_VALUE(Seat_Position_Z, z0);
+	trans_abs_ref();
+    
+    /* 计算基座参数 */
+    res = calculate_seat_para(); 
+    if(res == -1){
+        U_CONFIRM("无法创建基座模型组，请检查基座参数是否正确？");
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();      
+        return(0);
+    }
+    
+    /* 创建基座，如创建不成功，删除相关定义 */
+    res = create_seat();
+    if (res == -1){
+        PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        return(0);
+    }
+    st = PM_UM_CLOSE_CHANGE();
+   
+    /*基座创建成功，进入修改状态*/
+	W_SET_PANELITEM_ARGS(Create_Seat, W_PANEL_SENSITIVITY,0);
+	Modify_flag = 1;
+}
+
+calculate_seat_para()
+{  
+    /* 检查是否已经选择了所需的零件 */
+    handle_part_1 = W_GET_PANELITEM_ARG(Seat_Part1, W_PANEL_VALUE);
+    if (handle_part_1 == "Undefined"){
+        U_CONFIRM("请先选择基座材料");
+        return(-1);
+    }
+    handle_part_2 = W_GET_PANELITEM_ARG(Seat_Part2, W_PANEL_VALUE);
+    if (Trag_Pad_Switch == "on"){
+        if(handle_part_2 == "Undefined"){
+            U_CONFIRM("请先选择垫板材料");
+            return(-1);
+        }
+    }
+   
+    /* 获取基座位置坐标 */
+    st = 0;
+    x0 = W_GET_NUMERIC_VALUE(Seat_Position_X, st);
+    if (st == -1){
+        U_CONFIRM("X坐标未定义");
+        return(-1);
+    }
+    Seat_X0 = x0;
+   
+    st = 0;
+    y0 = W_GET_NUMERIC_VALUE(Seat_Position_Y, st);
+    if (st == -1){
+        U_CONFIRM("Y坐标未定义");
+        return(-1);
+    }
+    Seat_Y0 = y0;
+   
+    st = 0;
+    z0 = W_GET_NUMERIC_VALUE(Seat_Position_Z, st); 
+    if (st == -1){
+        U_CONFIRM("Z坐标未定义");
+        return(-1);
+    }
+    Seat_Z0 = z0;   
+    
+    /* 获取基座尺寸 */
+    st = 0;
+    Seat_Size_L = W_GET_NUMERIC_VALUE(Seat_Para_L, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数L的值或者L的值有错误");
+        return(-1);
+    }
+
+    st = 0;
+    Seat_Size_W = W_GET_NUMERIC_VALUE(Seat_Para_W, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数W的值或者W的值有错误");
+        return(-1);
+    }   
+   
+    st = 0;
+    Seat_Size_H = W_GET_NUMERIC_VALUE(Seat_Para_H, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数h的值或者h的值有错误");
+        return(-1);
+    }   
+
+    st = 0;
+    Seat_Size_L1 = W_GET_NUMERIC_VALUE(Seat_Para_L1, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数h1的值或者h1的值有错误");
+        return(-1);
+    }
+
+    st = 0;
+    Seat_Size_W1 = W_GET_NUMERIC_VALUE(Seat_Para_W1, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数h2的值或者h2的值有错误");
+        return(-1);
+    }
+    
+    st = 0;
+    Seat_Size_d = W_GET_NUMERIC_VALUE(Seat_Para_d, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数d的值或者d的值有错误");
+        return(-1);
+    }
+    
+    if(Trag_Pad_Switch == "on"){
+        st = 0;
+        Seat_Size_c = W_GET_NUMERIC_VALUE(Seat_Para_c, st);
+        if (st == -1){
+            U_MESSAGE("无法获取参数c的值或者c的值有错误");
+            return(-1);
+        }
+        
+        st = 0;
+        Seat_Size_r = W_GET_NUMERIC_VALUE(Seat_Para_r, st);
+        if (st == -1){
+            U_MESSAGE("无法获取参数r的值或者r的值有错误");
+            return(-1);
+        }
+    }
+
+    /* 获取零件参数 */
+    anglebar_width  = 1.0*DM_PARTID_DATA(Seat_Part1_Pid, "D31");
+    anglebar_thick  = 1.0*DM_PARTID_DATA(Seat_Part1_Pid, "D32");
+    if(Trag_Pad_Switch == "on"){
+        trag_pad_plate_thick = 1.0*DM_PARTID_DATA(Seat_Part2_Pid, "D31");
+    }
+    else{
+        trag_pad_plate_thick = 0.0;
+    }
+    
+    zdx = 0;zdy = 0;zdz = 0;
+    VEC_CROSS_PRODUCT(Seat_X_Dx,Seat_X_Dy,Seat_X_Dz, Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz, zdx,zdy,zdz);
+    VEC_UNITV(zdx,zdy,zdz);
+   
+    /*计算零件1-1相关参数 calculate parameter of part1-1*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;
+        distance = 0.5*Seat_Size_L - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Seat_Size_H - anglebar_thick - trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Seat_Y_Dx;
+        x_dy = Seat_Y_Dy;
+        x_dz = Seat_Y_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part11,0,x1);
+        A_PUT(Part11,1,y1);
+        A_PUT(Part11,2,z1);
+        A_PUT(Part11,3,x2);
+        A_PUT(Part11,4,y2);
+        A_PUT(Part11,5,z2);
+        A_PUT(Part11,6,x_dx);
+        A_PUT(Part11,7,x_dy);
+        A_PUT(Part11,8,x_dz);
+        A_PUT(Part11,9,end1x);
+        A_PUT(Part11,10,end1y);
+        A_PUT(Part11,11,end1z);
+        A_PUT(Part11,12,end2x);
+        A_PUT(Part11,13,end2y);
+        A_PUT(Part11,14,end2z);	
+    }
+   
+    /*计算零件1-2相关参数 calculate parameter of part1-2*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = -(0.5*Seat_Size_L - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Seat_Size_H - anglebar_thick - trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = -Seat_X_Dx;
+        x_dy = -Seat_X_Dy;
+        x_dz = -Seat_X_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part12,0,x1);
+        A_PUT(Part12,1,y1);
+        A_PUT(Part12,2,z1);
+        A_PUT(Part12,3,x2);
+        A_PUT(Part12,4,y2);
+        A_PUT(Part12,5,z2);
+        A_PUT(Part12,6,x_dx);
+        A_PUT(Part12,7,x_dy);
+        A_PUT(Part12,8,x_dz);
+        A_PUT(Part12,9,end1x);
+        A_PUT(Part12,10,end1y);
+        A_PUT(Part12,11,end1z);
+        A_PUT(Part12,12,end2x);
+        A_PUT(Part12,13,end2y);
+        A_PUT(Part12,14,end2z);	
+    } 
+   
+    /*计算零件1-3相关参数 calculate parameter of part1-3*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = -(0.5*Seat_Size_L - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = -(0.5*Seat_Size_W - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Seat_Size_H - anglebar_thick - trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = -Seat_Y_Dx;
+        x_dy = -Seat_Y_Dy;
+        x_dz = -Seat_Y_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part13,0,x1);
+        A_PUT(Part13,1,y1);
+        A_PUT(Part13,2,z1);
+        A_PUT(Part13,3,x2);
+        A_PUT(Part13,4,y2);
+        A_PUT(Part13,5,z2);
+        A_PUT(Part13,6,x_dx);
+        A_PUT(Part13,7,x_dy);
+        A_PUT(Part13,8,x_dz);
+        A_PUT(Part13,9,end1x);
+        A_PUT(Part13,10,end1y);
+        A_PUT(Part13,11,end1z);
+        A_PUT(Part13,12,end2x);
+        A_PUT(Part13,13,end2y);
+        A_PUT(Part13,14,end2z);
+    }  
+   
+    /*计算零件1-4相关参数 calculate parameter of part1-4*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = 0.5*Seat_Size_L - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = -(0.5*Seat_Size_W - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Seat_Size_H - anglebar_thick - trag_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Seat_X_Dx;
+        x_dy = Seat_X_Dy;
+        x_dz = Seat_X_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part14,0,x1);
+        A_PUT(Part14,1,y1);
+        A_PUT(Part14,2,z1);
+        A_PUT(Part14,3,x2);
+        A_PUT(Part14,4,y2);
+        A_PUT(Part14,5,z2);
+        A_PUT(Part14,6,x_dx);
+        A_PUT(Part14,7,x_dy);
+        A_PUT(Part14,8,x_dz);
+        A_PUT(Part14,9,end1x);
+        A_PUT(Part14,10,end1y);
+        A_PUT(Part14,11,end1z);
+        A_PUT(Part14,12,end2x);
+        A_PUT(Part14,13,end2y);
+        A_PUT(Part14,14,end2z);
+    }   
+
+    /*计算零件1-5相关参数 calculate parameter of part1-5*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = 0.5*Seat_Size_L - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -Seat_Size_W;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Seat_X_Dx;
+        x_dy = Seat_X_Dy;
+        x_dz = Seat_X_Dz;
+        end1x = Seat_Y_Dx;
+        end1y = Seat_Y_Dy;
+        end1z = Seat_Y_Dz;
+        end2x = -Seat_Y_Dx;
+        end2y = -Seat_Y_Dy;
+        end2z = -Seat_Y_Dz;
+
+        A_PUT(Part15,0,x1);
+        A_PUT(Part15,1,y1);
+        A_PUT(Part15,2,z1);
+        A_PUT(Part15,3,x2);
+        A_PUT(Part15,4,y2);
+        A_PUT(Part15,5,z2);
+        A_PUT(Part15,6,x_dx);
+        A_PUT(Part15,7,x_dy);
+        A_PUT(Part15,8,x_dz);
+        A_PUT(Part15,9,end1x);
+        A_PUT(Part15,10,end1y);
+        A_PUT(Part15,11,end1z);
+        A_PUT(Part15,12,end2x);
+        A_PUT(Part15,13,end2y);
+        A_PUT(Part15,14,end2z);	
+    }    
+
+    /*计算零件1-6相关参数 calculate parameter of part1-6*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = -(0.5*Seat_Size_L - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -Seat_Size_W;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);
+        x2=x;y2=y;z2=z;  
+        
+        x_dx = -zdx;
+        x_dy = -zdy;
+        x_dz = -zdz;
+        end1x = Seat_Y_Dx;
+        end1y = Seat_Y_Dy;
+        end1z = Seat_Y_Dz;
+        end2x = -Seat_Y_Dx;
+        end2y = -Seat_Y_Dy;
+        end2z = -Seat_Y_Dz;
+
+        A_PUT(Part16,0,x1);
+        A_PUT(Part16,1,y1);
+        A_PUT(Part16,2,z1);
+        A_PUT(Part16,3,x2);
+        A_PUT(Part16,4,y2);
+        A_PUT(Part16,5,z2);
+        A_PUT(Part16,6,x_dx);
+        A_PUT(Part16,7,x_dy);
+        A_PUT(Part16,8,x_dz);
+        A_PUT(Part16,9,end1x);
+        A_PUT(Part16,10,end1y);
+        A_PUT(Part16,11,end1z);
+        A_PUT(Part16,12,end2x);
+        A_PUT(Part16,13,end2y);
+        A_PUT(Part16,14,end2z);	
+    }  
+    
+    /*计算零件1-7相关参数 calculate parameter of part1-7*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;
+        distance = 0.5*Seat_Size_L - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -(Seat_Size_L - 2*anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        x2=x;y2=y;z2=z;  
+        
+        x_dx = -zdx;
+        x_dy = -zdy;
+        x_dz = -zdz;
+        end1x = Seat_X_Dx;
+        end1y = Seat_X_Dy;
+        end1z = Seat_X_Dz;
+        end2x = -Seat_X_Dx;
+        end2y = -Seat_X_Dy;
+        end2z = -Seat_X_Dz;
+
+        A_PUT(Part17,0,x1);
+        A_PUT(Part17,1,y1);
+        A_PUT(Part17,2,z1);
+        A_PUT(Part17,3,x2);
+        A_PUT(Part17,4,y2);
+        A_PUT(Part17,5,z2);
+        A_PUT(Part17,6,x_dx);
+        A_PUT(Part17,7,x_dy);
+        A_PUT(Part17,8,x_dz);
+        A_PUT(Part17,9,end1x);
+        A_PUT(Part17,10,end1y);
+        A_PUT(Part17,11,end1z);
+        A_PUT(Part17,12,end2x);
+        A_PUT(Part17,13,end2y);
+        A_PUT(Part17,14,end2z);	
+    } 
+   
+    /*计算零件1-8相关参数 calculate parameter of part1-8*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = 0.5*Seat_Size_L - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = -(0.5*Seat_Size_W - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -(Seat_Size_L - 2*anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        x2=x;y2=y;z2=z;  
+        
+        x_dx = -Seat_Y_Dx;
+        x_dy = -Seat_Y_Dy;
+        x_dz = -Seat_Y_Dz;
+        end1x = Seat_X_Dx;
+        end1y = Seat_X_Dy;
+        end1z = Seat_X_Dz;
+        end2x = -Seat_X_Dx;
+        end2y = -Seat_X_Dy;
+        end2z = -Seat_X_Dz;
+
+        A_PUT(Part18,0,x1);
+        A_PUT(Part18,1,y1);
+        A_PUT(Part18,2,z1);
+        A_PUT(Part18,3,x2);
+        A_PUT(Part18,4,y2);
+        A_PUT(Part18,5,z2);
+        A_PUT(Part18,6,x_dx);
+        A_PUT(Part18,7,x_dy);
+        A_PUT(Part18,8,x_dz);
+        A_PUT(Part18,9,end1x);
+        A_PUT(Part18,10,end1y);
+        A_PUT(Part18,11,end1z);
+        A_PUT(Part18,12,end2x);
+        A_PUT(Part18,13,end2y);
+        A_PUT(Part18,14,end2z);	
+    }
+
+    /*计算零件2-1相关参数 calculate parameter of part2-1*/
+    if(Trag_Pad_Switch == "on"){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;
+        distance = 0.5*Seat_Size_L - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = Seat_X_Dx;
+        udy = Seat_X_Dy;
+        udz = Seat_X_Dz;
+        vdx = Seat_Y_Dx;
+        vdy = Seat_Y_Dy;
+        vdz = Seat_Y_Dz;
+        A_PUT(Part21,0,lox);
+        A_PUT(Part21,1,loy);
+        A_PUT(Part21,2,loz); 
+        A_PUT(Part21,3,udx);
+        A_PUT(Part21,4,udy);
+        A_PUT(Part21,5,udz);  
+        A_PUT(Part21,6,vdx);
+        A_PUT(Part21,7,vdy);
+        A_PUT(Part21,8,vdz);	
+    }  
+
+    /*计算零件2-2相关参数 calculate parameter of part2-2*/
+    if(Trag_Pad_Switch == "on"){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;
+        distance = -(0.5*Seat_Size_L - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = Seat_Y_Dx;
+        udy = Seat_Y_Dy;
+        udz = Seat_Y_Dz;
+        vdx = -Seat_X_Dx;
+        vdy = -Seat_X_Dy;
+        vdz = -Seat_X_Dz;
+        A_PUT(Part22,0,lox);
+        A_PUT(Part22,1,loy);
+        A_PUT(Part22,2,loz); 
+        A_PUT(Part22,3,udx);
+        A_PUT(Part22,4,udy);
+        A_PUT(Part22,5,udz);  
+        A_PUT(Part22,6,vdx);
+        A_PUT(Part22,7,vdy);
+        A_PUT(Part22,8,vdz);	
+    }  
+
+    /*计算零件2-3相关参数 calculate parameter of part2-3*/
+    if(Trag_Pad_Switch == "on"){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;
+        distance = -(0.5*Seat_Size_L - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = -(0.5*Seat_Size_W - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);   	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = -Seat_X_Dx;
+        udy = -Seat_X_Dy;
+        udz = -Seat_X_Dz;
+        vdx = -Seat_Y_Dx;
+        vdy = -Seat_Y_Dy;
+        vdz = -Seat_Y_Dz;
+        A_PUT(Part23,0,lox);
+        A_PUT(Part23,1,loy);
+        A_PUT(Part23,2,loz); 
+        A_PUT(Part23,3,udx);
+        A_PUT(Part23,4,udy);
+        A_PUT(Part23,5,udz);  
+        A_PUT(Part23,6,vdx);
+        A_PUT(Part23,7,vdy);
+        A_PUT(Part23,8,vdz);	
+    }  
+    
+    /*计算零件2-4相关参数 calculate parameter of part2-4*/
+    if(Trag_Pad_Switch == "on"){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;
+        distance = 0.5*Seat_Size_L - anglebar_width;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = -(0.5*Seat_Size_W - anglebar_width);
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);    	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = -Seat_Y_Dx;
+        udy = -Seat_Y_Dy;
+        udz = -Seat_Y_Dz;
+        vdx = Seat_X_Dx;
+        vdy = Seat_X_Dy;
+        vdz = Seat_X_Dz;
+        A_PUT(Part24,0,lox);
+        A_PUT(Part24,1,loy);
+        A_PUT(Part24,2,loz); 
+        A_PUT(Part24,3,udx);
+        A_PUT(Part24,4,udy);
+        A_PUT(Part24,5,udz);  
+        A_PUT(Part24,6,vdx);
+        A_PUT(Part24,7,vdy);
+        A_PUT(Part24,8,vdz);	
+    }  
+    
+    /* 计算开孔虚拟零件 */
+    calculate_virtual_hole();
+    
+    /*计算零件3-1相关参数 calculate parameter of part3-1*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = 0.5*Seat_Size_L1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -anglebar_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Seat_X_Dx;
+        x_dy = Seat_X_Dy;
+        x_dz = Seat_X_Dz;
+        end1x = zdx;
+        end1y = zdy;
+        end1z = zdz;
+        end2x = -zdx;
+        end2y = -zdy;
+        end2z = -zdz;
+
+        A_PUT(Part31,0,x1);
+        A_PUT(Part31,1,y1);
+        A_PUT(Part31,2,z1);
+        A_PUT(Part31,3,x2);
+        A_PUT(Part31,4,y2);
+        A_PUT(Part31,5,z2);
+        A_PUT(Part31,6,x_dx);
+        A_PUT(Part31,7,x_dy);
+        A_PUT(Part31,8,x_dz);
+        A_PUT(Part31,9,end1x);
+        A_PUT(Part31,10,end1y);
+        A_PUT(Part31,11,end1z);
+        A_PUT(Part31,12,end2x);
+        A_PUT(Part31,13,end2y);
+        A_PUT(Part31,14,end2z);	
+    }   
+
+    /*计算零件3-2相关参数 calculate parameter of part3-2*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = -0.5*Seat_Size_L1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = 0.5*Seat_Size_W1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -anglebar_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Seat_X_Dx;
+        x_dy = Seat_X_Dy;
+        x_dz = Seat_X_Dz;
+        end1x = zdx;
+        end1y = zdy;
+        end1z = zdz;
+        end2x = -zdx;
+        end2y = -zdy;
+        end2z = -zdz;
+
+        A_PUT(Part32,0,x1);
+        A_PUT(Part32,1,y1);
+        A_PUT(Part32,2,z1);
+        A_PUT(Part32,3,x2);
+        A_PUT(Part32,4,y2);
+        A_PUT(Part32,5,z2);
+        A_PUT(Part32,6,x_dx);
+        A_PUT(Part32,7,x_dy);
+        A_PUT(Part32,8,x_dz);
+        A_PUT(Part32,9,end1x);
+        A_PUT(Part32,10,end1y);
+        A_PUT(Part32,11,end1z);
+        A_PUT(Part32,12,end2x);
+        A_PUT(Part32,13,end2y);
+        A_PUT(Part32,14,end2z);	
+    }   
+    
+    /*计算零件3-3相关参数 calculate parameter of part3-3*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = -0.5*Seat_Size_L1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = -0.5*Seat_Size_W1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -anglebar_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Seat_X_Dx;
+        x_dy = Seat_X_Dy;
+        x_dz = Seat_X_Dz;
+        end1x = zdx;
+        end1y = zdy;
+        end1z = zdz;
+        end2x = -zdx;
+        end2y = -zdy;
+        end2z = -zdz;
+
+        A_PUT(Part33,0,x1);
+        A_PUT(Part33,1,y1);
+        A_PUT(Part33,2,z1);
+        A_PUT(Part33,3,x2);
+        A_PUT(Part33,4,y2);
+        A_PUT(Part33,5,z2);
+        A_PUT(Part33,6,x_dx);
+        A_PUT(Part33,7,x_dy);
+        A_PUT(Part33,8,x_dz);
+        A_PUT(Part33,9,end1x);
+        A_PUT(Part33,10,end1y);
+        A_PUT(Part33,11,end1z);
+        A_PUT(Part33,12,end2x);
+        A_PUT(Part33,13,end2y);
+        A_PUT(Part33,14,end2z);	
+    }   
+    
+    /*计算零件3-4相关参数 calculate parameter of part3-4*/
+    if(1){
+        x = Seat_X0;
+        y = Seat_Y0;
+        z = Seat_Z0;    
+        distance = 0.5*Seat_Size_L1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_X_Dx,Seat_X_Dy,Seat_X_Dz,distance);
+        distance = -0.5*Seat_Size_W1;
+        Point_3D_Move_With_DirAndDis(x,y,z,Seat_Y_Dx,Seat_Y_Dy,Seat_Y_Dz,distance);  
+        distance = Seat_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = -anglebar_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Seat_X_Dx;
+        x_dy = Seat_X_Dy;
+        x_dz = Seat_X_Dz;
+        end1x = zdx;
+        end1y = zdy;
+        end1z = zdz;
+        end2x = -zdx;
+        end2y = -zdy;
+        end2z = -zdz;
+
+        A_PUT(Part34,0,x1);
+        A_PUT(Part34,1,y1);
+        A_PUT(Part34,2,z1);
+        A_PUT(Part34,3,x2);
+        A_PUT(Part34,4,y2);
+        A_PUT(Part34,5,z2);
+        A_PUT(Part34,6,x_dx);
+        A_PUT(Part34,7,x_dy);
+        A_PUT(Part34,8,x_dz);
+        A_PUT(Part34,9,end1x);
+        A_PUT(Part34,10,end1y);
+        A_PUT(Part34,11,end1z);
+        A_PUT(Part34,12,end2x);
+        A_PUT(Part34,13,end2y);
+        A_PUT(Part34,14,end2z);	
+    }   
+    
+    return(0);
+}
+
+/*查找对应的孔零件*/
+calculate_virtual_hole()
+{
+	seat_hole_pid = DM_MATCH_PARTID(Hole_Part_Code,DM_Q_DIAMETER,1,Seat_Size_d);
+    if(!ISSTRING(seat_hole_pid)){
+        mess = "孔径为:" + FTOASCII(Seat_Size_d) + "，标准库中没有定义这种规格的零件，或者检查虚拟孔的孔径参数类型是否设置为Diam";
+        U_CONFIRM(mess);
+        return(-1);
+    }
+    else{
+        Seat_Hole_Pid = seat_hole_pid;
+    }
+    return(0);
+}
+
+/*扁钢双45度切角*/
+calculate_flatbar_double_cut_para(flatbar_width,size_a)
+{
+    /* cut_para = "0 0 0 -22.5 0.0 -45.0;0 0 0 -22.5 0.0 45.0;"; */
+    offset = 0.5*flatbar_width-size_a;
+    offset_str = rtrim_number(FTOASCII(-offset));
+    cut_para = "0 0 0 "+offset_str+" 0.0 -45.0;0 0 0 "+offset_str+" 0.0 45.0;";
+    return(cut_para);
+}
+
+/*角钢45度切角*/
+calculate_anglebar_side_a_cut_para(anglebar_width,size_a)
+{
+    /* cut_para = "0 0 0 -22.5 0.0 -45.0;"; */
+    offset = anglebar_width-size_a;
+    offset_str = rtrim_number(FTOASCII(-offset));
+    cut_para = "0 0 0 "+offset_str+" 0.0 -45.0;";
+    return(cut_para);
+}
+
+/*角钢45度切角*/
+calculate_anglebar_side_b_cut_para(anglebar_width,size_a)
+{
+    /* cut_para = "0 0 0 -22.5 -45.0 0.0;"; */
+    offset = anglebar_width-size_a;
+    offset_str = rtrim_number(FTOASCII(-offset));
+    cut_para = "0 0 0 "+offset_str+" -45.0 0.0;";
+    return(cut_para);
+}
+
+create_seat()
+{                            
+    /* 获取零件参数 */
+    anglebar_width  = 1.0*DM_PARTID_DATA(Seat_Part1_Pid, "D31");
+    anglebar_thick  = 1.0*DM_PARTID_DATA(Seat_Part1_Pid, "D32");
+    if(Trag_Pad_Switch == "on"){
+        trag_pad_plate_thick = 1.0*DM_PARTID_DATA(Seat_Part2_Pid, "D31");
+    }
+    else{
+        trag_pad_plate_thick = 0.0;
+    }
+    
+    /* 定义基座零件集合 */   
+    seat = PM_INIT_SET();   
+    /* 生成零件1-1 create part 1-1*/
+    if(1){
+        x1 =    A_GET(Part11,0);
+        y1 =    A_GET(Part11,1);
+        z1 =    A_GET(Part11,2);
+        x2 =    A_GET(Part11,3);
+        y2 =    A_GET(Part11,4);
+        z2 =    A_GET(Part11,5);   
+        x_dx =  A_GET(Part11,6);
+        x_dy =  A_GET(Part11,7);
+        x_dz =  A_GET(Part11,8);   
+        end1x = A_GET(Part11,9);
+        end1y = A_GET(Part11,10);
+        end1z = A_GET(Part11,11);	
+        end2x = A_GET(Part11,12);
+        end2y = A_GET(Part11,13);
+        end2z = A_GET(Part11,14);	
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    } 
+
+    /* 生成零件1-2 create part 1-2*/
+    if(1){
+        x1 =    A_GET(Part12,0);
+        y1 =    A_GET(Part12,1);
+        z1 =    A_GET(Part12,2);
+        x2 =    A_GET(Part12,3);
+        y2 =    A_GET(Part12,4);
+        z2 =    A_GET(Part12,5);   
+        x_dx =  A_GET(Part12,6);
+        x_dy =  A_GET(Part12,7);
+        x_dz =  A_GET(Part12,8);   
+        end1x = A_GET(Part12,9);
+        end1y = A_GET(Part12,10);
+        end1z = A_GET(Part12,11);	
+        end2x = A_GET(Part12,12);
+        end2y = A_GET(Part12,13);
+        end2z = A_GET(Part12,14);
+        
+        lox = 0;loy = 0;loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-2");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat);
+    }   
+    
+    /* 生成零件2-1 create part 2-1*/
+    if(1){      
+        x1 =    A_GET(Part13,0);
+        y1 =    A_GET(Part13,1);
+        z1 =    A_GET(Part13,2);
+        x2 =    A_GET(Part13,3);
+        y2 =    A_GET(Part13,4);
+        z2 =    A_GET(Part13,5);   
+        x_dx =  A_GET(Part13,6);
+        x_dy =  A_GET(Part13,7);
+        x_dz =  A_GET(Part13,8);   
+        end1x = A_GET(Part13,9);
+        end1y = A_GET(Part13,10);
+        end1z = A_GET(Part13,11);	
+        end2x = A_GET(Part13,12);
+        end2y = A_GET(Part13,13);
+        end2z = A_GET(Part13,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-3");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    } 
+
+    /* 生成零件1-4 create part 1-4*/
+    if(1){      
+        x1 =    A_GET(Part14,0);
+        y1 =    A_GET(Part14,1);
+        z1 =    A_GET(Part14,2);
+        x2 =    A_GET(Part14,3);
+        y2 =    A_GET(Part14,4);
+        z2 =    A_GET(Part14,5);   
+        x_dx =  A_GET(Part14,6);
+        x_dy =  A_GET(Part14,7);
+        x_dz =  A_GET(Part14,8);   
+        end1x = A_GET(Part14,9);
+        end1y = A_GET(Part14,10);
+        end1z = A_GET(Part14,11);	
+        end2x = A_GET(Part14,12);
+        end2y = A_GET(Part14,13);
+        end2z = A_GET(Part14,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-4");       
+        PM_ADD_OBJECT_TO_SET(part_handle, seat);
+    } 
+
+    /* 生成零件1-5 create part 1-5*/
+    if(1){      
+        x1 =    A_GET(Part15,0);
+        y1 =    A_GET(Part15,1);
+        z1 =    A_GET(Part15,2);
+        x2 =    A_GET(Part15,3);
+        y2 =    A_GET(Part15,4);
+        z2 =    A_GET(Part15,5);   
+        x_dx =  A_GET(Part15,6);
+        x_dy =  A_GET(Part15,7);
+        x_dz =  A_GET(Part15,8);   
+        end1x = A_GET(Part15,9);
+        end1y = A_GET(Part15,10);
+        end1z = A_GET(Part15,11);	
+        end2x = A_GET(Part15,12);
+        end2y = A_GET(Part15,13);
+        end2z = A_GET(Part15,14);	
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-5");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    }
+
+    /* 生成零件1-6 create part 1-6*/
+    if(1){       
+        x1 =    A_GET(Part16,0);
+        y1 =    A_GET(Part16,1);
+        z1 =    A_GET(Part16,2);
+        x2 =    A_GET(Part16,3);
+        y2 =    A_GET(Part16,4);
+        z2 =    A_GET(Part16,5);   
+        x_dx =  A_GET(Part16,6);
+        x_dy =  A_GET(Part16,7);
+        x_dz =  A_GET(Part16,8);   
+        end1x = A_GET(Part16,9);
+        end1y = A_GET(Part16,10);
+        end1z = A_GET(Part16,11);	
+        end2x = A_GET(Part16,12);
+        end2y = A_GET(Part16,13);
+        end2z = A_GET(Part16,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-6");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    }	
+    
+    /* 生成零件1-7 create part 1-7*/
+    if(1){
+        x1 =    A_GET(Part17,0);
+        y1 =    A_GET(Part17,1);
+        z1 =    A_GET(Part17,2);
+        x2 =    A_GET(Part17,3);
+        y2 =    A_GET(Part17,4);
+        z2 =    A_GET(Part17,5);   
+        x_dx =  A_GET(Part17,6);
+        x_dy =  A_GET(Part17,7);
+        x_dz =  A_GET(Part17,8);   
+        end1x = A_GET(Part17,9);
+        end1y = A_GET(Part17,10);
+        end1z = A_GET(Part17,11);	
+        end2x = A_GET(Part17,12);
+        end2y = A_GET(Part17,13);
+        end2z = A_GET(Part17,14);	
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-7");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    } 
+
+    /* 生成零件1-8 create part 1-8*/
+    if(1){       
+        x1 =    A_GET(Part18,0);
+        y1 =    A_GET(Part18,1);
+        z1 =    A_GET(Part18,2);
+        x2 =    A_GET(Part18,3);
+        y2 =    A_GET(Part18,4);
+        z2 =    A_GET(Part18,5);   
+        x_dx =  A_GET(Part18,6);
+        x_dy =  A_GET(Part18,7);
+        x_dz =  A_GET(Part18,8);   
+        end1x = A_GET(Part18,9);
+        end1y = A_GET(Part18,10);
+        end1z = A_GET(Part18,11);	
+        end2x = A_GET(Part18,12);
+        end2y = A_GET(Part18,13);
+        end2z = A_GET(Part18,14);	
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-8");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    }	
+	
+    /* 生成零件2-1 create part 2-1*/
+    if(Trag_Pad_Switch == "on"){
+        size_c = Seat_Size_c; 
+        size_r = Seat_Size_r;
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Seat_Size_W);*/
+        curve = create_triangle_curve(anglebar_width,anglebar_width,anglebar_thick,anglebar_thick,size_c,size_r);
+
+        lox = A_GET(Part21,0);
+        loy = A_GET(Part21,1);
+        loz = A_GET(Part21,2);	
+        udx = A_GET(Part21,3);
+        udy = A_GET(Part21,4);
+        udz = A_GET(Part21,5);
+        vdx = A_GET(Part21,6);
+        vdy = A_GET(Part21,7);
+        vdz = A_GET(Part21,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Seat_Part2_Pid, Info_System_Id, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+                
+        Set_Attribute_Value(part_handle, PartNumber,  "2-1");	
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 		  
+        free_2darray(hole_list);       
+    } 
+
+    /* 生成零件2-2 create part 2-2*/
+    if(Trag_Pad_Switch == "on"){
+        size_c = Seat_Size_c; 
+        size_r = Seat_Size_r;
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Seat_Size_W);*/
+        curve = create_triangle_curve(anglebar_width,anglebar_width,anglebar_thick,anglebar_thick,size_c,size_r);
+        
+        lox = A_GET(Part22,0);
+        loy = A_GET(Part22,1);
+        loz = A_GET(Part22,2);	
+        udx = A_GET(Part22,3);
+        udy = A_GET(Part22,4);
+        udz = A_GET(Part22,5);
+        vdx = A_GET(Part22,6);
+        vdy = A_GET(Part22,7);
+        vdz = A_GET(Part22,8); 
+        
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Seat_Part2_Pid, Info_System_Id, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }
+        
+        Set_Attribute_Value(part_handle, PartNumber,  "2-2");	
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 		  
+        free_2darray(hole_list);     
+    } 
+    
+    /* 生成零件2-3 create part 2-3*/
+    if(Trag_Pad_Switch == "on"){
+        size_c = Seat_Size_c; 
+        size_r = Seat_Size_r;
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Seat_Size_W);*/
+        curve = create_triangle_curve(anglebar_width,anglebar_width,anglebar_thick,anglebar_thick,size_c,size_r);
+        
+        lox = A_GET(Part23,0);
+        loy = A_GET(Part23,1);
+        loz = A_GET(Part23,2);	
+        udx = A_GET(Part23,3);
+        udy = A_GET(Part23,4);
+        udz = A_GET(Part23,5);
+        vdx = A_GET(Part23,6);
+        vdy = A_GET(Part23,7);
+        vdz = A_GET(Part23,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Seat_Part2_Pid, Info_System_Id, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        
+        Set_Attribute_Value(part_handle, PartNumber,  "2-3");	
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 		  
+        free_2darray(hole_list);  
+    } 
+
+    /* 生成零件2-4 create part 2-4*/
+    if(Trag_Pad_Switch == "on"){
+        size_c = Seat_Size_c; 
+        size_r = Seat_Size_r;
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Seat_Size_W);*/
+        curve = create_triangle_curve(anglebar_width,anglebar_width,anglebar_thick,anglebar_thick,size_c,size_r);
+        
+        lox = A_GET(Part24,0);
+        loy = A_GET(Part24,1);
+        loz = A_GET(Part24,2);	
+        udx = A_GET(Part24,3);
+        udy = A_GET(Part24,4);
+        udz = A_GET(Part24,5);
+        vdx = A_GET(Part24,6);
+        vdy = A_GET(Part24,7);
+        vdz = A_GET(Part24,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Seat_Part2_Pid, Info_System_Id, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        
+        Set_Attribute_Value(part_handle, PartNumber,  "2-4");	
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 		  
+        free_2darray(hole_list); 
+    } 
+    
+    /* 生成孔零件3-1 create virtual part 3-1*/
+    if(1){      
+        x1 =    A_GET(Part31,0);
+        y1 =    A_GET(Part31,1);
+        z1 =    A_GET(Part31,2);
+        x2 =    A_GET(Part31,3);
+        y2 =    A_GET(Part31,4);
+        z2 =    A_GET(Part31,5);   
+        x_dx =  A_GET(Part31,6);
+        x_dy =  A_GET(Part31,7);
+        x_dz =  A_GET(Part31,8);   
+        end1x = A_GET(Part31,9);
+        end1y = A_GET(Part31,10);
+        end1z = A_GET(Part31,11);	
+        end2x = A_GET(Part31,12);
+        end2y = A_GET(Part31,13);
+        end2z = A_GET(Part31,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Hole_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "3-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    }
+    
+    /* 生成孔零件3-2 create virtual part 3-2*/
+    if(1){      
+        x1 =    A_GET(Part32,0);
+        y1 =    A_GET(Part32,1);
+        z1 =    A_GET(Part32,2);
+        x2 =    A_GET(Part32,3);
+        y2 =    A_GET(Part32,4);
+        z2 =    A_GET(Part32,5);   
+        x_dx =  A_GET(Part32,6);
+        x_dy =  A_GET(Part32,7);
+        x_dz =  A_GET(Part32,8);   
+        end1x = A_GET(Part32,9);
+        end1y = A_GET(Part32,10);
+        end1z = A_GET(Part32,11);	
+        end2x = A_GET(Part32,12);
+        end2y = A_GET(Part32,13);
+        end2z = A_GET(Part32,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Hole_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "3-2");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    }
+    
+    /* 生成孔零件3-3 create virtual part 3-3*/
+    if(1){      
+        x1 =    A_GET(Part33,0);
+        y1 =    A_GET(Part33,1);
+        z1 =    A_GET(Part33,2);
+        x2 =    A_GET(Part33,3);
+        y2 =    A_GET(Part33,4);
+        z2 =    A_GET(Part33,5);   
+        x_dx =  A_GET(Part33,6);
+        x_dy =  A_GET(Part33,7);
+        x_dz =  A_GET(Part33,8);   
+        end1x = A_GET(Part33,9);
+        end1y = A_GET(Part33,10);
+        end1z = A_GET(Part33,11);	
+        end2x = A_GET(Part33,12);
+        end2y = A_GET(Part33,13);
+        end2z = A_GET(Part33,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Hole_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "3-3");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    }
+
+    /* 生成孔零件3-4 create virtual part 3-4*/
+    if(1){      
+        x1 =    A_GET(Part34,0);
+        y1 =    A_GET(Part34,1);
+        z1 =    A_GET(Part34,2);
+        x2 =    A_GET(Part34,3);
+        y2 =    A_GET(Part34,4);
+        z2 =    A_GET(Part34,5);   
+        x_dx =  A_GET(Part34,6);
+        x_dy =  A_GET(Part34,7);
+        x_dz =  A_GET(Part34,8);   
+        end1x = A_GET(Part34,9);
+        end1y = A_GET(Part34,10);
+        end1z = A_GET(Part34,11);	
+        end2x = A_GET(Part34,12);
+        end2y = A_GET(Part34,13);
+        end2z = A_GET(Part34,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Seat_Hole_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "3-4");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    }
+    
+    PM_ADD_SET_TO_GROUP(seat, Seat_Handle);
+    set_seat_para(Seat_Handle);
+    save_model_size();
+    PM_FREE_SET(seat);   
+	return(0);
+}
+
+calculate_hole_list(hole_list,hole_dia)
+{
+	hole1_size = "circle1 = CURVE(" + STRINGTERM(FTOASCII(hole_dia),".") + "\/ 2,0,ARC,0,0,360)\;";
+	hole1_pos  = ",circle1,0,0";		
+	
+	/* 将开孔信息存入数组 */
+	put_2darray(hole_list,0,0,hole1_size);
+	put_2darray(hole_list,0,1,hole1_pos);	
+	return(0);  
+}
+
+set_seat_para(group_h)
+{
+    Set_Attribute_Value(group_h, PlanningUnit,  Info_Planning_Unit);
+    Set_Attribute_Value(group_h, SeatDes,  Info_Seat_Desc);
+    Set_Attribute_Value(group_h, SeatType, Info_Seat_Type);
+    
+    W_SET_NUMERIC_VALUE(Seat_Para_L,  Seat_Size_L);
+    W_SET_NUMERIC_VALUE(Seat_Para_W,  Seat_Size_W);
+    W_SET_NUMERIC_VALUE(Seat_Para_H,  Seat_Size_H);
+    W_SET_NUMERIC_VALUE(Seat_Para_L1, Seat_Size_L1); 
+    W_SET_NUMERIC_VALUE(Seat_Para_W1, Seat_Size_W1);   
+    W_SET_NUMERIC_VALUE(Seat_Para_d,  Seat_Size_d);   
+    W_SET_NUMERIC_VALUE(Seat_Para_r,  Seat_Size_r); 
+    W_SET_NUMERIC_VALUE(Seat_Para_c,  Seat_Size_c); 
+    return(0);
+}
+
+quit_handler(item, event_type, button_value)
+{ 
+    A_FREE(Part11);
+    A_FREE(Part12); 
+    A_FREE(Part13);
+    A_FREE(Part14);
+    A_FREE(Part15);
+    A_FREE(Part16);
+    A_FREE(Part17);
+    A_FREE(Part18);
+    A_FREE(Part21);
+    A_FREE(Part22);
+    A_FREE(Part23);
+    A_FREE(Part24);
+    A_FREE(Part31);
+    A_FREE(Part32);
+    A_FREE(Part33);
+    A_FREE(Part34);
+	U_MESSAGE("退出基座参数化建模窗口");
+	return(99);
+}
+
+/*
+**创建用于输入及编辑基座参数的面板
+*/
+create_parameter_panel(mainform)
+{
+	Parameters = W_ADD_WINDOW(mainform, W_PANEL, "Parameters");
+	W_REALIZE_WINDOW(Parameters,  W_FRAME_X, 465,
+	                              W_FRAME_Y, 255,
+							      W_FRAME_WIDTH, 100,
+							      W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"基座尺寸");
+
+    seperate_line = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+
+	Seat_Para_L = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_L");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_L, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_L,   W_PANEL_ROW, 1, 
+	                                   W_PANEL_COL, 1,
+							           W_PANEL_LABEL, " L: ",
+							           W_PANEL_LENGTH, 6,
+							           W_PANEL_CALLBACK, 1);      							               
+	W_SET_PANELITEM_HANDLER(Seat_Para_L, "seat_para_handler"); 
+	
+	Seat_Para_W = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_W");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_W, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_W,   W_PANEL_ROW, 1, 
+	                                   W_PANEL_COL, 12,
+							           W_PANEL_LABEL, " W: ",
+							           W_PANEL_LENGTH, 6,
+							           W_PANEL_CALLBACK, 1);
+	W_SET_PANELITEM_HANDLER(Seat_Para_W, "seat_para_handler");
+
+	Seat_Para_L1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_L1");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_L1, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_L1,   W_PANEL_ROW, 2, 
+                                        W_PANEL_COL, 1,
+                                        W_PANEL_LABEL, "L1: ",
+                                        W_PANEL_LENGTH, 6,
+                                        W_PANEL_CALLBACK, 1);          							               
+	W_SET_PANELITEM_HANDLER(Seat_Para_L1, "seat_para_handler");
+
+	Seat_Para_W1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_W1");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_W1, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_W1,   W_PANEL_ROW, 2, 
+                                        W_PANEL_COL, 12,
+                                        W_PANEL_LABEL, "W1: ",
+                                        W_PANEL_LENGTH, 6,
+                                        W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Seat_Para_W1, "seat_para_handler");	
+
+	Seat_Para_H = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_H");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_H, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_H,   W_PANEL_ROW, 3, 
+	                                   W_PANEL_COL, 1,
+							           W_PANEL_LABEL, " H: ",
+							           W_PANEL_LENGTH, 6,
+							           W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Seat_Para_H, "seat_para_handler");  
+
+	Seat_Para_d = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_d");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_d, W_NUMERIC_FLOAT, 1, 100, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_d,   W_PANEL_ROW, 3, 
+	                                   W_PANEL_COL, 12,
+							           W_PANEL_LABEL, " d: ",
+							           W_PANEL_LENGTH, 6,
+							           W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Seat_Para_d, "seat_para_handler");  
+
+	Seat_Para_c = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_c");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_c, W_NUMERIC_FLOAT, 1, 100, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_c,   W_PANEL_ROW, 4, 
+	                                   W_PANEL_COL, 1,
+							           W_PANEL_LABEL, " c: ",
+							           W_PANEL_LENGTH, 6,
+							           W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Seat_Para_c, "seat_para_handler");  
+    
+	Seat_Para_r = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_r");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Para_r, W_NUMERIC_FLOAT, 1, 100, "%.0f");
+	W_REALIZE_PANELITEM(Seat_Para_r, W_PANEL_ROW, 4, 
+	                                 W_PANEL_COL, 12,
+							         W_PANEL_LABEL, " r: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Seat_Para_r, "seat_para_handler"); 
+    
+	return(Parameters);
+}
+
+/*
+**处理基座参数发生更改的事件
+*/
+seat_para_handler(item, event_type, dummy)
+{  
+    /* 处理输入新数值后 */
+    if (event_type == W_EVENT_ITEM_LEFT){
+        /* 检查参数是否正确 */
+        if (item == Seat_Para_L){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_L = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:L");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }           
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        }
+        else if (item == Seat_Para_W){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_W = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:W");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Seat_Para_H){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_H", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_H = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_H", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:h");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Seat_Para_L1){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L1", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_L1 = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L1", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:h1");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Seat_Para_W1){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W1", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_W1 = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W1", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:h2");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Seat_Para_d){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_d", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_d = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_d", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:d");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Seat_Para_r){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_r", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_r = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_r", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:r");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Seat_Para_c){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_c", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Seat_Size_c = value;
+            st = SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_c", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改基座参数:c");
+                calculate_seat_para();
+                delete_seat_members();
+                res = create_seat(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        
+    }
+    return(0); 
+}
+
+/*
+**创建用于输入及编辑基座位置的面板
+*/
+create_position_panel(mainform)
+{
+	Position = W_ADD_WINDOW(mainform, W_PANEL, "Position");
+	W_REALIZE_WINDOW(Position,  W_FRAME_X, 465,
+	                            W_FRAME_Y, 400,
+							    W_FRAME_WIDTH, 100,
+							    W_FRAME_HEIGHT, 180);
+
+	title = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"基座位置");
+
+    seperate_line = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+   
+	/* 基座位置信息-绝对坐标 */
+	Seat_Position_X = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_X");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Position_X, W_NUMERIC_INT,
+                                                  -1000000, 1000000);                                          	
+	W_REALIZE_PANELITEM(Seat_Position_X, W_PANEL_ROW, 1, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "X: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);	
+	W_SET_NUMERIC_VALUE(Seat_Position_X, 10000);						                     	
+	W_SET_PANELITEM_HANDLER(Seat_Position_X, "seat_position_handler"); 
+
+	Seat_Position_Y = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_Y");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Position_Y, W_NUMERIC_INT,
+                                                  -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Seat_Position_Y, W_PANEL_ROW, 2, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Y: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Seat_Position_Y, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Seat_Position_Y, "seat_position_handler");
+
+	Seat_Position_Z = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_Z");
+    W_CONFIG_NUMERIC_PANELITEM(Seat_Position_Z, W_NUMERIC_INT,
+                                                  -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Seat_Position_Z, W_PANEL_ROW, 3, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Z: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Seat_Position_Z, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Seat_Position_Z, "seat_position_handler");	
+
+	/* 基座位置信息-参考面 */
+	Seat_Position_Xref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_Xref");
+	W_REALIZE_PANELITEM(Seat_Position_Xref,	W_PANEL_ROW, 			1, 
+                                                W_PANEL_COL, 			11,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                     
+	W_SET_PANELITEM_HANDLER(Seat_Position_Xref, "seat_position_handler"); 
+
+	Seat_Position_Yref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_Yref");	
+	W_REALIZE_PANELITEM(Seat_Position_Yref,	W_PANEL_ROW, 			2, 
+                                                W_PANEL_COL, 			11,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);
+	W_SET_PANELITEM_HANDLER(Seat_Position_Yref, "seat_position_handler");
+    
+	Seat_Position_Zref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_Zref");	
+	W_REALIZE_PANELITEM(Seat_Position_Zref,	W_PANEL_ROW, 			3, 
+                                                W_PANEL_COL, 			11,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_PANELITEM_HANDLER(Seat_Position_Zref, "seat_position_handler");	
+
+	/* 基座位置信息-偏移量 */	
+	Seat_Position_Xoff = W_ADD_PANELITEM(Position,	W_PANEL_FILL, "Seat_Position_Xoff");
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Position_Xoff,	W_NUMERIC_INT,
+                                                        -10000, 10000);	
+	W_REALIZE_PANELITEM(Seat_Position_Xoff,	W_PANEL_ROW, 			1, 
+                                                W_PANEL_COL, 			18,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                     	
+	W_SET_NUMERIC_VALUE(Seat_Position_Xoff, 0);	
+	W_SET_PANELITEM_HANDLER(Seat_Position_Xoff, "seat_position_handler"); 
+
+	Seat_Position_Yoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_Yoff");
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Position_Yoff,	W_NUMERIC_INT,
+                                                        -10000, 10000);	
+	W_REALIZE_PANELITEM(Seat_Position_Yoff,	W_PANEL_ROW, 			2, 
+                                                W_PANEL_COL, 			18,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_NUMERIC_VALUE(Seat_Position_Yoff, 0);							                        
+	W_SET_PANELITEM_HANDLER(Seat_Position_Yoff, "seat_position_handler");
+
+	Seat_Position_Zoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Seat_Position_Zoff");
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Position_Zoff,	W_NUMERIC_INT,
+                                                        -10000, 10000);
+	W_REALIZE_PANELITEM(Seat_Position_Zoff,	W_PANEL_ROW, 			3, 
+                                                W_PANEL_COL, 			18,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);
+	W_SET_NUMERIC_VALUE(Seat_Position_Zoff, 0);						                                        
+	W_SET_PANELITEM_HANDLER(Seat_Position_Zoff, "seat_position_handler");	
+
+	Pick_Seat_Position = W_ADD_PANELITEM(Position, W_PANEL_BUTTON, "Pick_Seat_Position");	
+	W_REALIZE_PANELITEM(Pick_Seat_Position,	W_PANEL_ROW, 			4, 
+                                                W_PANEL_COL, 			0,
+                                                W_PANEL_BUTTONIMAGE, 	"点选位置", 
+                                                W_PANEL_WIDTH, 			24,
+                                                W_PANEL_BUTTONVALUE, 	601,
+                                                W_PANEL_CALLBACK, 		1,
+                                                W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Pick_Seat_Position, "pick_seat_position_handler");
+		         														
+	return(Position);
+}
+
+/*
+**用于处理基座坐标的输入
+*/
+seat_position_handler(item, event_type, dummy)
+{     
+	if (event_type == W_EVENT_ITEM_LEFT){     
+		if (item == Seat_Position_X | item == Seat_Position_Y | item == Seat_Position_Z){         
+			st = 0;                  
+			trans_abs_ref();
+		}
+		else if ( item == Seat_Position_Xref | item == Seat_Position_Yref | item == Seat_Position_Zref){        
+            x_ref = W_GET_PANELITEM_ARG(Seat_Position_Xref, W_PANEL_VALUE);
+            y_ref = W_GET_PANELITEM_ARG(Seat_Position_Yref, W_PANEL_VALUE);
+            z_ref = W_GET_PANELITEM_ARG(Seat_Position_Zref, W_PANEL_VALUE);
+            st = 0;
+            x_off = W_GET_NUMERIC_VALUE(Seat_Position_Xoff, st);
+            y_off = W_GET_NUMERIC_VALUE(Seat_Position_Yoff, st);
+            z_off = W_GET_NUMERIC_VALUE(Seat_Position_Zoff, st);                
+            coord_ref_to_abs(x_ref,x_off,y_ref,y_off,x_ref,x_off);           
+		}  
+        if(Modify_flag){
+            st = PM_UM_OPEN_CHANGE("修改基座位置");
+            calculate_seat_para();
+            delete_seat_members();
+            res = create_seat(); 
+            if (res == -1){
+                PM_UM_CLOSE_CHANGE();
+                PM_UM_UNDO_LAST_CHANGE();
+                return(0);
+            }  
+            st = PM_UM_CLOSE_CHANGE();
+        }           
+	}
+	return(0);
+}
+
+/*
+**将相对坐标转换成绝对坐标
+*/
+coord_ref_to_abs(string x_ref,float x_off,string y_ref,float y_off,string Z_ref,float Z_off)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Seat_Position_X, st);
+	y0 = W_GET_NUMERIC_VALUE(Seat_Position_Y, st);
+	z0 = W_GET_NUMERIC_VALUE(Seat_Position_Z, st);
+	return(0);
+}
+
+/*
+**用于处理基座在模型中捕捉基座的位置
+*/
+pick_seat_position_handler(item, event_type, button_value)
+{
+	/* 获取当前光标点坐标并显示到面板中 */
+	x0 = 0;y0 = 0;z0 = 0;
+	trace_handle = PM_NEW_TRACEP();  
+	PM_GET_CURRENT_LOC(x0,y0,z0);  
+	res = PM_GET_POINT("请选择基座位置", trace_handle, x0, y0, z0); 
+	if ( res < 0 ){
+		return(-1);
+	}
+    
+	W_SET_NUMERIC_VALUE(Seat_Position_X, x0);
+	W_SET_NUMERIC_VALUE(Seat_Position_Y, y0);
+	W_SET_NUMERIC_VALUE(Seat_Position_Z, z0);
+   
+	trans_abs_ref();
+    
+	if(Modify_flag){
+		st = PM_UM_OPEN_CHANGE("修改基座位置");
+		calculate_seat_para();
+		delete_seat_members();
+        res = create_seat(); 
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }  
+		st = PM_UM_CLOSE_CHANGE();
+	}            
+	return(0);
+}
+
+/*
+**将绝对坐标转换成相对坐标
+*/
+trans_abs_ref()
+{
+	/* 将绝对坐标转换成相对坐标并显示到面板中 */   
+	x_ref = "";
+	y_ref = "";
+	z_ref = "";
+	x_offset = 0;
+	y_offset = 0;
+	z_offset = 0;
+   
+	x0 = 0;
+	y0 = 0;
+	z0 = 0;
+   
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Seat_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Seat_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Seat_Position_Z,st);
+   
+	res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+	if (res == 0){  
+		W_SET_PANELITEM_ARGS(Seat_Position_Xref, W_PANEL_VALUE, x_ref);
+		W_SET_PANELITEM_ARGS(Seat_Position_Yref, W_PANEL_VALUE, y_ref);
+		W_SET_PANELITEM_ARGS(Seat_Position_Zref, W_PANEL_VALUE, z_ref);
+   
+		W_SET_NUMERIC_VALUE(Seat_Position_Xoff, x_offset);
+		W_SET_NUMERIC_VALUE(Seat_Position_Yoff, y_offset);
+		W_SET_NUMERIC_VALUE(Seat_Position_Zoff, z_offset);     
+	}  
+	else if (res == -1){     
+		W_SET_PANELITEM_ARGS(Seat_Position_Xref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Seat_Position_Yref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Seat_Position_Zref, W_PANEL_VALUE, "Unset");
+   
+		W_SET_NUMERIC_VALUE(Seat_Position_Xoff, 0);
+		W_SET_NUMERIC_VALUE(Seat_Position_Yoff, 0);
+		W_SET_NUMERIC_VALUE(Seat_Position_Zoff, 0); 
+		U_CONFIRM("参考坐标系定义不正确");           
+	}    
+}
+
+/*
+**创建用于旋转基座的面板
+*/
+create_rotate_seat_panel(mainform)
+{
+	Orientation = W_ADD_WINDOW(mainform, W_PANEL, "Orientation");	
+	W_REALIZE_WINDOW(Orientation,	W_FRAME_X, 		680,
+									W_FRAME_Y, 		255,
+							        W_FRAME_WIDTH,	100,
+							        W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"旋转基座");
+
+	seperate_line = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);         
+	/* 基座旋转轴 */   
+	Seat_Rotate_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Seat_Rotate_X");	
+	W_REALIZE_PANELITEM(Seat_Rotate_X,	W_PANEL_ROW,		1, 
+                                            W_PANEL_COL,		0,
+                                            W_PANEL_LABEL,		"X轴:",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);
+
+	Seat_Rotate_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Seat_Rotate_Y");	
+	W_REALIZE_PANELITEM(Seat_Rotate_Y,	W_PANEL_ROW,		2, 
+                                            W_PANEL_COL,		0,
+                                            W_PANEL_LABEL,		"Y轴:",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);	
+										
+	Seat_Rotate_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Seat_Rotate_Z");	
+	W_REALIZE_PANELITEM(Seat_Rotate_Z,	W_PANEL_ROW,		3, 
+                                            W_PANEL_COL,		0,
+                                            W_PANEL_LABEL, 		"Z轴:",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);	
+	/* 基座旋转角度 */  
+	Seat_Rotate_Angle_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Seat_Rotate_Angle_X");
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Rotate_Angle_X, W_NUMERIC_FLOAT, 0.0, 180.0, "%.1f");	                                                  
+	W_REALIZE_PANELITEM(Seat_Rotate_Angle_X,	W_PANEL_ROW, 		1, 
+												W_PANEL_COL, 		8,
+							                    W_PANEL_LABEL, 		"",
+							                    W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Seat_Rotate_Angle_X, 0.0);	
+
+							               
+	Seat_Rotate_Angle_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Seat_Rotate_Angle_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Rotate_Angle_Y, W_NUMERIC_FLOAT, 0.0, 180.0, "%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Seat_Rotate_Angle_Y,	W_PANEL_ROW, 		2, 
+												W_PANEL_COL, 		8,
+												W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK,	0);							               
+	W_SET_NUMERIC_VALUE(Seat_Rotate_Angle_Y, 0.0);							               	
+	
+	Seat_Rotate_Angle_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Seat_Rotate_Angle_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Rotate_Angle_Z,	W_NUMERIC_FLOAT, 0.0, 180.0, "%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Seat_Rotate_Angle_Z,	W_PANEL_ROW, 		3, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Seat_Rotate_Angle_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Seat_Rotate_Angle_X, "check_rotate_angle");
+	W_SET_PANELITEM_HANDLER(Seat_Rotate_Angle_Y, "check_rotate_angle");   
+	W_SET_PANELITEM_HANDLER(Seat_Rotate_Angle_Z, "check_rotate_angle");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	left_rotate_image  = icon_path + "rotateleft16.bmp";
+	right_rotate_image = icon_path + "rotateright16.bmp";
+
+	Rotate_By_X_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_L");
+	W_REALIZE_PANELITEM(Rotate_By_X_L,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);   
+                                        
+	Rotate_By_X_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_R");
+	W_REALIZE_PANELITEM(Rotate_By_X_R,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL); 	
+                                        
+	Rotate_By_Y_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_L");
+	W_REALIZE_PANELITEM(Rotate_By_Y_L,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+                                        
+	Rotate_By_Y_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_R");
+	W_REALIZE_PANELITEM(Rotate_By_Y_R,  W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+                                        
+	Rotate_By_Z_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_L");
+	W_REALIZE_PANELITEM(Rotate_By_Z_L,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL); 
+                                        
+	Rotate_By_Z_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_R");
+	W_REALIZE_PANELITEM(Rotate_By_Z_R,  W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+    
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_R, "rotate_seat_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_L, "rotate_seat_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_R, "rotate_seat_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_L, "rotate_seat_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_R, "rotate_seat_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_L, "rotate_seat_handler");
+	return(Orientation);
+}
+
+check_rotate_angle(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		angle = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, 1);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+rotate_seat_handler(item, event_type, button_value)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Seat_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Seat_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Seat_Position_Z,st);
+
+	set = PM_GET_OBJECTS_IN_GROUP(Seat_Handle);
+         
+	if (item == Rotate_By_X_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Seat_Rotate_Angle_X,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_X_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Seat_Rotate_Angle_X,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_Y_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Seat_Rotate_Angle_Y,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Y_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Seat_Rotate_Angle_Y,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Z_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Seat_Rotate_Angle_Z,st);
+		angle = 0-rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}
+	else if (item == Rotate_By_Z_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Seat_Rotate_Angle_Z,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}     
+	return(0);
+}
+
+/*
+**创建用于移动基座的面板
+*/
+create_move_seat_panel(mainform)
+{
+	move_seat = W_ADD_WINDOW(mainform, W_PANEL, "move_seat");	
+	W_REALIZE_WINDOW(move_seat,	W_FRAME_X,		680,
+                                W_FRAME_Y,		400,
+                                W_FRAME_WIDTH,	100,
+                                W_FRAME_HEIGHT,	200);
+
+	title = W_ADD_PANELITEM(move_seat, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+								W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"移动基座");
+
+	seperate_line = W_ADD_PANELITEM(move_seat, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+										W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR, 	1);
+		                                 							         
+	/* 基座移动轴 */ 
+	Seat_Move_X = W_ADD_PANELITEM(move_seat, W_PANEL_FILL, "Seat_Move_X");	
+	W_REALIZE_PANELITEM(Seat_Move_X,	W_PANEL_ROW, 		1, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"X: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);
+
+	Seat_Move_Y = W_ADD_PANELITEM(move_seat, W_PANEL_FILL, "Seat_Move_Y");	
+	W_REALIZE_PANELITEM(Seat_Move_Y,	W_PANEL_ROW, 		2, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"Y: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE,		"",
+							            W_PANEL_CALLBACK,	0);	
+										
+	Seat_Move_Z = W_ADD_PANELITEM(move_seat, W_PANEL_FILL, "Seat_Move_Z");	
+	W_REALIZE_PANELITEM(Seat_Move_Z,	W_PANEL_ROW, 		3, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"Z: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);	
+
+    /* 基座移动距离 */   
+	Seat_Move_Distance_X = W_ADD_PANELITEM(move_seat, W_PANEL_FILL, "Seat_Move_Distance_X");
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Move_Distance_X,  W_NUMERIC_FLOAT,0.0, 10000.0, "%.0f");	                                                   
+	W_REALIZE_PANELITEM(Seat_Move_Distance_X,	W_PANEL_ROW, 1, 
+												W_PANEL_COL, 8,
+							                    W_PANEL_LABEL, "",
+							                    W_PANEL_LENGTH, 5,
+         							            W_PANEL_VALUE, "0.0",
+         							            W_PANEL_CALLBACK, 1);        							                
+	W_SET_NUMERIC_VALUE(Seat_Move_Distance_X, 0.0);	
+
+							               
+	Seat_Move_Distance_Y = W_ADD_PANELITEM(move_seat, W_PANEL_FILL, "Seat_Move_Distance_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Move_Distance_Y,  W_NUMERIC_FLOAT, 0.0, 10000.0,	"%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Seat_Move_Distance_Y,	W_PANEL_ROW, 		2, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	5,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);							               
+	W_SET_NUMERIC_VALUE(Seat_Move_Distance_Y, 0.0);							               	
+	
+	Seat_Move_Distance_Z = W_ADD_PANELITEM(move_seat, W_PANEL_FILL, "Seat_Move_Distance_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Seat_Move_Distance_Z,  W_NUMERIC_FLOAT, 0.0, 10000.0, "%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Seat_Move_Distance_Z,	W_PANEL_ROW, 		3, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	5,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK,	0);
+	W_SET_NUMERIC_VALUE(Seat_Move_Distance_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Seat_Move_Distance_X, "check_move_distance");
+	W_SET_PANELITEM_HANDLER(Seat_Move_Distance_Y, "check_move_distance");   
+	W_SET_PANELITEM_HANDLER(Seat_Move_Distance_Z, "check_move_distance");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	move_right_image  = icon_path + "move_right.bmp";
+	move_left_image = icon_path + "move_left.bmp";
+
+	Move_By_X_N = W_ADD_PANELITEM(move_seat, W_PANEL_BUTTON, "Move_By_X_N");	
+	W_REALIZE_PANELITEM(Move_By_X_N,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE,		move_left_image, 
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+										
+	Move_By_X_P = W_ADD_PANELITEM(move_seat, W_PANEL_BUTTON, "Move_By_X_P");	
+	W_REALIZE_PANELITEM(Move_By_X_P,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL); 
+							                  
+	Move_By_Y_N = W_ADD_PANELITEM(move_seat, W_PANEL_BUTTON, "Move_By_Y_N");	
+	W_REALIZE_PANELITEM(Move_By_Y_N,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Y_P = W_ADD_PANELITEM(move_seat, W_PANEL_BUTTON, "Move_By_Y_P");	
+	W_REALIZE_PANELITEM(Move_By_Y_P,	W_PANEL_ROW, 			2, 
+										W_PANEL_COL, 			15,
+										W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);							                  
+							                  
+	Move_By_Z_N = W_ADD_PANELITEM(move_seat, W_PANEL_BUTTON, "Move_By_Z_N");	
+	W_REALIZE_PANELITEM(Move_By_Z_N,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Z_P = W_ADD_PANELITEM(move_seat, W_PANEL_BUTTON, "Move_By_Z_P");	
+	W_REALIZE_PANELITEM(Move_By_Z_P,    W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+							                   							               			         							         														
+	W_SET_PANELITEM_HANDLER(Move_By_X_P, "move_seat_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_X_N, "move_seat_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_P, "move_seat_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_N, "move_seat_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_P, "move_seat_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_N, "move_seat_handler");
+	
+	return(move_seat);
+}
+
+check_move_distance(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		Distance = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			dummy = 1;
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, dummy);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+move_seat_handler(item, event_type, button_value)
+{
+	set = PM_GET_OBJECTS_IN_GROUP(Seat_Handle);
+    
+	if (item == Move_By_X_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Seat_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Seat_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Seat_Position_X,x0);
+		trans_abs_ref();
+	}
+	else if (item == Move_By_X_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Seat_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Seat_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Seat_Position_X,x0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Seat_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Seat_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Seat_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Seat_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Seat_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Seat_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Seat_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Seat_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Seat_Position_Z,z0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Seat_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Seat_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Seat_Position_Z,z0);
+		trans_abs_ref();       
+	}  
+	return(0);
+}
+
+create_command_panel(mainform)
+{	
+	Command = W_ADD_WINDOW(mainform, W_PANEL, "Command");
+	W_REALIZE_WINDOW(Command,	W_FRAME_X, 		0,
+							    W_FRAME_Y,		530,
+							    W_FRAME_WIDTH,	850,
+							    W_FRAME_HEIGHT,	50);
+                                
+	title = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"命令");
+                                
+    seperate_line = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		3,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);	
+		                                 													
+	Create_Seat = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Create_Seat");
+	W_REALIZE_PANELITEM(Create_Seat,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			0,
+							            W_PANEL_BUTTONIMAGE, 	"创建", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Create_Seat, "create_seat_handler");
+
+	Delete_Seat = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Delete_Seat");
+	W_REALIZE_PANELITEM(Delete_Seat,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			11,
+							            W_PANEL_BUTTONIMAGE, 	"删除", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	503,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Delete_Seat, "delete_seat_handler");
+
+	Browse_Seat = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Browse_Seat");
+	W_REALIZE_PANELITEM(Browse_Seat,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			22,
+							            W_PANEL_BUTTONIMAGE, 	"浏览", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	504,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Browse_Seat, "browse_seat_handler");
+
+	Undo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Undo");
+	W_REALIZE_PANELITEM(Undo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			33,
+							    W_PANEL_BUTTONIMAGE, 	"Undo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	505,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Undo, "undo_handler");
+
+	Redo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Redo");
+	W_REALIZE_PANELITEM(Redo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			44,
+							    W_PANEL_BUTTONIMAGE, 	"Redo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	506,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Redo, "redo_handler");
+				 
+	quit = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "quit");
+	W_REALIZE_PANELITEM(quit,	W_PANEL_ROW,         1, 
+								W_PANEL_COL,         55,
+								W_PANEL_BUTTONIMAGE, "退出", 
+							    W_PANEL_WIDTH,       10,
+							    W_PANEL_BUTTONVALUE, 507,
+							    W_PANEL_CALLBACK,    1,
+							    W_PANEL_CLOSEBUTTON, 1,
+							    W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	return(Command);
+}
+
+/*保留1位小数*/
+string_para(float_para)
+{
+    temp = "";
+    S_PRINTF(temp,"%.1f",float_para);
+    return temp;
+}
+
+/*保存设计参数*/
+save_model_size()
+{
+	para = "";
+	if(Seat_Size_L != 0.0){
+		para = para + "L=" + string_para(Seat_Size_L);
+	}
+	if(Seat_Size_W != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//W=" + string_para(Seat_Size_W);
+		}
+		else{
+			para = para + "W=" + string_para(Seat_Size_W);
+		}
+	}	
+	if(Seat_Size_H != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//H=" + string_para(Seat_Size_H);
+		}
+		else{
+			para = para + "H=" + string_para(Seat_Size_H);
+		}
+	}
+	if(Seat_Size_L1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//L1=" + string_para(Seat_Size_L1);
+		}
+		else{
+			para = para + "L1=" + string_para(Seat_Size_L1);
+		}
+	}
+	if(Seat_Size_W1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//W1=" + string_para(Seat_Size_W1);
+		}
+		else{
+			para = para + "W1=" + string_para(Seat_Size_W1);
+		}
+	}
+	if(Seat_Size_c != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//c=" + string_para(Seat_Size_c);
+		}
+		else{
+			para = para + "c=" + string_para(Seat_Size_c);
+		}
+	}
+	if(Seat_Size_d != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//d=" + string_para(Seat_Size_d);
+		}
+		else{
+			para = para + "d=" + string_para(Seat_Size_d);
+		}
+	}
+	if(Seat_Size_r != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//r=" + string_para(Seat_Size_r);
+		}
+		else{
+			para = para + "r=" + string_para(Seat_Size_r);
+		}
+	}
+    
+	Set_Attribute_Value(Seat_Handle, SeatSize, para);
+}
+
+/*读取设计参数*/
+read_model_size()
+{
+	nth = 0;
+	para = PM_GET_OBJDATA(Seat_Handle,nth,SeatSize);
+	if(ISSTRING(para)){	
+		/*get seat type & size from parameter of equipment GDL*/
+		flag = 1;
+		while(flag){
+			parameter = STRINGTERM(para,"//");
+			if(parameter != ""){
+				name = STRINGTERM(parameter,"=");
+				value = TAIL(parameter,STRLEN(parameter)-STRLEN(name)-1);
+				if(name == "L"){
+					Seat_Size_L = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_L,Seat_Size_L);
+				}
+				else if(name == "W"){
+					Seat_Size_W = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_W,Seat_Size_W);
+				}
+				else if(name == "H"){
+					Seat_Size_H = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_H,Seat_Size_H);
+				}
+				else if(name == "L1"){
+					Seat_Size_L1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_L1,Seat_Size_L1);
+				}
+				else if(name == "W1"){
+					Seat_Size_W1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_W1,Seat_Size_W1);
+				}
+				else if(name == "d"){
+					Seat_Size_d = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_d,Seat_Size_d);
+				}
+                else if(name == "c"){
+					Seat_Size_c = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_c,Seat_Size_c);
+				}
+                else if(name == "r"){
+					Seat_Size_r = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Seat_Para_r,Seat_Size_r);
+				}
+                
+			}
+			else{
+				flag = 0;            
+			}
+			para = TAIL(para,STRLEN(para) - STRLEN(parameter) - 2);        
+		}
+	}
+	return(0);
+}
+
+browse_seat_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);	
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);   
+}
+
+delete_seat_handler(item, event_type, button_value)
+{
+	flag = 1;
+	while(flag){
+		tmp = 0;
+		picked_object_handle = PM_PICK_OBJECT("请选择要删除的基座", tmp, "STRUCTCMP","BEAM");
+		if (!ISINT(picked_object_handle)){	   
+			/*获取基座的名称*/
+			group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,Group_Type_I);
+			if (ISINT(group_handle)){
+				U_CONFIRM("此零件不属于任何基座");	      	
+				return(0);
+			}	
+			group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);
+			/* 定义UNDO缓存 */
+			st = PM_UM_OPEN_CHANGE("删除基座" + group_name);	 
+      	  
+			/* 删除基座零件 */
+			seat_members = PM_GET_OBJECTS_IN_GROUP(group_handle);
+			PM_DELETE_OBJECTS_IN_SET(seat_members, 0);  
+            
+			/* 删除基座 */   
+			res = PM_DELETE_OBJECT(group_handle);
+         
+			/* 基座删除不成功，撤销相关操作 */
+			if (res == -1){
+				PM_UM_CLOSE_CHANGE();
+				PM_UM_UNDO_LAST_CHANGE();
+				return(0);
+			}        
+			st = PM_UM_CLOSE_CHANGE();  	      	      						
+		} 
+		else{
+			flag = 0;
+		} 
+	}
+   
+	/*基座删除成功，进入创建新基座状态*/   
+	W_SET_PANELITEM_ARGS(Seat_Name, W_PANEL_VALUE, "Undefined");   
+	W_SET_PANELITEM_ARGS(Create_Seat, W_PANEL_SENSITIVITY,1);   
+	Modify_flag = 0;
+	return(0);
+}
+
+redo_handler(item, event_type, button_value)
+{
+	res = PM_UM_REDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		seat_name = PM_GET_OBJDATA(Seat_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(seat_name)){ 
+			reload_seat_data(seat_name);
+		}
+	}   
+	return(0);
+}
+
+undo_handler(item, event_type, button_value)
+{
+	res = PM_UM_UNDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		seat_name = PM_GET_OBJDATA(Seat_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(seat_name)){ 
+			reload_seat_data(seat_name);
+		}
+	}
+	return(0);
+}
+
+delete_seat_members()
+{
+	seat_members = PM_GET_OBJECTS_IN_GROUP(Seat_Handle);
+	PM_DELETE_OBJECTS_IN_SET(seat_members, 0); 
+	return(0);   
+}
+
+/*
+**加载
+*/
+load_default_setting()
+{
+	permision = PM_PREPARE_TO_EDIT_SETTINGS();
+	if(permision != 0){
+		U_MESSAGE("用户没有保存共享设置的权限");
+	}
+   
+	/*加载基座信息的默认值*/
+	system_name = "";
+	st = GET_STRING_DEFAULT("EquipmentSeat101", "System_Name", system_name);
+	if(st == 0){
+	    Info_System_Name = system_name;
+		Info_System_Id = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);	   
+	}
+	else{
+		system_name = "Foundation";
+		system_id = PM_GET_SYSTEM_ID(system_name);
+		if(system_id != -1){
+			W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+			Info_System_Name = system_name;
+			Info_System_Id = system_id;
+		} 	   
+	}
+	
+	/*加载基座名称*/
+	description = "";
+	st = GET_STRING_DEFAULT("EquipmentSeat101", "Info_Seat_Desc", description);
+	if(st == 0){
+	    Info_Seat_Desc = description;
+		W_SET_PANELITEM_ARGS(Seat_Description, W_PANEL_VALUE, description);
+	}	
+	
+	/*加载基座托盘*/
+	planning_unit = "";
+	st = GET_STRING_DEFAULT("EquipmentSeat101", "Planning_Unit", planning_unit);
+	if(st == 0){
+	    Info_Planning_Unit = planning_unit;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, planning_unit);
+    }
+    
+	/*加载默认的零件*/
+    part_id = "";
+    st = GET_STRING_DEFAULT("EquipmentSeat101","Seat_Part1", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part1:   " + descr);
+		W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, descr);
+        Seat_Part1_Pid = part_id;
+	}
+    
+    st = GET_STRING_DEFAULT("EquipmentSeat101","Seat_Part2", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part2:   " + descr);
+		W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, descr);
+        Seat_Part2_Pid = part_id;
+	}
+    
+	/*load default value of seat size*/
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_L, size);
+		Seat_Size_L = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_L, 1200.00);
+		Seat_Size_L = 1200.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L", Seat_Size_L); 
+	}
+	
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_W, size);
+		Seat_Size_W = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_W, 800.00);
+		Seat_Size_W = 800.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W", Seat_Size_W); 
+	}
+	
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_H", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_H, size);
+		Seat_Size_H = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_H, 500.00);
+		Seat_Size_H = 500.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_H", Seat_Size_H); 
+	}
+
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_L1, size);
+		Seat_Size_L1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_L1, 1100.00);
+		Seat_Size_L1 = 1100.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_L1", Seat_Size_L1); 
+	}
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_W1, size);
+		Seat_Size_W1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_W1, 700.00);
+		Seat_Size_W1 = 700.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_W1", Seat_Size_W1); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_d", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_d, size);
+		Seat_Size_d = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_d, 15.00);
+		Seat_Size_d = 15.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_d", Seat_Size_d); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_r", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_r, size);
+		Seat_Size_r = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_r, 10.00);
+		Seat_Size_r = 10.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_r", Seat_Size_r); 
+	}	
+    
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_c", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_c, size);
+		Seat_Size_c = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Seat_Para_c, 10.00);
+		Seat_Size_c = 10.00;	  
+		SET_FLOAT_DEFAULT("EquipmentSeat101", "Seat_Para_c", Seat_Size_c); 
+	}	
+    
+    /* 加载开孔零件 */
+    load_virtual_hole_part();
+    
+	return(0);
+}
+
+load_virtual_hole_part()
+{
+	/* check default setting */
+	part_code = "";
+	st = GET_STRING_DEFAULT("EquipmentSeat101","Hole_Part_Code", part_code);
+	if(st == 0){
+		Hole_Part_Code = part_code;
+	}
+    else{
+		U_CONFIRM("请选择开孔虚拟零件");
+		selectmask = DM_INIT_TAGREC();
+		DM_SET_TAGVAL(selectmask, "KW", Virtual_Hole_DT);
+		loop_flag = 1;
+		while(loop_flag){
+			part_code = DM_BROWSE_PARTCODE("", 0, selectmask);
+			if(ISSTRING(part_code)){
+				part_id = DM_MATCH_PARTID(part_code,10,1,999001);
+				if(ISSTRING(part_id)){
+                    Hole_Part_Code = part_code;
+					SET_STRING_DEFAULT("EquipmentSeat101","Hole_Part_Code", Hole_Part_Code);				
+					loop_flag = 0;
+				}
+			}
+			else if(part_code == 0){
+				U_CONFIRM("未选择虚拟开孔零件，程序不能正常运行！请重新启动此程序");
+				loop_flag = 0;
+			}
+		}
+		DM_FREE_TAGREC(selectmask);
+    }
+}
+
+initialize()
+{
+    /* 获取当前光标点坐标并显示到面板中 */
+    /* get the current position and display value of coordinate */
+    x0 = 0;
+    y0 = 0;
+    z0 = 0;   
+    PM_GET_CURRENT_LOC(x0, y0, z0);   
+    W_SET_NUMERIC_VALUE(Seat_Position_X, x0);
+    W_SET_NUMERIC_VALUE(Seat_Position_Y, y0);
+    W_SET_NUMERIC_VALUE(Seat_Position_Z, z0);
+   
+    /* 将绝对坐标转换成相对坐标并显示到面板中 */
+    /* convert abstract coordinate value into reference and display on panel */
+    x_ref = "";
+    y_ref = "";
+    z_ref = "";
+    x_offset = 0;
+    y_offset = 0;
+    z_offset = 0;
+
+    Seat_X0 = x0;
+    Seat_Y0 = y0;
+    Seat_Z0 = z0;
+   
+    res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+    if (res == 0){   
+        W_SET_PANELITEM_ARGS(Seat_Position_Xref, W_PANEL_VALUE, x_ref);
+        W_SET_PANELITEM_ARGS(Seat_Position_Yref, W_PANEL_VALUE, y_ref);
+        W_SET_PANELITEM_ARGS(Seat_Position_Zref, W_PANEL_VALUE, z_ref);
+
+        W_SET_NUMERIC_VALUE(Seat_Position_Xoff, x_offset);
+        W_SET_NUMERIC_VALUE(Seat_Position_Yoff, y_offset);
+        W_SET_NUMERIC_VALUE(Seat_Position_Zoff, z_offset);      
+    }
+    else if (res == -1){     
+        W_SET_PANELITEM_ARGS(Seat_Position_Xref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Seat_Position_Yref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Seat_Position_Zref, W_PANEL_VALUE, "Unset");
+
+        W_SET_NUMERIC_VALUE(Seat_Position_Xoff, 0);
+        W_SET_NUMERIC_VALUE(Seat_Position_Yoff, 0);
+        W_SET_NUMERIC_VALUE(Seat_Position_Zoff, 0); 
+        U_CONFIRM("参考坐标系定义不正确");           
+    }
+    
+    Modify_flag = 0;
+    Part11 = A_ALLOC(15);
+    Part12 = A_ALLOC(15);
+    Part13 = A_ALLOC(15);
+    Part14 = A_ALLOC(15);
+    Part15 = A_ALLOC(15);
+    Part16 = A_ALLOC(15);
+    Part17 = A_ALLOC(15);
+    Part18 = A_ALLOC(15);
+    Part21 = A_ALLOC(15);
+    Part22 = A_ALLOC(15);
+    Part23 = A_ALLOC(15);
+    Part24 = A_ALLOC(15);
+    Part31 = A_ALLOC(15);
+    Part32 = A_ALLOC(15);
+    Part33 = A_ALLOC(15);
+    Part34 = A_ALLOC(15);
+    load_default_setting();
+    return(0);
+}
+
+main()
+{
+	mainform  = create_top_frame();	
+	Panel_1 = create_template_panel(mainform);
+	Panel_2 = create_info_panel(mainform);
+	Panel_3 = create_material_panel(mainform);
+	Panel_4 = create_command_panel(mainform);
+	Panel_5 = create_parameter_panel(mainform);
+	Panel_6 = create_position_panel(mainform);
+	Panel_7 = create_rotate_seat_panel(mainform);
+	Panel_8 = create_move_seat_panel(mainform);
+	initialize();	
+	MainWindow = mainform;
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}

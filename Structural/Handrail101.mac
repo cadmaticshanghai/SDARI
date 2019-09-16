@@ -1,0 +1,3897 @@
+/* $Id: Handrail101.mac,v1.0.0 2019/08/30 Jack.Leng $ */
+
+/*
+**	这个程序用于参数化生成扶手.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/quants.h"
+#include "include/dm_cos_schema.h"
+
+#include "$MarineToolkit/Structural/Handrail.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Structural_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+
+global handle   Handrail_Handle;
+global handle   MainWindow;
+global string    Icon_Path   = "$MarineToolkit/ICONS/Handrail/";
+
+/* 面板 */
+global handle Template, Information, Material, Command, Parameters, Position, Orientation;
+
+/* 控件 */
+global handle System_Name, Select_System, Handrail_Name, Pick_Handrail, Handrail_Description, Planning_Unit;
+global handle Handrail_Part1, Handrail_Part2, Handrail_Part3, Handrail_Part4;
+global handle Select_Handrail_Part1, Select_Handrail_Part2, Select_Handrail_Part3, Select_Handrail_Part4;
+global handle Handrail_Para_L, Handrail_Para_H, Handrail_Para_s, Handrail_Para_s1, Handrail_Para_s2;
+global handle Handrail_Para_h1, Handrail_Para_h2, Handrail_Para_e, Handrail_Para_f;
+global handle Handrail_Para_a, Handrail_Para_b, Handrail_Para_r;
+
+global handle Handrail_Rect_Pad_Switch;
+global handle Handrail_Position_X,Handrail_Position_Xref,Handrail_Position_Xoff;
+global handle Handrail_Position_Y,Handrail_Position_Yref,Handrail_Position_Yoff;
+global handle Handrail_Position_Z,Handrail_Position_Zref,Handrail_Position_Zoff;
+global handle Rotate_By_X_L,Rotate_By_X_R,Rotate_By_Y_L,Rotate_By_Y_R,Rotate_By_Z_L,Rotate_By_Z_R;
+global handle Handrail_Rotate_Angle_X,Handrail_Rotate_Angle_Y,Handrail_Rotate_Angle_Z;
+global handle Move_By_X_P,Move_By_X_N,Move_By_Y_P,Move_By_Y_N,Move_By_Z_P,Move_By_Z_N;
+global handle Handrail_Move_Distance_X,Handrail_Move_Distance_Y,Handrail_Move_Distance_Z;
+global handle Create_Handrail;
+
+/* 扶手信息 */
+global string Info_System_Name = "";
+global int    Info_System_Id = 0;
+global string Info_Handrail_Name = "";
+global string Info_Handrail_Desc = "Undefined";
+global string Info_Planning_Unit = "999";
+global string Info_Handrail_Type = "Handrail101";
+
+/* part id of handrail material */
+global string Handrail_Part1_Pid = "";
+global string Handrail_Part2_Pid = "";
+global string Handrail_Part3_Pid = "";
+global string Handrail_Part4_Pid = "";
+global string Handrail_Hole_Pid  = "";
+
+/* handrail size */
+global float Handrail_Size_L  = 0;
+global float Handrail_Size_H  = 0;
+global float Handrail_Size_s1 = 0;
+global float Handrail_Size_s2 = 0;
+global float Handrail_Size_h1 = 0;
+global float Handrail_Size_h2 = 0;
+global float Handrail_Size_e  = 0;
+global float Handrail_Size_f  = 0;
+global float Handrail_Size_a  = 0;
+global float Handrail_Size_b  = 0;
+global float Handrail_Size_r  = 0;
+global float Handrail_Size_s  = 0;
+
+/* part data */
+global handle Part11;
+global handle Part21,Part22;
+global handle Part31,Part32;
+global handle Part41,Part42;
+
+/*handrail position*/
+global float Handrail_X0 = 0; 
+global float Handrail_Y0 = 0;
+global float Handrail_Z0 = 0;
+
+/*handrail direction*/
+global float Handrail_X_Dx = 1;
+global float Handrail_X_Dy = 0;
+global float Handrail_X_Dz = 0;
+global float Handrail_Y_Dx = 0;
+global float Handrail_Y_Dy = 1;
+global float Handrail_Y_Dz = 0;
+
+/*handrail modify flag*/
+global int Modify_flag = 0;
+
+/*with pad flag*/
+global string Rect_Pad_Switch = "on";
+
+/*steady type： 0 不加斜撑 1 奇数柱加斜撑 2 偶数柱加斜撑*/
+global int Steady_Type_Switch = 1;
+
+/*
+**创建顶层窗体
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "扶手");	
+	return(mainform);	
+}
+
+/*
+**创建用于显示扶手模板的面板
+*/
+create_template_panel(mainform)
+{  
+    /* 获取图标保存路径 */
+    icon_path = Icon_Path;
+    /* 图标完整文件名（包含路径） */
+    pic = icon_path + "Handrail101.bmp";
+   
+    /* 向主窗体添加一个面板，用于显示参数化模型样板 */
+	Template = W_ADD_WINDOW(mainform, W_PANEL, "Template");
+	W_REALIZE_WINDOW(Template, 	W_FRAME_X, 		0,
+							    W_FRAME_Y, 		0,
+							    W_FRAME_WIDTH,  450,
+							    W_FRAME_HEIGHT,	530);	
+								
+	LblImage_h = W_ADD_PANELITEM(Template, W_PANEL_MESSAGE, "LblImage_h");	
+	W_REALIZE_PANELITEM(LblImage_h, 	W_PANEL_X, 			0,
+										W_PANEL_Y, 			0,
+										W_PANEL_WIDTH,		450,
+										W_PANEL_HEIGHT,		550);	
+	W_SET_PANELITEM_ARGS(LblImage_h,	W_PANEL_LABELIMAGE,	pic,
+										W_PANEL_SHOW, 		1);
+	return(Template);
+}
+
+/*
+**创建用于处理扶手基本信息的面板
+*/
+create_info_panel(mainform)
+{
+    /* 创建用于显示扶手主要信息的面板 */
+    Information = W_ADD_WINDOW(mainform, W_PANEL, "Information");
+   
+    /* 设置面板参数 */
+	W_REALIZE_WINDOW(Information,	W_FRAME_X, 		465,
+							        W_FRAME_Y, 		0,
+							        W_FRAME_WIDTH, 	400,
+							        W_FRAME_HEIGHT,	100);
+							            
+	title = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"扶手信息");
+
+    seperate_line = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);
+    /* 扶手所属系统 */
+	System_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "System_Name");
+	W_REALIZE_PANELITEM(System_Name,	W_PANEL_ROW, 		1, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"所属系统:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK,	1);
+	W_SET_PANELITEM_HANDLER(System_Name, "system_name_handler");   
+	
+	Select_System = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Select_System");
+	W_REALIZE_PANELITEM(Select_System,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			34,
+                  						W_PANEL_BUTTONIMAGE, 	"选择系统", 
+                  						W_PANEL_WIDTH, 			10,
+                  						W_PANEL_BUTTONVALUE,	100,
+                  						W_PANEL_CALLBACK, 		1,
+                  						W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_System, "select_system_handler"); 			
+
+    /* 扶手编号 */
+	Handrail_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Handrail_Name");
+	W_REALIZE_PANELITEM(Handrail_Name,	W_PANEL_ROW, 		2, 
+                                        W_PANEL_COL, 		0,
+                                        W_PANEL_LABEL, 		"扶手编号:   ",
+                                        W_PANEL_LENGTH, 	25,
+                                        W_PANEL_VALUE, 		"Undefined",
+                                        W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Handrail_Name, "handrail_name_handler"); 
+	
+	Pick_Handrail = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Pick_Handrail");
+	W_REALIZE_PANELITEM(Pick_Handrail,	W_PANEL_ROW, 			2, 
+                                        W_PANEL_COL, 			34,
+                                        W_PANEL_BUTTONIMAGE, 	"选择扶手", 
+                                        W_PANEL_WIDTH, 			10,
+                                        W_PANEL_BUTTONVALUE,	101,
+                                        W_PANEL_CALLBACK, 		1,
+                                        W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Pick_Handrail, "pick_handrail_handler"); 	
+	
+    /* 扶手名称 */
+	Handrail_Description = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Handrail_Description");
+	W_REALIZE_PANELITEM(Handrail_Description, 	W_PANEL_ROW, 		3, 
+                                                W_PANEL_COL, 		0,
+                                                W_PANEL_LABEL, 		"扶手名称:   ",
+                                                W_PANEL_LENGTH, 	25,
+                                                W_PANEL_VALUE, 		"Undefined",
+                                                W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Handrail_Description, "handrail_description_handler"); 
+
+	/* 扶手托盘 */
+	Planning_Unit = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Planning_Unit");
+	W_REALIZE_PANELITEM(Planning_Unit,	W_PANEL_ROW, 		4, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"托盘名称:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Planning_Unit, "handrail_planning_unit_handler");
+	  
+    return(Information);
+}
+
+system_name_handler(item, event_type, dummy)
+{
+  return(0); 
+}
+
+handrail_name_handler(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		handrail_name = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		handrail_handle = PM_FIND_BY_NAME(handrail_name);
+      
+		/* 如果指定的模型已经存在，则做如下处理 */
+		if (handrail_handle != 0){
+			group_type = PM_GET_OBJDATA(handrail_handle, 0, MMT_TAG_GROUPTYPE);
+			/* 指定的模型不是扶手模型 */
+			if (group_type != Group_Type){
+				U_CONFIRM("模型已经存在，但不是扶手模型");
+				W_SET_PANELITEM_ARGS(Handrail_Name, W_PANEL_VALUE, "Undefined");	
+				return(0);
+			} 
+			/* 指定的模型是扶手模型 */
+			else{
+				type = PM_GET_OBJDATA(handrail_handle, 0, HandrailType);
+				if(type != Info_Handrail_Type){
+					info = "扶手已经存在且类型为" + type + ",这个程序只能处理类型为" + Info_Handrail_Type + "的扶手。";
+					U_CONFIRM(info);
+					return(0);
+				}   	             
+				res = U_YESNO("模型已经存在，是否修改？",1);
+				if (res == 1){
+					reload_handrail_data(handrail_name);
+					W_SET_PANELITEM_ARGS(Create_Handrail, W_PANEL_SENSITIVITY,0);
+					Modify_flag = 1;
+					return(0);
+				}
+				else{
+					W_SET_PANELITEM_ARGS(item, W_PANEL_VALUE, "Undefined");
+					return(0);
+				}
+			}        
+		}
+		else{
+			W_SET_PANELITEM_ARGS(Create_Handrail, W_PANEL_SENSITIVITY,1); 
+			Modify_flag = 0;        
+		}
+	}
+	return(0); 
+}
+
+/*三角板*/
+create_triangle_curve(float width,float height, float t1,float t2, float gap,float radius)
+{
+    curve = "";
+    if(radius == 0){
+        p1x = -gap;
+        p1y = -gap;
+        p2x = width+((t1+gap)*(width-t2)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(height-t1);
+        p2y = -gap;
+        p3x = -gap;
+        p3y = height+((t2+gap)*(height-t1)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(width-t2);
+        
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".");
+        curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys;
+    }
+    else{
+        p1x = -gap;
+        p1y = -gap+radius;
+        p2x = -gap+radius-radius*COS(45);
+        p2y = -gap+radius-radius*COS(45);
+        p3x = -gap + radius;
+        p3y = -gap;
+        angle = ATAN((width-t2)/(height-t1));
+        p4x = width+((t1+gap)*(width-t2)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(height-t1);
+        p4x = p4x-radius/(TAN(angle/2)) ;
+        p4y = -gap;
+        p5x = p4x+radius*COS(angle/2);
+        p5y = -gap+radius-radius*SIN(angle/2);
+        p6x = p4x+radius*COS(90-angle);
+        p6y = p4y+radius+radius*SIN(90-angle);
+        p9x = -gap;
+        p9y = height+((t2+gap)*(height-t1)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(width-t2);
+        angle1 = (90-angle)/2;
+        p9y = p9y-radius/SIN(angle1);
+        p8x = p9x+radius-radius*SIN(angle1);
+        p8y = p9y+radius*COS(angle1);
+        p7x = p9x+radius+radius*COS(90-angle);
+        p7y = p9y+radius*SIN(90-angle);
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".")+",";
+        p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+        p4ys = STRINGTERM(FTOASCII(p4y),".")+",";
+        p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+        p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+        p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+        p6ys = STRINGTERM(FTOASCII(p6y),".")+",";
+        p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+        p7ys = STRINGTERM(FTOASCII(p7y),".")+",";
+        p8xs = STRINGTERM(FTOASCII(p8x),".")+",";
+        p8ys = STRINGTERM(FTOASCII(p8y),".")+",";
+        p9xs = STRINGTERM(FTOASCII(p9x),".")+",";
+        p9ys = STRINGTERM(FTOASCII(p9y),".")+",";
+        p1ys0 = STRINGTERM(FTOASCII(p1y),".");
+   	    curve = curve+p1xs+p1ys+"ARP,"+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys+"ARP,"+p5xs+p5ys+p6xs+p6ys+p7xs+p7ys+"ARP,"+p8xs+p8ys+p9xs+p9ys+p1xs+p1ys0;
+    }
+    /* width1 = width+((t1+gap)*(width-t2)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(height-t1) + gap; */
+    /* height = height+((t2+gap)*(height-t1)+gap*SQRT((width-t2)*(width-t2)+(height-t1)*(height-t1)))/(width-t2) + gap; */
+    /* width  = width1; */
+    return(curve);
+}
+
+/*矩形板*/
+create_rect_curve_with_radius(float length, float width, float radius)
+{
+    curve = "";
+    if(radius == 0){
+        p1x = length/2;
+        p1y = width/2;
+        p2x = p1x;
+        p2y = - p1y;
+        p3x = - p1x;
+        p3y = - p1y;
+        p4x = - p1x;
+        p4y = p1y;
+        
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".")+",";
+        p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+        p4ys = STRINGTERM(FTOASCII(p4y),".");
+        curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;
+    }
+    else{
+        p1x = -length/2;
+        p1y = width/2-radius;
+        p2x = p1x;
+        p2y = - p1y;
+        p3x = p1x - radius*SIN(45) + radius;
+        p3y = p2y - radius*COS(45);
+        p4x = -length/2 + radius;
+        p4y = -width/2;
+        p5x = -p4x;
+        p5y = p4y;
+        p6x = - p3x;
+        p6y = p3y;
+        p7x = - p2x;
+        p7y = p2y;
+        p8x = p7x;
+        p8y = - p7y;
+        p9x = p6x;
+        p9y = -p6y;
+        p10x = p5x;
+        p10y = -p5y;
+        p11x = p4x;
+        p11y = -p4y;
+        p12x = p3x;
+        p12y = -p3y;
+
+        p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+        p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+        p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+        p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+        p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+        p3ys = STRINGTERM(FTOASCII(p3y),".")+",";
+        p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+        p4ys = STRINGTERM(FTOASCII(p4y),".")+",";
+        p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+        p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+        p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+        p6ys = STRINGTERM(FTOASCII(p6y),".")+",";
+        p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+        p7ys = STRINGTERM(FTOASCII(p7y),".")+",";
+        p8xs = STRINGTERM(FTOASCII(p8x),".")+",";
+        p8ys = STRINGTERM(FTOASCII(p8y),".")+",";
+        p9xs = STRINGTERM(FTOASCII(p9x),".")+",";
+        p9ys = STRINGTERM(FTOASCII(p9y),".")+",";
+        p10xs = STRINGTERM(FTOASCII(p10x),".")+",";
+        p10ys = STRINGTERM(FTOASCII(p10y),".")+",";
+        p11xs = STRINGTERM(FTOASCII(p11x),".")+",";
+        p11ys = STRINGTERM(FTOASCII(p11y),".")+",";
+        p12xs = STRINGTERM(FTOASCII(p12x),".")+",";
+        p12ys = STRINGTERM(FTOASCII(p12y),".")+",";
+        p1ys0 = STRINGTERM(FTOASCII(p1y),".");
+        curve = curve+p1xs+p1ys+p2xs+p2ys+"ARP,"+p3xs+p3ys+p4xs+p4ys+p5xs+p5ys+"ARP,"+p6xs+p6ys+p7xs+p7ys+p8xs+p8ys+"ARP,"+p9xs+p9ys+p10xs+p10ys+p11xs+p11ys+"ARP,"+p12xs+p12ys+p1xs+p1ys0;
+    }
+	return(curve);
+}
+
+/*矩形板*/
+create_rect_curve(float length, float width)
+{	
+	p1x = length/2;
+	p1y = width/2;				
+	p2x = p1x;
+	p2y = -p1y;			
+	p3x = -p1x;
+	p3y = -p1y;				
+	p4x = -p1x;
+	p4y = p1y;		
+	 	
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".");	
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;     
+	return(curve);   
+}
+
+/*凹槽板*/
+create_aocao_curve(float size11,float size12,float size21,float size22,float offset)
+{	
+	p1x = size11/2;
+	p1y = size12/2;				
+	p2x = p1x;
+	p2y = -p1y;			
+	p3x = -p1x;
+	p3y = -p1y;				
+	p4x = -p1x;
+	p4y = p1y;		
+	p5x = offset-0.5*size21;
+	p5y = p1y;	
+	p6x = offset-0.5*size21;
+	p6y = p1y-size22;	
+	p7x = offset+0.5*size21;
+	p7y = p1y-size22;	
+	p8x = offset+0.5*size21;
+	p8y = p1y;
+    
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".")+",";	
+	p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+	p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+	p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+	p6ys = STRINGTERM(FTOASCII(p6y),".")+",";	
+	p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+	p7ys = STRINGTERM(FTOASCII(p7y),".")+",";	
+	p8xs = STRINGTERM(FTOASCII(p8x),".")+",";
+	p8ys = STRINGTERM(FTOASCII(p8y),".");	
+    
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys+p5xs+p5ys+p6xs+p6ys+p7xs+p7ys+p8xs+p8ys;     
+	return(curve);   
+}
+
+create_subplate_curve(float L1, float W1, float c, float d)
+{	
+	p1x = d;
+	p1y = c;				
+	p2x = - L1 + d;
+	p2y = c;			
+	p3x = - L1 + d;
+	p3y = - W1 + c;				
+	p4x = d;
+	p4y = - W1 + c;		
+	 	
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".");	
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;     
+	return(curve);   
+}
+
+handrail_description_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		Info_Handrail_Desc = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("Handrail101", "Info_Handrail_Desc", Info_Handrail_Desc);
+		if(Modify_flag){
+			set_handrail_para(Handrail_Handle);
+		}
+	}
+	return(0); 
+}
+
+handrail_planning_unit_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		Info_Planning_Unit = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("Handrail101", "Planning_Unit", Info_Planning_Unit);
+	}
+	return(0); 
+}
+
+select_system_handler(item, event_type, button_value)
+{
+	system_name = PM_SELECT_SYSTEM();
+	if(ISINT(system_name)){
+		U_MESSAGE("系统选择取消");
+		return(0);
+	}
+	else {
+		U_MESSAGE("选择系统<" + system_name + ">");
+		Info_System_Name = system_name;
+		Info_System_Id = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+		SET_STRING_DEFAULT("Handrail101", "System_Name", system_name);
+	}			
+	return(0);   
+}
+
+pick_handrail_handler(item, event_type, button_value)
+{
+	tmp = 0;
+	picked_object_handle = PM_PICK_OBJECT("请选择扶手", tmp, "STRUCTCMP","BEAM");
+	if (!ISINT(picked_object_handle)){	   
+		/*获取扶手的名称*/
+		group_handle = PM_GET_OBJECT_GROUP(picked_object_handle, Group_Type_I);
+		if (ISINT(group_handle)){
+			U_CONFIRM("此零件不属于任何扶手");
+			W_SET_PANELITEM_ARGS(Handrail_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);
+		}
+	    
+		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
+		/* 判断扶手类型是否匹配 */
+		type = PM_GET_OBJDATA(group_handle, 0, HandrailType);
+		if(ISINT(type)){
+			U_CONFIRM("此零件不属于任何扶手");
+			W_SET_PANELITEM_ARGS(Handrail_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);	      
+		}
+		if(type != Info_Handrail_Type){
+			info = "选择的扶手类型为" + type + ",这个程序只能处理类型为" + Info_Handrail_Type + "的扶手。";
+			U_CONFIRM(info);
+			return(0);
+		}	   	      		
+		/*获取扶手的尺寸参数及其它相关信息*/
+        initialize();	
+		reload_handrail_data(group_name);	
+		W_SET_PANELITEM_ARGS(Create_Handrail, W_PANEL_SENSITIVITY,0);
+		Modify_flag = 1;					
+	} 
+	return(0); 
+}
+
+reload_handrail_data(string handrail_name)
+{
+    W_SET_PANELITEM_ARGS(Handrail_Name, W_PANEL_VALUE, handrail_name);	
+    group_handle = PM_FIND_BY_NAME(handrail_name);
+    Handrail_Handle = group_handle;
+    read_model_size();
+   
+    /*获取并设置扶手的零件信息*/
+    parts = PM_GET_OBJECTS_IN_GROUP(Handrail_Handle);
+    p_number = PM_NR_MEMBERS_IN_SET(parts);
+    part1_1 = "";
+    part2_1 = "";
+    part3_1 = "";
+    part4_1 = "";
+    handrail_rect_pad_switch("0");
+    W_SET_PANELITEM_ARGS(Handrail_Rect_Pad_Switch, W_PANEL_VALUE, "0");
+    /*获取并设置扶手零件的零件材料*/
+    for (i = 0; i < p_number; i = i + 1;){
+        part = PM_GET_MEMBER_IN_SET(parts, i);
+        part_number = Get_Attribute_Value(part,PartNumber);
+        if (part_number == "1-1"){
+            part1_1 = part;
+            part_id = PM_GET_OBJDATA(part1_1, 0, MMT_TAG_PARTID);
+            Handrail_Part1_Pid = part_id;
+            descr = Pid_To_Description(part_id);
+            W_SET_PANELITEM_ARGS(Handrail_Part1, W_PANEL_VALUE, descr);
+            SET_STRING_DEFAULT("Handrail101", "Handrail_Part1_Pid", part_id);  
+        }             
+        else if (part_number == "2-1"){
+            part2_1 = part;
+            part_id = PM_GET_OBJDATA(part2_1, 0, MMT_TAG_PARTID);
+            Handrail_Part2_Pid = part_id;
+            descr = Pid_To_Description(part_id);
+            W_SET_PANELITEM_ARGS(Handrail_Part2, W_PANEL_VALUE, descr);
+            SET_STRING_DEFAULT("Handrail101", "Handrail_Part2_Pid", part_id);
+              
+        }  
+        else if (part_number == "3-1"){
+            part3_1 = part;
+            part_id = PM_GET_OBJDATA(part3_1, 0, MMT_TAG_PARTID);
+            Handrail_Part3_Pid = part_id;
+            descr = Pid_To_Description(part_id);
+            W_SET_PANELITEM_ARGS(Handrail_Part3, W_PANEL_VALUE, descr);
+            SET_STRING_DEFAULT("Handrail101", "Handrail_Part3_Pid", part_id);
+              
+        } 
+        else if (part_number == "4-1"){
+            part4_1 = part; 
+            part_id = PM_GET_OBJDATA(part4_1, 0, MMT_TAG_PARTID);
+            Handrail_Part4_Pid = part_id;
+            descr = Pid_To_Description(part_id);
+            W_SET_PANELITEM_ARGS(Handrail_Part4, W_PANEL_VALUE, descr);
+            SET_STRING_DEFAULT("Handrail101", "Handrail_Part4_Pid", part_id);  
+            handrail_rect_pad_switch("1");   
+            W_SET_PANELITEM_ARGS(Handrail_Rect_Pad_Switch, W_PANEL_VALUE, "1"); 
+        } 
+    }
+
+	/*获取扶手所属系统 */
+	part0 = PM_GET_MEMBER_IN_SET(parts, 0);
+	sys = PM_GET_OBJDATA(part0,0,"sys");
+	if (!ISINT(sys)){
+        Info_System_Name = sys;
+	    Info_System_Id = PM_GET_SYSTEM_ID(Info_System_Name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, Info_System_Name);
+		SET_STRING_DEFAULT("Handrail101", "System_Name", Info_System_Name);	   
+    } 
+    
+	/*获取扶手的描述 */
+	des = PM_GET_OBJDATA(part0,0,HandrailDes);
+	if(!ISINT(des)){
+        Info_Handrail_Desc = des;
+		W_SET_PANELITEM_ARGS(Handrail_Description, W_PANEL_VALUE, des);
+		SET_STRING_DEFAULT("Handrail101", "Info_Handrail_Desc", des);
+    }
+    
+	/*获取扶手的托盘 */
+	pla = PM_GET_OBJDATA(part0,0,PlanningUnit);
+	if(!ISINT(pla)){
+        planningunit = pla;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, pla);
+		SET_STRING_DEFAULT("Handrail101", "Planning_Unit", pla);
+    }
+
+	/*获取扶手的方向 */
+    ux=0;uy=0;uz=0;
+    vx=0;vy=0;vz=0;
+    get_part_orientation(part3_1, ux,uy,uz, vx,vy,vz);
+    Handrail_X_Dx = ux;
+    Handrail_X_Dy = uy;
+    Handrail_X_Dz = uz;
+    Handrail_Y_Dx = vx;
+    Handrail_Y_Dy = vy;
+    Handrail_Y_Dz = vz;
+
+	/*获取扶手的坐标 */
+	x1 = 0.0;	 y1 = 0.0;	  z1 = 0.0;	
+    x2 = 0.0;	 y2 = 0.0;	  z2 = 0.0;
+	x_dx = 0.0;	 x_dy = 0.0;  x_dz = 0.0;
+	end1x = 0.0; end1y = 0.0; end1z = 0.0;
+	end2x = 0.0; end2y = 0.0; end2z = 0.0;	
+	Get_Beam_Para(part3_1, x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+    
+    if(Rect_Pad_Switch == "on"){
+        rect_pad_plate_thick = 1.0*DM_PARTID_DATA(Handrail_Part4_Pid, "D31");
+    }
+    else{
+        rect_pad_plate_thick = 0.0;
+    }
+    
+    wx=0;wy=0;wz=0;
+    Vector3d_CrossProduct(ux,uy,uz, vx,vy,vz, wx,wy,wz);
+    Point_Move(x1,y1,z1, x1,y1,z1, wx,wy,wz, -rect_pad_plate_thick);
+
+	Handrail_X0 = x1;
+	Handrail_Y0 = y1;
+	Handrail_Z0 = z1;
+    W_SET_NUMERIC_VALUE(Handrail_Position_X, Handrail_X0);
+    W_SET_NUMERIC_VALUE(Handrail_Position_Y, Handrail_Y0);
+    W_SET_NUMERIC_VALUE(Handrail_Position_Z, Handrail_Z0);
+
+    /* 将绝对坐标转换成相对坐标并显示到面板中 */
+    /* convert abstract coordinate value into reference and display on panel */
+    x_ref = "";y_ref = "";z_ref = "";
+    x_offset = 0;y_offset = 0;z_offset = 0;
+    res = GetReferenceCoords(Handrail_X0, Handrail_Y0, Handrail_Z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+    if (res == 0){
+        W_SET_PANELITEM_ARGS(Handrail_Position_Xref, W_PANEL_VALUE, x_ref);
+        W_SET_PANELITEM_ARGS(Handrail_Position_Yref, W_PANEL_VALUE, y_ref);
+        W_SET_PANELITEM_ARGS(Handrail_Position_Zref, W_PANEL_VALUE, z_ref);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Xoff, x_offset);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Yoff, y_offset);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Zoff, z_offset);
+    }
+    else if (res == -1){
+        W_SET_PANELITEM_ARGS(Handrail_Position_Xref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Handrail_Position_Yref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Handrail_Position_Zref, W_PANEL_VALUE, "Unset");
+        W_SET_NUMERIC_VALUE(Handrail_Position_Xoff, 0);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Yoff, 0);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Zoff, 0); 
+        U_CONFIRM("参考坐标系定义不正确");
+    }   
+    return(0);
+}
+
+create_material_panel(mainform)
+{
+    /* 创建用于显示扶手材料信息的面板 */
+    Material = W_ADD_WINDOW(mainform, W_PANEL, "Material");
+   
+    /* 设置面板参数 */
+	W_REALIZE_WINDOW(Material, 	W_FRAME_X, 		465,
+							    W_FRAME_Y, 		135,
+							    W_FRAME_WIDTH, 	400,
+							    W_FRAME_HEIGHT,	50);
+							            
+    title = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "title");
+    W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"扶手材料");
+                               
+    seperate_line = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "seperate_line");
+    W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+									       
+	Handrail_Part1 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Handrail_Part1");	
+	W_REALIZE_PANELITEM(Handrail_Part1, W_PANEL_ROW, 1, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "钢管:   ",
+                                        W_PANEL_LENGTH, 100,
+                                        W_PANEL_DISPLEN, 26,
+                                        W_PANEL_VALUE, "Undefined");  
+							               	
+	Select_Handrail_Part1 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Handrail_Part1");	
+	W_REALIZE_PANELITEM(Select_Handrail_Part1,  W_PANEL_ROW, 1, 
+                                                W_PANEL_COL, 34,
+                                                W_PANEL_BUTTONIMAGE, "选择钢管", 
+                                                W_PANEL_WIDTH, 10,
+                                                W_PANEL_BUTTONVALUE, 201,
+                                                W_PANEL_CALLBACK, 1,
+                                                W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	                  							
+    W_SET_PANELITEM_HANDLER(Select_Handrail_Part1, "select_handrail_part1_handler"); 			
+
+	Handrail_Part2 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Handrail_Part2");	
+	W_REALIZE_PANELITEM(Handrail_Part2, W_PANEL_ROW, 2, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "圆钢:   ",
+                                        W_PANEL_LENGTH, 26,
+                                        W_PANEL_VALUE, "Undefined",
+                                        W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Handrail_Part2, "handrail_part2_handler"); 
+	
+	Select_Handrail_Part2 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Handrail_Part2");	
+	W_REALIZE_PANELITEM(Select_Handrail_Part2,  W_PANEL_ROW, 2, 
+                                                W_PANEL_COL, 34,
+                                                W_PANEL_BUTTONIMAGE, "选择圆钢", 
+                                                W_PANEL_WIDTH, 10,
+                                                W_PANEL_BUTTONVALUE, 203,
+                                                W_PANEL_CALLBACK, 0,
+                                                W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Handrail_Part2, "select_handrail_part2_handler");
+
+	Handrail_Part3 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Handrail_Part3");	
+	W_REALIZE_PANELITEM(Handrail_Part3, W_PANEL_ROW, 3, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "扁钢:   ",
+                                        W_PANEL_LENGTH, 26,
+                                        W_PANEL_VALUE, "Undefined",
+                                        W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Handrail_Part3, "handrail_part3_handler"); 
+	
+	Select_Handrail_Part3 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Handrail_Part3");	
+	W_REALIZE_PANELITEM(Select_Handrail_Part3,  W_PANEL_ROW, 3, 
+                                                W_PANEL_COL, 34,
+                                                W_PANEL_BUTTONIMAGE, "选择扁钢", 
+                                                W_PANEL_WIDTH, 10,
+                                                W_PANEL_BUTTONVALUE, 203,
+                                                W_PANEL_CALLBACK, 0,
+                                                W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Handrail_Part3, "select_handrail_part3_handler");
+    
+	Handrail_Part4 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Handrail_Part4");	
+	W_REALIZE_PANELITEM(Handrail_Part4, W_PANEL_ROW, 4, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "垫板:   ",
+                                        W_PANEL_LENGTH, 26,
+                                        W_PANEL_VALUE, "Undefined",
+                                        W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Handrail_Part4, "handrail_part4_handler"); 
+	
+	Select_Handrail_Part4 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Handrail_Part4");	
+	W_REALIZE_PANELITEM(Select_Handrail_Part4,  W_PANEL_ROW, 4, 
+                                                W_PANEL_COL, 34,
+                                                W_PANEL_BUTTONIMAGE, "选择钢板", 
+                                                W_PANEL_WIDTH, 10,
+                                                W_PANEL_BUTTONVALUE, 203,
+                                                W_PANEL_CALLBACK, 0,
+                                                W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Handrail_Part4, "select_handrail_part4_handler");
+    
+    Handrail_Rect_Pad_Switch = W_ADD_PANELITEM(Material, W_PANEL_TOGGLE, "Handrail_Rect_Pad_Switch");
+	W_REALIZE_PANELITEM(Handrail_Rect_Pad_Switch,   W_PANEL_ROW,            5,
+                                                    W_PANEL_COL,            0,
+                                                    W_PANEL_LABEL,          "",
+                                                    W_PANEL_CHOICESTRING,   "垫板  ",
+                                                    W_PANEL_VALUE,          "1",
+                                                    W_PANEL_CHOICESTYLE,    W_STYLE_PUSHBUTTONS,
+                                                    W_PANEL_CALLBACK,       1);
+    W_SET_PANELITEM_HANDLER(Handrail_Rect_Pad_Switch, "handrail_rect_pad_switch_handler");
+
+    Handrail_Steady_Type = W_ADD_PANELITEM(Material, W_PANEL_CHOICE, "Handrail_Steady_Type");
+	W_REALIZE_PANELITEM(Handrail_Steady_Type,   W_PANEL_ROW,            6,
+                                                W_PANEL_COL,            0,
+                                                W_PANEL_LABEL,          "",
+                                                W_PANEL_CHOICESTRING,   "奇数柱斜撑    ",
+                                                W_PANEL_CHOICESTRING,   "偶数柱斜撑    ",
+                                                W_PANEL_CHOICESTRING,   "无斜撑    ",
+                                                W_PANEL_ORDINALVALUE,   0,
+                                                W_PANEL_CHOICESTYLE,    W_STYLE_PUSHBUTTONS,
+                                                W_PANEL_CALLBACK,       1);
+    W_SET_PANELITEM_HANDLER(Handrail_Steady_Type, "handrail_steady_type_switch_handler");
+    return(Material);
+}
+
+handrail_steady_type_switch_handler(item, event_type, dummy)
+{
+    res = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+	handrail_steady_type_switch(res);
+}
+
+handrail_steady_type_switch(flag)
+{
+    if(flag == "奇数柱斜撑    "){
+        Steady_Type_Switch = 1;
+        SET_STRING_DEFAULT("Handrail101", "Steady_Type_Switch", "1");
+        W_SET_PANELITEM_ARGS(Handrail_Para_e, W_PANEL_SENSITIVITY,1);
+        W_SET_PANELITEM_ARGS(Handrail_Para_f, W_PANEL_SENSITIVITY,1);
+    }
+    else if(flag == "偶数柱斜撑    "){
+        Steady_Type_Switch = 2;
+        SET_STRING_DEFAULT("Handrail101", "Steady_Type_Switch", "2");
+        W_SET_PANELITEM_ARGS(Handrail_Para_e, W_PANEL_SENSITIVITY,1);
+        W_SET_PANELITEM_ARGS(Handrail_Para_f, W_PANEL_SENSITIVITY,1);
+    }
+    else{
+        Steady_Type_Switch = 0;
+        SET_STRING_DEFAULT("Handrail101", "Steady_Type_Switch", "0");
+        W_SET_PANELITEM_ARGS(Handrail_Para_e, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Handrail_Para_f, W_PANEL_SENSITIVITY,0);
+    }
+    if(Modify_flag){
+        st = PM_UM_OPEN_CHANGE("修改扶手斜撑");
+        calculate_handrail_para();
+        delete_handrail_members();
+        res = create_handrail(); 
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }  
+        st = PM_UM_CLOSE_CHANGE();
+    }
+    return(0);
+}
+
+handrail_rect_pad_switch_handler(item, event_type, dummy)
+{
+    res = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+	handrail_rect_pad_switch(res);
+}
+
+handrail_rect_pad_switch(flag)
+{
+	if(flag=="0"){
+        W_SET_PANELITEM_ARGS(Handrail_Para_a, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Handrail_Para_b, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Handrail_Para_r, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Handrail_Part4, W_PANEL_SENSITIVITY,0);
+        W_SET_PANELITEM_ARGS(Select_Handrail_Part4, W_PANEL_SENSITIVITY,0);
+        Rect_Pad_Switch = "off";
+        SET_STRING_DEFAULT("Handrail101", "Rect_Pad_Switch", "off");
+	}
+	else if(flag=="1"){
+        W_SET_PANELITEM_ARGS(Handrail_Para_a, W_PANEL_SENSITIVITY,1);
+        W_SET_PANELITEM_ARGS(Handrail_Para_b, W_PANEL_SENSITIVITY,1);
+        W_SET_PANELITEM_ARGS(Handrail_Para_r, W_PANEL_SENSITIVITY,1);
+	    W_SET_PANELITEM_ARGS(Handrail_Part4, W_PANEL_SENSITIVITY,1);
+	    W_SET_PANELITEM_ARGS(Select_Handrail_Part4, W_PANEL_SENSITIVITY,1);
+	    Rect_Pad_Switch = "on";
+	    SET_STRING_DEFAULT("Handrail101", "Rect_Pad_Switch", "on");
+	}
+    if(Modify_flag){
+        st = PM_UM_OPEN_CHANGE("修改扶手矩形垫板");
+        calculate_handrail_para();
+        delete_handrail_members();
+        res = create_handrail(); 
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }  
+        st = PM_UM_CLOSE_CHANGE();
+    }
+    return(0);
+}
+
+handrail_part1_handler(item, event_type, dummy)
+{	
+	pid = Handrail_Part1_Pid;
+	if(ISSTRING(pid)){
+		if(!Is_Equal_Angle_Bar(pid)){
+			beam_descr = Pid_To_Description(pid);
+			W_SET_PANELITEM_ARGS(Handrail_Part1, W_PANEL_VALUE, beam_descr);
+			SET_STRING_DEFAULT("Handrail101", "Handrail_Part1", pid);
+		}
+	}	
+	return(0);
+}
+
+handrail_part2_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+handrail_part3_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+handrail_part4_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+select_handrail_part1_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择材料(钢管)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "BEAM*");	
+	pid = DM_BROWSE_PARTCODE(Handrail_Part1_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Handrail_Part1_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Handrail_Part1, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("Handrail101", "Handrail_Part1", pid);
+	}	
+	if(Modify_flag){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择钢管");
+        delete_handrail_members();
+        calculate_handrail_para();
+        res = create_handrail();
+        /* 如果修改不成功，回滚到原来状态 */
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }           
+        st = PM_UM_CLOSE_CHANGE(); 	   
+	}
+	return(0); 
+}
+
+select_handrail_part2_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择材料(圆钢)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "BEAM*");	
+	pid = DM_BROWSE_PARTCODE(Handrail_Part2_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Handrail_Part2_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Handrail_Part2, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("Handrail101", "Handrail_Part2", pid);
+	}	
+	if(Modify_flag){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择圆钢");
+        delete_handrail_members();
+        calculate_handrail_para();
+        res = create_handrail();
+        /* 如果修改不成功，回滚到原来状态 */
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }           
+        st = PM_UM_CLOSE_CHANGE(); 	   
+	}
+	return(0); 
+}
+
+select_handrail_part3_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择材料(扁钢)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "BEAM Flat*");	
+	pid = DM_BROWSE_PARTCODE(Handrail_Part3_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Handrail_Part3_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Handrail_Part3, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("Handrail101", "Handrail_Part3", pid);
+	}	
+	if(Modify_flag){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择扁钢");
+        delete_handrail_members();
+        calculate_handrail_para();
+        res = create_handrail();
+        /* 如果修改不成功，回滚到原来状态 */
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }           
+        st = PM_UM_CLOSE_CHANGE(); 	   
+	}
+	return(0); 
+}
+
+select_handrail_part4_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择垫板的材料(钢板)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "PLATE*");
+	pid = DM_BROWSE_PARTCODE(Handrail_Part4_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Handrail_Part4_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Handrail_Part4, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("Handrail101", "Handrail_Part4", pid);
+	}
+	if(Modify_flag){
+        /* 定义UNDO缓存 */
+        st = PM_UM_OPEN_CHANGE("重新选择垫板材料");
+        delete_handrail_members();
+        calculate_handrail_para();
+        res = create_handrail();
+        /* 如果修改不成功，回滚到原来状态 */
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }
+        st = PM_UM_CLOSE_CHANGE();
+	}
+	return(0); 
+}
+
+create_handrail_handler(item, event_type, button_value)
+{
+    /* 获取扶手名称 */
+    Info_Handrail_Name = W_GET_PANELITEM_ARG(Handrail_Name, W_PANEL_VALUE);     
+    if (Info_Handrail_Name == "Undefined"){
+        U_CONFIRM("请先输入扶手编号");
+        return(0);
+    }
+
+    /* 定义UNDO缓存 */
+    st = PM_UM_OPEN_CHANGE("创建扶手" + Info_Handrail_Name);
+
+    /* 定义扶手组 */  
+    group_h = Create_Group(Group_Type, Info_Handrail_Name);
+    if(ISINT(group_h)){
+        U_CONFIRM("无法创建扶手模型组，请检查是否已经定义了这种类型的模型组？");
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        return(0);
+    } 
+    
+    Handrail_Handle = group_h; 
+    
+    /* 选择创建的平面 */
+	x0 = 0;y0 = 0;z0 = 0;
+	trace_handle = PM_NEW_TRACEP();  
+	PM_GET_CURRENT_LOC(x0,y0,z0);  
+	res = PM_GET_POINT("请选择扶手位置", trace_handle, x0, y0, z0); 
+	if( res < 0 ){
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();   
+		return(0);
+	}
+    
+    Handrail_X0 = x0; 
+    Handrail_Y0 = y0;
+    Handrail_Z0 = z0;
+	W_SET_NUMERIC_VALUE(Handrail_Position_X, x0);
+	W_SET_NUMERIC_VALUE(Handrail_Position_Y, y0);
+	W_SET_NUMERIC_VALUE(Handrail_Position_Z, z0);
+	trans_abs_ref();
+    
+    /* 计算扶手参数 */
+    res = calculate_handrail_para(); 
+    if(res == -1){
+        U_CONFIRM("无法创建扶手模型组，请检查扶手参数是否正确？");
+        st = PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();      
+        return(0);
+    }
+    
+    /* 创建扶手，如创建不成功，删除相关定义 */
+    res = create_handrail();
+    if (res == -1){
+        PM_UM_CLOSE_CHANGE();
+        PM_UM_UNDO_LAST_CHANGE();
+        return(0);
+    }
+    st = PM_UM_CLOSE_CHANGE();
+   
+    /*扶手创建成功，进入修改状态*/
+	W_SET_PANELITEM_ARGS(Create_Handrail, W_PANEL_SENSITIVITY,0);
+	Modify_flag = 1;
+}
+
+calculate_handrail_para()
+{  
+    /* 检查是否已经选择了所需的零件 */
+    handle_part_1 = W_GET_PANELITEM_ARG(Handrail_Part1, W_PANEL_VALUE);
+    if (handle_part_1 == "Undefined"){
+        U_CONFIRM("请先选择钢管材料");
+        return(-1);
+    }
+    handle_part_2 = W_GET_PANELITEM_ARG(Handrail_Part2, W_PANEL_VALUE);
+    if (handle_part_2 == "Undefined"){
+        U_CONFIRM("请先选择圆钢材料");
+        return(-1);
+    }
+    handle_part_3 = W_GET_PANELITEM_ARG(Handrail_Part3, W_PANEL_VALUE);
+    if (handle_part_3 == "Undefined"){
+        U_CONFIRM("请先选择扁钢材料");
+        return(-1);
+    }
+    handle_part_4 = W_GET_PANELITEM_ARG(Handrail_Part4, W_PANEL_VALUE);
+    if (Rect_Pad_Switch == "on"){
+        if(handle_part_4 == "Undefined"){
+            U_CONFIRM("请先选择垫板材料");
+            return(-1);
+        }
+    }
+   
+    /* 获取扶手位置坐标 */
+    st = 0;
+    x0 = W_GET_NUMERIC_VALUE(Handrail_Position_X, st);
+    if (st == -1){
+        U_CONFIRM("X坐标未定义");
+        return(-1);
+    }
+    Handrail_X0 = x0;
+    st = 0;
+    y0 = W_GET_NUMERIC_VALUE(Handrail_Position_Y, st);
+    if (st == -1){
+        U_CONFIRM("Y坐标未定义");
+        return(-1);
+    }
+    Handrail_Y0 = y0;
+    st = 0;
+    z0 = W_GET_NUMERIC_VALUE(Handrail_Position_Z, st); 
+    if (st == -1){
+        U_CONFIRM("Z坐标未定义");
+        return(-1);
+    }
+    Handrail_Z0 = z0;   
+    
+    /* 获取扶手尺寸 */
+    st = 0;
+    Handrail_Size_L = W_GET_NUMERIC_VALUE(Handrail_Para_L, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数L的值或者L的值有错误");
+        return(-1);
+    }
+    st = 0;
+    Handrail_Size_H = W_GET_NUMERIC_VALUE(Handrail_Para_H, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数H的值或者H的值有错误");
+        return(-1);
+    }   
+    st = 0;
+    Handrail_Size_s = W_GET_NUMERIC_VALUE(Handrail_Para_s, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数s的值或者s的值有错误");
+        return(-1);
+    }   
+    st = 0;
+    Handrail_Size_s1 = W_GET_NUMERIC_VALUE(Handrail_Para_s1, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数s1的值或者s1的值有错误");
+        return(-1);
+    }
+    st = 0;
+    Handrail_Size_s2 = W_GET_NUMERIC_VALUE(Handrail_Para_s2, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数s2的值或者s2的值有错误");
+        return(-1);
+    }
+    st = 0;
+    Handrail_Size_h1 = W_GET_NUMERIC_VALUE(Handrail_Para_h1, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数h1的值或者h1的值有错误");
+        return(-1);
+    }
+    st = 0;
+    Handrail_Size_h2 = W_GET_NUMERIC_VALUE(Handrail_Para_h2, st);
+    if (st == -1){
+        U_MESSAGE("无法获取参数h2的值或者h2的值有错误");
+        return(-1);
+    }
+    if(Steady_Type_Switch>0){
+        st = 0;
+        Handrail_Size_e = W_GET_NUMERIC_VALUE(Handrail_Para_e, st);
+        if (st == -1){
+            U_MESSAGE("无法获取参数e的值或者e的值有错误");
+            return(-1);
+        }
+        st = 0;
+        Handrail_Size_f = W_GET_NUMERIC_VALUE(Handrail_Para_f, st);
+        if (st == -1){
+            U_MESSAGE("无法获取参数f的值或者f2的值有错误");
+            return(-1);
+        }
+    }
+
+    if(Rect_Pad_Switch == "on"){
+        st = 0;
+        Handrail_Size_a = W_GET_NUMERIC_VALUE(Handrail_Para_a, st);
+        if (st == -1){
+            U_MESSAGE("无法获取参数a的值或者a的值有错误");
+            return(-1);
+        }
+        st = 0;
+        Handrail_Size_b = W_GET_NUMERIC_VALUE(Handrail_Para_b, st);
+        if (st == -1){
+            U_MESSAGE("无法获取参数b的值或者b的值有错误");
+            return(-1);
+        }
+        st = 0;
+        Handrail_Size_r = W_GET_NUMERIC_VALUE(Handrail_Para_r, st);
+        if (st == -1){
+            U_MESSAGE("无法获取参数r的值或者r的值有错误");
+            return(-1);
+        }
+    }
+
+    /* 获取零件参数 */
+    flatbar_width  = 1.0*DM_PARTID_DATA(Handrail_Part3_Pid, "D31");
+    flatbar_thick  = 1.0*DM_PARTID_DATA(Handrail_Part3_Pid, "D32");
+    if(Rect_Pad_Switch == "on"){
+        rect_pad_plate_thick = 1.0*DM_PARTID_DATA(Handrail_Part4_Pid, "D31");
+    }
+    else{
+        rect_pad_plate_thick = 0.0;
+    }
+    
+    zdx = 0;zdy = 0;zdz = 0;
+    VEC_CROSS_PRODUCT(Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz, Handrail_Y_Dx,Handrail_Y_Dy,Handrail_Y_Dz, zdx,zdy,zdz);
+    VEC_UNITV(zdx,zdy,zdz);
+   
+    /*计算零件1-1相关参数 calculate parameter of part1-1*/
+    if(1){
+        x = Handrail_X0;
+        y = Handrail_Y0;
+        z = Handrail_Z0;
+        distance = -(0.5*flatbar_thick+Handrail_Size_s1);
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance); 
+        distance = Handrail_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Handrail_Size_L;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Handrail_Y_Dx;
+        x_dy = Handrail_Y_Dy;
+        x_dz = Handrail_Y_Dz;
+        end1x = -Handrail_X_Dx;
+        end1y = -Handrail_X_Dy;
+        end1z = -Handrail_X_Dz;
+        end2x = Handrail_X_Dx;
+        end2y = Handrail_X_Dy;
+        end2z = Handrail_X_Dz;
+
+        A_PUT(Part11,0,x1);
+        A_PUT(Part11,1,y1);
+        A_PUT(Part11,2,z1);
+        A_PUT(Part11,3,x2);
+        A_PUT(Part11,4,y2);
+        A_PUT(Part11,5,z2);
+        A_PUT(Part11,6,x_dx);
+        A_PUT(Part11,7,x_dy);
+        A_PUT(Part11,8,x_dz);
+        A_PUT(Part11,9,end1x);
+        A_PUT(Part11,10,end1y);
+        A_PUT(Part11,11,end1z);
+        A_PUT(Part11,12,end2x);
+        A_PUT(Part11,13,end2y);
+        A_PUT(Part11,14,end2z);	
+    }
+   
+    /*计算零件2-1相关参数 calculate parameter of part2-1*/
+    if(1){
+        x = Handrail_X0;
+        y = Handrail_Y0;
+        z = Handrail_Z0;
+        distance = -(0.5*flatbar_thick+Handrail_Size_s1);
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance); 
+        distance = Handrail_Size_h2;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Handrail_Size_L;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Handrail_Y_Dx;
+        x_dy = Handrail_Y_Dy;
+        x_dz = Handrail_Y_Dz;
+        end1x = -Handrail_X_Dx;
+        end1y = -Handrail_X_Dy;
+        end1z = -Handrail_X_Dz;
+        end2x = Handrail_X_Dx;
+        end2y = Handrail_X_Dy;
+        end2z = Handrail_X_Dz;
+
+        A_PUT(Part21,0,x1);
+        A_PUT(Part21,1,y1);
+        A_PUT(Part21,2,z1);
+        A_PUT(Part21,3,x2);
+        A_PUT(Part21,4,y2);
+        A_PUT(Part21,5,z2);
+        A_PUT(Part21,6,x_dx);
+        A_PUT(Part21,7,x_dy);
+        A_PUT(Part21,8,x_dz);
+        A_PUT(Part21,9,end1x);
+        A_PUT(Part21,10,end1y);
+        A_PUT(Part21,11,end1z);
+        A_PUT(Part21,12,end2x);
+        A_PUT(Part21,13,end2y);
+        A_PUT(Part21,14,end2z);	
+    }
+
+    /*计算零件2-2相关参数 calculate parameter of part2-2*/
+    if(1){
+        x = Handrail_X0;
+        y = Handrail_Y0;
+        z = Handrail_Z0;
+        distance = -(0.5*flatbar_thick+Handrail_Size_s1);
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance); 
+        distance = Handrail_Size_h1;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Handrail_Size_L;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Handrail_Y_Dx;
+        x_dy = Handrail_Y_Dy;
+        x_dz = Handrail_Y_Dz;
+        end1x = -Handrail_X_Dx;
+        end1y = -Handrail_X_Dy;
+        end1z = -Handrail_X_Dz;
+        end2x = Handrail_X_Dx;
+        end2y = Handrail_X_Dy;
+        end2z = Handrail_X_Dz;
+
+        A_PUT(Part22,0,x1);
+        A_PUT(Part22,1,y1);
+        A_PUT(Part22,2,z1);
+        A_PUT(Part22,3,x2);
+        A_PUT(Part22,4,y2);
+        A_PUT(Part22,5,z2);
+        A_PUT(Part22,6,x_dx);
+        A_PUT(Part22,7,x_dy);
+        A_PUT(Part22,8,x_dz);
+        A_PUT(Part22,9,end1x);
+        A_PUT(Part22,10,end1y);
+        A_PUT(Part22,11,end1z);
+        A_PUT(Part22,12,end2x);
+        A_PUT(Part22,13,end2y);
+        A_PUT(Part22,14,end2z);	
+    }
+    
+    /*计算零件3-1相关参数 calculate parameter of part3-1*/
+    if(1){
+        x = Handrail_X0;
+        y = Handrail_Y0;
+        z = Handrail_Z0;
+        distance = rect_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Handrail_Size_H - rect_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Handrail_X_Dx;
+        x_dy = Handrail_X_Dy;
+        x_dz = Handrail_X_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part31,0,x1);
+        A_PUT(Part31,1,y1);
+        A_PUT(Part31,2,z1);
+        A_PUT(Part31,3,x2);
+        A_PUT(Part31,4,y2);
+        A_PUT(Part31,5,z2);
+        A_PUT(Part31,6,x_dx);
+        A_PUT(Part31,7,x_dy);
+        A_PUT(Part31,8,x_dz);
+        A_PUT(Part31,9,end1x);
+        A_PUT(Part31,10,end1y);
+        A_PUT(Part31,11,end1z);
+        A_PUT(Part31,12,end2x);
+        A_PUT(Part31,13,end2y);
+        A_PUT(Part31,14,end2z);	
+    }
+    
+    /*计算零件3-2相关参数 calculate parameter of part3-2*/
+    if(1){
+        x = Handrail_X0;
+        y = Handrail_Y0;
+        z = Handrail_Z0;
+        distance = Handrail_Size_L - flatbar_thick - Handrail_Size_s1 - Handrail_Size_s2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance);
+        distance = rect_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+
+        distance = Handrail_Size_H - rect_pad_plate_thick;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Handrail_X_Dx;
+        x_dy = Handrail_X_Dy;
+        x_dz = Handrail_X_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part32,0,x1);
+        A_PUT(Part32,1,y1);
+        A_PUT(Part32,2,z1);
+        A_PUT(Part32,3,x2);
+        A_PUT(Part32,4,y2);
+        A_PUT(Part32,5,z2);
+        A_PUT(Part32,6,x_dx);
+        A_PUT(Part32,7,x_dy);
+        A_PUT(Part32,8,x_dz);
+        A_PUT(Part32,9,end1x);
+        A_PUT(Part32,10,end1y);
+        A_PUT(Part32,11,end1z);
+        A_PUT(Part32,12,end2x);
+        A_PUT(Part32,13,end2y);
+        A_PUT(Part32,14,end2z);	
+    }
+
+    /*计算零件4-1相关参数 calculate parameter of part4-1*/
+    if(Rect_Pad_Switch == "on"){
+        x = Handrail_X0;
+        y = Handrail_Y0;
+        z = Handrail_Z0;
+        distance = 0;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance);
+        distance = 0;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_Y_Dx,Handrail_Y_Dy,Handrail_Y_Dz,distance);  
+        lox = x;loy = y;loz = z;
+        udx = Handrail_Y_Dx;
+        udy = Handrail_Y_Dy;
+        udz = Handrail_Y_Dz;
+        vdx = -Handrail_X_Dx;
+        vdy = -Handrail_X_Dy;
+        vdz = -Handrail_X_Dz;
+        A_PUT(Part41,0,lox);
+        A_PUT(Part41,1,loy);
+        A_PUT(Part41,2,loz); 
+        A_PUT(Part41,3,udx);
+        A_PUT(Part41,4,udy);
+        A_PUT(Part41,5,udz);  
+        A_PUT(Part41,6,vdx);
+        A_PUT(Part41,7,vdy);
+        A_PUT(Part41,8,vdz);	
+    }  
+
+    /*计算零件4-2相关参数 calculate parameter of part4-2*/
+    if(Rect_Pad_Switch == "on"){
+        x = Handrail_X0;
+        y = Handrail_Y0;
+        z = Handrail_Z0;
+        distance = Handrail_Size_L - flatbar_thick - Handrail_Size_s1 - Handrail_Size_s2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz,distance);
+        distance = 0;
+        Point_3D_Move_With_DirAndDis(x,y,z,Handrail_Y_Dx,Handrail_Y_Dy,Handrail_Y_Dz,distance);  
+        lox = x;loy = y;loz = z;
+        udx = Handrail_Y_Dx;
+        udy = Handrail_Y_Dy;
+        udz = Handrail_Y_Dz;
+        vdx = -Handrail_X_Dx;
+        vdy = -Handrail_X_Dy;
+        vdz = -Handrail_X_Dz;
+        A_PUT(Part42,0,lox);
+        A_PUT(Part42,1,loy);
+        A_PUT(Part42,2,loz); 
+        A_PUT(Part42,3,udx);
+        A_PUT(Part42,4,udy);
+        A_PUT(Part42,5,udz);  
+        A_PUT(Part42,6,vdx);
+        A_PUT(Part42,7,vdy);
+        A_PUT(Part42,8,vdz);	
+    }  
+
+    return(0);
+}
+
+/*扁钢双45度切角*/
+calculate_flatbar_double_cut_para(flatbar_width,size_a)
+{
+    /* cut_para = "0 0 0 -22.5 0.0 -45.0;0 0 0 -22.5 0.0 45.0;"; */
+    offset = 0.5*flatbar_width-size_a;
+    offset_str = rtrim_number(FTOASCII(-offset));
+    cut_para = "0 0 0 "+offset_str+" 0.0 -45.0;0 0 0 "+offset_str+" 0.0 45.0;";
+    return(cut_para);
+}
+
+/*角钢45度切角*/
+calculate_flatbar_side_a_cut_para(flatbar_width,size_a)
+{
+    /* cut_para = "0 0 0 -22.5 0.0 -45.0;"; */
+    offset = flatbar_width-size_a;
+    offset_str = rtrim_number(FTOASCII(-offset));
+    cut_para = "0 0 0 "+offset_str+" 0.0 -45.0;";
+    return(cut_para);
+}
+
+/*角钢45度切角*/
+calculate_flatbar_side_b_cut_para(flatbar_width,size_a)
+{
+    /* cut_para = "0 0 0 -22.5 -45.0 0.0;"; */
+    offset = flatbar_width-size_a;
+    offset_str = rtrim_number(FTOASCII(-offset));
+    cut_para = "0 0 0 "+offset_str+" -45.0 0.0;";
+    return(cut_para);
+}
+
+/*计算复制立板数量*/
+calculate_handrail_step_count()
+{
+    int copy_count;
+    copy_count = 0;
+    step_length = Handrail_Size_L - Handrail_Size_s1 - Handrail_Size_s2;
+    if(step_length<2*Handrail_Size_s){
+        return(copy_count);
+    }
+    flag = (step_length+1) / Handrail_Size_s;
+    copy_count = SCAN_QUANT(3,FTOASCII(flag));
+    copy_count = copy_count - 1; 
+    return(copy_count);
+}
+
+create_handrail()
+{                            
+    /* 获取零件参数 */
+    flatbar_width  = 1.0*DM_PARTID_DATA(Handrail_Part3_Pid, "D31");
+    flatbar_thick  = 1.0*DM_PARTID_DATA(Handrail_Part3_Pid, "D32");
+    if(Rect_Pad_Switch == "on"){
+        rect_pad_plate_thick = 1.0*DM_PARTID_DATA(Handrail_Part4_Pid, "D31");
+    }
+    else{
+        rect_pad_plate_thick = 0.0;
+    }
+    
+    /* 定义扶手零件集合 */   
+    handrail = PM_INIT_SET();   
+    /* 生成零件1-1 create part 1-1*/
+    if(1){
+        x1 =    A_GET(Part11,0);
+        y1 =    A_GET(Part11,1);
+        z1 =    A_GET(Part11,2);
+        x2 =    A_GET(Part11,3);
+        y2 =    A_GET(Part11,4);
+        z2 =    A_GET(Part11,5);   
+        x_dx =  A_GET(Part11,6);
+        x_dy =  A_GET(Part11,7);
+        x_dz =  A_GET(Part11,8);   
+        end1x = A_GET(Part11,9);
+        end1y = A_GET(Part11,10);
+        end1z = A_GET(Part11,11);	
+        end2x = A_GET(Part11,12);
+        end2y = A_GET(Part11,13);
+        end2z = A_GET(Part11,14);	
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Handrail_Part1_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, handrail); 
+    }   
+    
+    /* 生成零件2-1 create part 2-1*/
+    if(1){      
+        x1 =    A_GET(Part21,0);
+        y1 =    A_GET(Part21,1);
+        z1 =    A_GET(Part21,2);
+        x2 =    A_GET(Part21,3);
+        y2 =    A_GET(Part21,4);
+        z2 =    A_GET(Part21,5);   
+        x_dx =  A_GET(Part21,6);
+        x_dy =  A_GET(Part21,7);
+        x_dz =  A_GET(Part21,8);   
+        end1x = A_GET(Part21,9);
+        end1y = A_GET(Part21,10);
+        end1z = A_GET(Part21,11);	
+        end2x = A_GET(Part21,12);
+        end2y = A_GET(Part21,13);
+        end2z = A_GET(Part21,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Handrail_Part2_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "2-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, handrail); 
+    } 
+
+    /* 生成零件2-2 create part 2-2*/
+    if(1){      
+        x1 =    A_GET(Part22,0);
+        y1 =    A_GET(Part22,1);
+        z1 =    A_GET(Part22,2);
+        x2 =    A_GET(Part22,3);
+        y2 =    A_GET(Part22,4);
+        z2 =    A_GET(Part22,5);   
+        x_dx =  A_GET(Part22,6);
+        x_dy =  A_GET(Part22,7);
+        x_dz =  A_GET(Part22,8);   
+        end1x = A_GET(Part22,9);
+        end1y = A_GET(Part22,10);
+        end1z = A_GET(Part22,11);	
+        end2x = A_GET(Part22,12);
+        end2y = A_GET(Part22,13);
+        end2z = A_GET(Part22,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Handrail_Part2_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "2-2");       
+        PM_ADD_OBJECT_TO_SET(part_handle, handrail);
+    } 
+
+    /* 生成零件3-1 create part 3-1*/
+    if(1){      
+        x1 =    A_GET(Part31,0);
+        y1 =    A_GET(Part31,1);
+        z1 =    A_GET(Part31,2);
+        x2 =    A_GET(Part31,3);
+        y2 =    A_GET(Part31,4);
+        z2 =    A_GET(Part31,5);   
+        x_dx =  A_GET(Part31,6);
+        x_dy =  A_GET(Part31,7);
+        x_dz =  A_GET(Part31,8);   
+        end1x = A_GET(Part31,9);
+        end1y = A_GET(Part31,10);
+        end1z = A_GET(Part31,11);	
+        end2x = A_GET(Part31,12);
+        end2y = A_GET(Part31,13);
+        end2z = A_GET(Part31,14);	
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Handrail_Part3_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "3-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, handrail); 
+        
+        /*倒切角*/
+        cut_para = calculate_flatbar_double_cut_para(flatbar_width,Ladder_Flatbar_Cut_Dist);
+        Set_Attribute_Value(part_handle, ".kz", cut_para);
+        
+        /* 复制中间立板 */
+        part_index = 2;
+        distance = Handrail_Size_s;
+        copy_count = calculate_handrail_step_count();
+        for(c=0;c<copy_count;c=c+1){
+            copy_part_handle = copy_move_step(Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz, distance, part_handle);
+            distance = distance + Handrail_Size_s;
+            Set_Attribute_Value(copy_part_handle, PartNumber,  "3-"+ITOASCII(part_index));
+            PM_ADD_OBJECT_TO_SET(copy_part_handle, handrail); 
+            part_index = part_index + 1;
+        }
+    }
+
+    /* 生成零件3-2 create part 3-2*/
+    if(1){       
+        x1 =    A_GET(Part32,0);
+        y1 =    A_GET(Part32,1);
+        z1 =    A_GET(Part32,2);
+        x2 =    A_GET(Part32,3);
+        y2 =    A_GET(Part32,4);
+        z2 =    A_GET(Part32,5);   
+        x_dx =  A_GET(Part32,6);
+        x_dy =  A_GET(Part32,7);
+        x_dz =  A_GET(Part32,8);   
+        end1x = A_GET(Part32,9);
+        end1y = A_GET(Part32,10);
+        end1z = A_GET(Part32,11);	
+        end2x = A_GET(Part32,12);
+        end2y = A_GET(Part32,13);
+        end2z = A_GET(Part32,14);
+        
+        lox = 0;loy = 0;loz = 0;
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Handrail_Part3_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        /* Set_Attribute_Value(part_handle, PartNumber,  "3-2");   */
+        Set_Attribute_Value(part_handle, PartNumber,  "3-"+ITOASCII(copy_count+2));        
+        PM_ADD_OBJECT_TO_SET(part_handle, handrail); 
+        /*倒切角*/
+        cut_para = calculate_flatbar_double_cut_para(flatbar_width,Ladder_Flatbar_Cut_Dist);
+        Set_Attribute_Value(part_handle, ".kz", cut_para);
+    }	
+    
+    /* 生成零件4-1 create part 4-1*/
+    if(Rect_Pad_Switch == "on"){
+        size_a = Handrail_Size_a; 
+        size_b = Handrail_Size_b; 
+        size_r = Handrail_Size_r;
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Handrail_Size_s);*/
+        curve = create_rect_curve_with_radius(size_a,size_b,size_r);
+
+        lox = A_GET(Part41,0);
+        loy = A_GET(Part41,1);
+        loz = A_GET(Part41,2);	
+        udx = A_GET(Part41,3);
+        udy = A_GET(Part41,4);
+        udz = A_GET(Part41,5);
+        vdx = A_GET(Part41,6);
+        vdy = A_GET(Part41,7);
+        vdz = A_GET(Part41,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Handrail_Part4_Pid, Info_System_Id, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+                
+        Set_Attribute_Value(part_handle, PartNumber,  "4-1");	
+        PM_ADD_OBJECT_TO_SET(part_handle, handrail); 		  
+        free_2darray(hole_list);
+
+        /* 复制垫板 */
+        part_index = 2;
+        distance = Handrail_Size_s;
+        copy_count = calculate_handrail_step_count();
+        for(c=0;c<copy_count;c=c+1){
+            copy_part_handle = copy_move_step(Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz, distance, part_handle);
+            distance = distance + Handrail_Size_s;
+            Set_Attribute_Value(copy_part_handle, PartNumber,  "4-"+ITOASCII(part_index));
+            PM_ADD_OBJECT_TO_SET(copy_part_handle, handrail); 
+            part_index = part_index + 1;
+        }
+    } 
+
+    /* 生成零件4-2 create part 4-2*/
+    if(Rect_Pad_Switch == "on"){
+        size_a = Handrail_Size_a; 
+        size_b = Handrail_Size_b; 
+        size_r = Handrail_Size_r;
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Handrail_Size_s);*/
+        curve = create_rect_curve_with_radius(size_a,size_b,size_r);
+
+        lox = A_GET(Part42,0);
+        loy = A_GET(Part42,1);
+        loz = A_GET(Part42,2);	
+        udx = A_GET(Part42,3);
+        udy = A_GET(Part42,4);
+        udz = A_GET(Part42,5);
+        vdx = A_GET(Part42,6);
+        vdy = A_GET(Part42,7);
+        vdz = A_GET(Part42,8); 
+        
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Handrail_Part4_Pid, Info_System_Id, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }
+        
+        /* Set_Attribute_Value(part_handle, PartNumber,  "4-2"); */
+        Set_Attribute_Value(part_handle, PartNumber,  "4-"+ITOASCII(copy_count+2));
+        PM_ADD_OBJECT_TO_SET(part_handle, handrail); 		  
+        free_2darray(hole_list);     
+    } 
+    
+    /* 斜撑 */
+    if(Steady_Type_Switch>0){
+        zdx = 0;zdy = 0;zdz = 0;
+        VEC_CROSS_PRODUCT(Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz, Handrail_Y_Dx,Handrail_Y_Dy,Handrail_Y_Dz, zdx,zdy,zdz);
+        VEC_UNITV(zdx,zdy,zdz);
+        
+        j = copy_count+3;
+        part_counts = PM_NR_MEMBERS_IN_SET(handrail);
+        for (i=0;i<part_counts;i=i+1;){
+            part = PM_GET_MEMBER_IN_SET(handrail,i);
+            part_number = Get_Attribute_Value(part, PartNumber);
+            flag1 = get_string_split(part_number,"-",0);
+            flag2 = get_string_split(part_number,"-",1);
+            if(flag1=="3"){
+                if((Steady_Type_Switch==1 & !IsEven(string_to_int(flag2))) | (Steady_Type_Switch==2 & IsEven(string_to_int(flag2)))){
+                    /*获取立柱的坐标 */
+                    x1 = 0.0;	 y1 = 0.0;	  z1 = 0.0;	
+                    x2 = 0.0;	 y2 = 0.0;	  z2 = 0.0;
+                    x_dx = 0.0;	 x_dy = 0.0;  x_dz = 0.0;
+                    end1x = 0.0; end1y = 0.0; end1z = 0.0;
+                    end2x = 0.0; end2y = 0.0; end2z = 0.0;	
+                    Get_Beam_Para(part, x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+                    Vector3d_Rotate(end2x,end2y,end2z, Handrail_X_Dx,Handrail_X_Dy,Handrail_X_Dz, -90, end2x,end2y,end2z);
+                    /* p1 */
+                    distance = -Handrail_Size_e;
+                    Point_3D_Move_With_DirAndDis(x1,y1,z1,Handrail_Y_Dx,Handrail_Y_Dy,Handrail_Y_Dz,distance);
+                    /* p2 */
+                    dh = 0.5*flatbar_width*Handrail_Size_f/Handrail_Size_e;
+                    distance = -(Handrail_Size_H-Handrail_Size_f-dh);
+                    Point_3D_Move_With_DirAndDis(x2,y2,z2,zdx,zdy,zdz,distance);
+                    distance = -0.5*flatbar_width;
+                    Point_3D_Move_With_DirAndDis(x2,y2,z2,Handrail_Y_Dx,Handrail_Y_Dy,Handrail_Y_Dz,distance);
+                    
+                    lox = 0;loy = 0;loz = 0;
+                    tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+                    part_handle = Create_Beam(Handrail_Part3_Pid,Info_System_Id,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                              end1x,end1y,end1z,end2x,end2y,end2z,tmat_h); 
+                    Set_Attribute_Value(part_handle, PartNumber,  "3-"+ITOASCII(j));        
+                    PM_ADD_OBJECT_TO_SET(part_handle, handrail);  
+                    j = j + 1;
+                }
+            }
+            if(flag1=="4"){
+                if((Steady_Type_Switch==1 & !IsEven(string_to_int(flag2))) | (Steady_Type_Switch==2 & IsEven(string_to_int(flag2)))){
+                    lox = 0;loy = 0;loz = 0;
+                    udx = 0;udy = 0;udz = 0;
+                    vdx = 0;vdy = 0;vdz = 0;
+                    Get_Plate_Para(part,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);
+                    /* p0 */
+                    distance = -Handrail_Size_e;
+                    Point_3D_Move_With_DirAndDis(lox,loy,loz,Handrail_Y_Dx,Handrail_Y_Dy,Handrail_Y_Dz,distance);
+                    
+                    tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+                    part_handle = Create_Plate(Handrail_Part4_Pid, Info_System_Id, curve, tmat_h, hole_list);         
+                    Set_Attribute_Value(part_handle, PartNumber,  "4-"+ITOASCII(j)); 
+                    PM_ADD_OBJECT_TO_SET(part_handle, handrail); 		
+                }
+            }
+        }
+    }
+
+    PM_ADD_SET_TO_GROUP(handrail, Handrail_Handle);
+    set_handrail_para(Handrail_Handle);
+    save_model_size();
+    PM_FREE_SET(handrail);   
+	return(0);
+}
+
+calculate_hole_list(hole_list,hole_dia)
+{
+	hole1_size = "circle1 = CURVE(" + STRINGTERM(FTOASCII(hole_dia),".") + "\/ 2,0,ARC,0,0,360)\;";
+	hole1_pos  = ",circle1,0,0";		
+	
+	/* 将开孔信息存入数组 */
+	put_2darray(hole_list,0,0,hole1_size);
+	put_2darray(hole_list,0,1,hole1_pos);	
+	return(0);  
+}
+
+set_handrail_para(group_h)
+{
+    Set_Attribute_Value(group_h, PlanningUnit, Info_Planning_Unit);
+    Set_Attribute_Value(group_h, HandrailDes,  Info_Handrail_Desc);
+    Set_Attribute_Value(group_h, HandrailType, Info_Handrail_Type);
+    
+    W_SET_NUMERIC_VALUE(Handrail_Para_L,  Handrail_Size_L);
+    W_SET_NUMERIC_VALUE(Handrail_Para_H,  Handrail_Size_H);
+    W_SET_NUMERIC_VALUE(Handrail_Para_s1, Handrail_Size_s1); 
+    W_SET_NUMERIC_VALUE(Handrail_Para_s2, Handrail_Size_s2);  
+    W_SET_NUMERIC_VALUE(Handrail_Para_h1, Handrail_Size_h1); 
+    W_SET_NUMERIC_VALUE(Handrail_Para_h2, Handrail_Size_h2);
+    W_SET_NUMERIC_VALUE(Handrail_Para_e,  Handrail_Size_e); 
+    W_SET_NUMERIC_VALUE(Handrail_Para_f,  Handrail_Size_f);    
+    W_SET_NUMERIC_VALUE(Handrail_Para_a,  Handrail_Size_a);   
+    W_SET_NUMERIC_VALUE(Handrail_Para_b,  Handrail_Size_b); 
+    W_SET_NUMERIC_VALUE(Handrail_Para_r,  Handrail_Size_r);
+    W_SET_NUMERIC_VALUE(Handrail_Para_s,  Handrail_Size_s);
+    return(0);
+}
+
+quit_handler(item, event_type, button_value)
+{ 
+    A_FREE(Part11);
+    A_FREE(Part21);
+    A_FREE(Part22);
+    A_FREE(Part31);
+    A_FREE(Part32);
+    A_FREE(Part41);
+    A_FREE(Part42);
+	U_MESSAGE("退出扶手参数化建模窗口");
+	return(99);
+}
+
+/*
+**创建用于输入及编辑扶手参数的面板
+*/
+create_parameter_panel(mainform)
+{
+	Parameters = W_ADD_WINDOW(mainform, W_PANEL, "Parameters");
+	W_REALIZE_WINDOW(Parameters,  W_FRAME_X, 465,
+	                              W_FRAME_Y, 315,
+							      W_FRAME_WIDTH, 100,
+							      W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"扶手尺寸");
+
+    seperate_line = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+
+	Handrail_Para_L = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_L");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_L, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_L,W_PANEL_ROW,        1, 
+                                        W_PANEL_COL,        1,
+                                        W_PANEL_LABEL,      " L: ",
+                                        W_PANEL_LENGTH,     6,
+                                        W_PANEL_CALLBACK,   1);      							               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_L, "handrail_para_handler"); 
+	
+	Handrail_Para_H = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_H");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_H, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_H,W_PANEL_ROW,        1, 
+                                        W_PANEL_COL,        12,
+                                        W_PANEL_LABEL,      " H: ",
+                                        W_PANEL_LENGTH,     6,
+                                        W_PANEL_CALLBACK,   1);					               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_H, "handrail_para_handler");  
+    
+	Handrail_Para_s1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_s1");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_s1, W_NUMERIC_FLOAT, 0, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_s1,   W_PANEL_ROW,        2, 
+                                            W_PANEL_COL,        1,
+                                            W_PANEL_LABEL,      "s1: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);
+	W_SET_PANELITEM_HANDLER(Handrail_Para_s1, "handrail_para_handler");
+
+	Handrail_Para_s2 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_s2");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_s2, W_NUMERIC_FLOAT, 0, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_s2,   W_PANEL_ROW,        2, 
+                                            W_PANEL_COL,        12,
+                                            W_PANEL_LABEL,      "s2: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);
+	W_SET_PANELITEM_HANDLER(Handrail_Para_s2, "handrail_para_handler");	
+
+	Handrail_Para_h1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_h1");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_h1, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_h1,   W_PANEL_ROW,        3, 
+                                            W_PANEL_COL,        1,
+                                            W_PANEL_LABEL,      "h1: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);          							               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_s1, "handrail_para_handler");
+
+	Handrail_Para_h2 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_h2");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_h2, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_h2,   W_PANEL_ROW,        3, 
+                                            W_PANEL_COL,        12,
+                                            W_PANEL_LABEL,      "h2: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);					               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_h2, "handrail_para_handler");	
+
+	Handrail_Para_e = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_e");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_e, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_e, W_PANEL_ROW,       4, 
+                                         W_PANEL_COL,       1,
+                                         W_PANEL_LABEL,     " e: ",
+                                         W_PANEL_LENGTH,    6,
+                                         W_PANEL_CALLBACK,  1);          							               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_e, "handrail_para_handler");
+
+	Handrail_Para_f = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_f");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_f, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_f,    W_PANEL_ROW,        4, 
+                                            W_PANEL_COL,        12,
+                                            W_PANEL_LABEL,      " f: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);					               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_f, "handrail_para_handler");	
+    
+	Handrail_Para_a = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_a");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_a, W_NUMERIC_FLOAT, 1, 100, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_a,    W_PANEL_ROW,        5, 
+                                            W_PANEL_COL,        1,
+                                            W_PANEL_LABEL,      " a: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);					               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_a, "handrail_para_handler");  
+
+	Handrail_Para_b = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_b");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_b, W_NUMERIC_FLOAT, 1, 100, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_b,    W_PANEL_ROW,        5, 
+                                            W_PANEL_COL,        12,
+                                            W_PANEL_LABEL,      " b: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);					               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_b, "handrail_para_handler");  
+    
+	Handrail_Para_r = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_r");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_r, W_NUMERIC_FLOAT, 1, 100, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_r,    W_PANEL_ROW,        6, 
+                                            W_PANEL_COL,        1,
+                                            W_PANEL_LABEL,      " r: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);					               
+	W_SET_PANELITEM_HANDLER(Handrail_Para_r, "handrail_para_handler"); 
+    
+    
+	Handrail_Para_s = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Handrail_Para_s");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Para_s, W_NUMERIC_FLOAT, 1, 10000, "%.0f");
+	W_REALIZE_PANELITEM(Handrail_Para_s,    W_PANEL_ROW,        6, 
+                                            W_PANEL_COL,        12,
+                                            W_PANEL_LABEL,      " s: ",
+                                            W_PANEL_LENGTH,     6,
+                                            W_PANEL_CALLBACK,   1);
+	W_SET_PANELITEM_HANDLER(Handrail_Para_s, "handrail_para_handler");
+	return(Parameters);
+}
+
+/*
+**处理扶手参数发生更改的事件
+*/
+handrail_para_handler(item, event_type, dummy)
+{  
+    /* 处理输入新数值后 */
+    if (event_type == W_EVENT_ITEM_LEFT){
+        /* 检查参数是否正确 */
+        if (item == Handrail_Para_L){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_L", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_L = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_L", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:L");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }           
+                st = PM_UM_CLOSE_CHANGE();           
+            }                 
+        }
+        else if (item == Handrail_Para_s){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_s = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:s");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_H){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_H", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_H = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_H", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:H");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_s1){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s1", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_s1 = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s1", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:s1");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_s2){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s2", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_s2 = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s2", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:s2");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_h1){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h1", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_h1 = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h1", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:h1");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_h2){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h2", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_h2 = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h2", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:h2");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_e){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_e", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_e = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_e", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:e");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_f){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_f", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_f = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_f", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:f");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_a){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_a", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_a = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_a", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:a");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_r){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_r", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_r = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_r", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:r");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        else if (item == Handrail_Para_b){
+            st = 0;
+            value = W_GET_NUMERIC_VALUE(item, st);
+            if (st != 0){
+                orgin = 0;
+                st1 = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_b", orgin);
+                if(st1 == 0){
+                    W_SET_NUMERIC_VALUE(item, orgin);
+                    value = orgin;
+                }
+                else{
+                    W_SET_NUMERIC_VALUE(item, 0);
+                    return(-1);
+                }
+            }
+
+            Handrail_Size_b = value;
+            st = SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_b", value);
+
+            if(Modify_flag){
+                /* 定义UNDO缓存 define cache for undo */
+                st = PM_UM_OPEN_CHANGE("修改扶手参数:b");
+                calculate_handrail_para();
+                delete_handrail_members();
+                res = create_handrail(); 
+                if (res == -1){
+                    PM_UM_CLOSE_CHANGE();
+                    PM_UM_UNDO_LAST_CHANGE();
+                    return(0);
+                }  
+                st = PM_UM_CLOSE_CHANGE();
+            }
+        }
+        
+    }
+    return(0); 
+}
+
+/*
+**创建用于输入及编辑扶手位置的面板
+*/
+create_position_panel(mainform)
+{
+	Position = W_ADD_WINDOW(mainform, W_PANEL, "Position");
+	W_REALIZE_WINDOW(Position,  W_FRAME_X, 465,
+	                            W_FRAME_Y, 505,
+							    W_FRAME_WIDTH, 100,
+							    W_FRAME_HEIGHT, 180);
+
+	title = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"扶手位置");
+
+    seperate_line = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+   
+	/* 扶手位置信息-绝对坐标 */
+	Handrail_Position_X = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_X");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Position_X, W_NUMERIC_INT,
+                                                  -1000000, 1000000);                                          	
+	W_REALIZE_PANELITEM(Handrail_Position_X, W_PANEL_ROW, 1, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "X: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);	
+	W_SET_NUMERIC_VALUE(Handrail_Position_X, 10000);						                     	
+	W_SET_PANELITEM_HANDLER(Handrail_Position_X, "handrail_position_handler"); 
+
+	Handrail_Position_Y = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_Y");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Position_Y, W_NUMERIC_INT,
+                                                  -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Handrail_Position_Y, W_PANEL_ROW, 2, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Y: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Handrail_Position_Y, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Y, "handrail_position_handler");
+
+	Handrail_Position_Z = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_Z");
+    W_CONFIG_NUMERIC_PANELITEM(Handrail_Position_Z, W_NUMERIC_INT,
+                                                  -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Handrail_Position_Z, W_PANEL_ROW, 3, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Z: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Handrail_Position_Z, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Z, "handrail_position_handler");	
+
+	/* 扶手位置信息-参考面 */
+	Handrail_Position_Xref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_Xref");
+	W_REALIZE_PANELITEM(Handrail_Position_Xref,	W_PANEL_ROW, 			1, 
+                                                W_PANEL_COL, 			11,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                     
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Xref, "handrail_position_handler"); 
+
+	Handrail_Position_Yref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_Yref");	
+	W_REALIZE_PANELITEM(Handrail_Position_Yref,	W_PANEL_ROW, 			2, 
+                                                W_PANEL_COL, 			11,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Yref, "handrail_position_handler");
+    
+	Handrail_Position_Zref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_Zref");	
+	W_REALIZE_PANELITEM(Handrail_Position_Zref,	W_PANEL_ROW, 			3, 
+                                                W_PANEL_COL, 			11,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Zref, "handrail_position_handler");	
+
+	/* 扶手位置信息-偏移量 */	
+	Handrail_Position_Xoff = W_ADD_PANELITEM(Position,	W_PANEL_FILL, "Handrail_Position_Xoff");
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Position_Xoff,	W_NUMERIC_INT,
+                                                        -10000, 10000);	
+	W_REALIZE_PANELITEM(Handrail_Position_Xoff,	W_PANEL_ROW, 			1, 
+                                                W_PANEL_COL, 			18,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                     	
+	W_SET_NUMERIC_VALUE(Handrail_Position_Xoff, 0);	
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Xoff, "handrail_position_handler"); 
+
+	Handrail_Position_Yoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_Yoff");
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Position_Yoff,	W_NUMERIC_INT,
+                                                        -10000, 10000);	
+	W_REALIZE_PANELITEM(Handrail_Position_Yoff,	W_PANEL_ROW, 			2, 
+                                                W_PANEL_COL, 			18,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_NUMERIC_VALUE(Handrail_Position_Yoff, 0);							                        
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Yoff, "handrail_position_handler");
+
+	Handrail_Position_Zoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Handrail_Position_Zoff");
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Position_Zoff,	W_NUMERIC_INT,
+                                                        -10000, 10000);
+	W_REALIZE_PANELITEM(Handrail_Position_Zoff,	W_PANEL_ROW, 			3, 
+                                                W_PANEL_COL, 			18,
+                                                W_PANEL_LABEL, 			"",
+                                                W_PANEL_LENGTH, 		6,
+                                                W_PANEL_VALUE, 			"",
+                                                W_PANEL_SENSITIVITY,	0,
+                                                W_PANEL_CALLBACK, 		1);
+	W_SET_NUMERIC_VALUE(Handrail_Position_Zoff, 0);						                                        
+	W_SET_PANELITEM_HANDLER(Handrail_Position_Zoff, "handrail_position_handler");	
+
+	Pick_Handrail_Position = W_ADD_PANELITEM(Position, W_PANEL_BUTTON, "Pick_Handrail_Position");	
+	W_REALIZE_PANELITEM(Pick_Handrail_Position,	W_PANEL_ROW, 			4, 
+                                                W_PANEL_COL, 			0,
+                                                W_PANEL_BUTTONIMAGE, 	"点选位置", 
+                                                W_PANEL_WIDTH, 			24,
+                                                W_PANEL_BUTTONVALUE, 	601,
+                                                W_PANEL_CALLBACK, 		1,
+                                                W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Pick_Handrail_Position, "pick_handrail_position_handler");										
+	return(Position);
+}
+
+/*
+**用于处理扶手坐标的输入
+*/
+handrail_position_handler(item, event_type, dummy)
+{     
+	if (event_type == W_EVENT_ITEM_LEFT){     
+		if (item == Handrail_Position_X | item == Handrail_Position_Y | item == Handrail_Position_Z){         
+			st = 0;                  
+			trans_abs_ref();
+		}
+		else if ( item == Handrail_Position_Xref | item == Handrail_Position_Yref | item == Handrail_Position_Zref){        
+            x_ref = W_GET_PANELITEM_ARG(Handrail_Position_Xref, W_PANEL_VALUE);
+            y_ref = W_GET_PANELITEM_ARG(Handrail_Position_Yref, W_PANEL_VALUE);
+            z_ref = W_GET_PANELITEM_ARG(Handrail_Position_Zref, W_PANEL_VALUE);
+            st = 0;
+            x_off = W_GET_NUMERIC_VALUE(Handrail_Position_Xoff, st);
+            y_off = W_GET_NUMERIC_VALUE(Handrail_Position_Yoff, st);
+            z_off = W_GET_NUMERIC_VALUE(Handrail_Position_Zoff, st);                
+            coord_ref_to_abs(x_ref,x_off,y_ref,y_off,x_ref,x_off);           
+		}  
+        if(Modify_flag){
+            st = PM_UM_OPEN_CHANGE("修改扶手位置");
+            calculate_handrail_para();
+            delete_handrail_members();
+            res = create_handrail(); 
+            if (res == -1){
+                PM_UM_CLOSE_CHANGE();
+                PM_UM_UNDO_LAST_CHANGE();
+                return(0);
+            }  
+            st = PM_UM_CLOSE_CHANGE();
+        }           
+	}
+	return(0);
+}
+
+/*
+**将相对坐标转换成绝对坐标
+*/
+coord_ref_to_abs(string x_ref,float x_off,string y_ref,float y_off,string Z_ref,float Z_off)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Handrail_Position_X, st);
+	y0 = W_GET_NUMERIC_VALUE(Handrail_Position_Y, st);
+	z0 = W_GET_NUMERIC_VALUE(Handrail_Position_Z, st);
+	return(0);
+}
+
+/*
+**用于处理扶手在模型中捕捉扶手的位置
+*/
+pick_handrail_position_handler(item, event_type, button_value)
+{
+	/* 获取当前光标点坐标并显示到面板中 */
+	x0 = 0;y0 = 0;z0 = 0;
+	trace_handle = PM_NEW_TRACEP();  
+	PM_GET_CURRENT_LOC(x0,y0,z0);  
+	res = PM_GET_POINT("请选择扶手位置", trace_handle, x0, y0, z0); 
+	if ( res < 0 ){
+		return(-1);
+	}
+    
+	W_SET_NUMERIC_VALUE(Handrail_Position_X, x0);
+	W_SET_NUMERIC_VALUE(Handrail_Position_Y, y0);
+	W_SET_NUMERIC_VALUE(Handrail_Position_Z, z0);
+   
+	trans_abs_ref();
+    
+	if(Modify_flag){
+		st = PM_UM_OPEN_CHANGE("修改扶手位置");
+		calculate_handrail_para();
+		delete_handrail_members();
+        res = create_handrail(); 
+        if (res == -1){
+            PM_UM_CLOSE_CHANGE();
+            PM_UM_UNDO_LAST_CHANGE();
+            return(0);
+        }  
+		st = PM_UM_CLOSE_CHANGE();
+	}            
+	return(0);
+}
+
+/*
+**将绝对坐标转换成相对坐标
+*/
+trans_abs_ref()
+{
+	/* 将绝对坐标转换成相对坐标并显示到面板中 */   
+	x_ref = "";
+	y_ref = "";
+	z_ref = "";
+	x_offset = 0;
+	y_offset = 0;
+	z_offset = 0;
+   
+	x0 = 0;
+	y0 = 0;
+	z0 = 0;
+   
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Handrail_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Handrail_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Handrail_Position_Z,st);
+   
+	res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+	if (res == 0){  
+		W_SET_PANELITEM_ARGS(Handrail_Position_Xref, W_PANEL_VALUE, x_ref);
+		W_SET_PANELITEM_ARGS(Handrail_Position_Yref, W_PANEL_VALUE, y_ref);
+		W_SET_PANELITEM_ARGS(Handrail_Position_Zref, W_PANEL_VALUE, z_ref);
+   
+		W_SET_NUMERIC_VALUE(Handrail_Position_Xoff, x_offset);
+		W_SET_NUMERIC_VALUE(Handrail_Position_Yoff, y_offset);
+		W_SET_NUMERIC_VALUE(Handrail_Position_Zoff, z_offset);     
+	}  
+	else if (res == -1){     
+		W_SET_PANELITEM_ARGS(Handrail_Position_Xref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Handrail_Position_Yref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Handrail_Position_Zref, W_PANEL_VALUE, "Unset");
+   
+		W_SET_NUMERIC_VALUE(Handrail_Position_Xoff, 0);
+		W_SET_NUMERIC_VALUE(Handrail_Position_Yoff, 0);
+		W_SET_NUMERIC_VALUE(Handrail_Position_Zoff, 0); 
+		U_CONFIRM("参考坐标系定义不正确");           
+	}    
+}
+
+/*
+**创建用于旋转扶手的面板
+*/
+create_rotate_handrail_panel(mainform)
+{
+	Orientation = W_ADD_WINDOW(mainform, W_PANEL, "Orientation");	
+	W_REALIZE_WINDOW(Orientation,	W_FRAME_X, 		680,
+									W_FRAME_Y, 		315,
+							        W_FRAME_WIDTH,	100,
+							        W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"旋转扶手");
+
+	seperate_line = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);         
+	/* 扶手旋转轴 */   
+	Handrail_Rotate_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Handrail_Rotate_X");	
+	W_REALIZE_PANELITEM(Handrail_Rotate_X,	W_PANEL_ROW,		1, 
+                                            W_PANEL_COL,		0,
+                                            W_PANEL_LABEL,		"X轴:",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);
+
+	Handrail_Rotate_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Handrail_Rotate_Y");	
+	W_REALIZE_PANELITEM(Handrail_Rotate_Y,	W_PANEL_ROW,		2, 
+                                            W_PANEL_COL,		0,
+                                            W_PANEL_LABEL,		"Y轴:",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);	
+										
+	Handrail_Rotate_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Handrail_Rotate_Z");	
+	W_REALIZE_PANELITEM(Handrail_Rotate_Z,	W_PANEL_ROW,		3, 
+                                            W_PANEL_COL,		0,
+                                            W_PANEL_LABEL, 		"Z轴:",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);	
+	/* 扶手旋转角度 */  
+	Handrail_Rotate_Angle_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Handrail_Rotate_Angle_X");
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Rotate_Angle_X, W_NUMERIC_FLOAT, 0.0, 180.0, "%.1f");	                                                  
+	W_REALIZE_PANELITEM(Handrail_Rotate_Angle_X,	W_PANEL_ROW, 		1, 
+                                                    W_PANEL_COL, 		8,
+                                                    W_PANEL_LABEL, 		"",
+                                                    W_PANEL_LENGTH, 	6,
+                                                    W_PANEL_VALUE, 		"0.0",
+                                                    W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Handrail_Rotate_Angle_X, 0.0);	
+
+							               
+	Handrail_Rotate_Angle_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Handrail_Rotate_Angle_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Rotate_Angle_Y, W_NUMERIC_FLOAT, 0.0, 180.0, "%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Handrail_Rotate_Angle_Y,	W_PANEL_ROW, 		2, 
+                                                    W_PANEL_COL, 		8,
+                                                    W_PANEL_LABEL, 		"",
+                                                    W_PANEL_LENGTH, 	6,
+                                                    W_PANEL_VALUE, 		"0.0",
+                                                    W_PANEL_CALLBACK,	0);							               
+	W_SET_NUMERIC_VALUE(Handrail_Rotate_Angle_Y, 0.0);							               	
+	
+	Handrail_Rotate_Angle_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Handrail_Rotate_Angle_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Rotate_Angle_Z,	W_NUMERIC_FLOAT, 0.0, 180.0, "%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Handrail_Rotate_Angle_Z,	W_PANEL_ROW, 		3, 
+                                                    W_PANEL_COL, 		8,
+                                                    W_PANEL_LABEL, 		"",
+                                                    W_PANEL_LENGTH, 	6,
+                                                    W_PANEL_VALUE, 		"0.0",
+                                                    W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Handrail_Rotate_Angle_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Handrail_Rotate_Angle_X, "check_rotate_angle");
+	W_SET_PANELITEM_HANDLER(Handrail_Rotate_Angle_Y, "check_rotate_angle");   
+	W_SET_PANELITEM_HANDLER(Handrail_Rotate_Angle_Z, "check_rotate_angle");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	left_rotate_image  = icon_path + "rotateleft16.bmp";
+	right_rotate_image = icon_path + "rotateright16.bmp";
+
+	Rotate_By_X_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_L");
+	W_REALIZE_PANELITEM(Rotate_By_X_L,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);   
+                                        
+	Rotate_By_X_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_R");
+	W_REALIZE_PANELITEM(Rotate_By_X_R,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL); 	
+                                        
+	Rotate_By_Y_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_L");
+	W_REALIZE_PANELITEM(Rotate_By_Y_L,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+                                        
+	Rotate_By_Y_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_R");
+	W_REALIZE_PANELITEM(Rotate_By_Y_R,  W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+                                        
+	Rotate_By_Z_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_L");
+	W_REALIZE_PANELITEM(Rotate_By_Z_L,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL); 
+                                        
+	Rotate_By_Z_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_R");
+	W_REALIZE_PANELITEM(Rotate_By_Z_R,  W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+    
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_R, "rotate_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_L, "rotate_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_R, "rotate_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_L, "rotate_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_R, "rotate_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_L, "rotate_handrail_handler");
+	return(Orientation);
+}
+
+check_rotate_angle(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		angle = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, 1);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+rotate_handrail_handler(item, event_type, button_value)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Handrail_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Handrail_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Handrail_Position_Z,st);
+	set = PM_GET_OBJECTS_IN_GROUP(Handrail_Handle);
+    
+	if (item == Rotate_By_X_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Handrail_Rotate_Angle_X,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_X_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Handrail_Rotate_Angle_X,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_Y_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Handrail_Rotate_Angle_Y,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Y_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Handrail_Rotate_Angle_Y,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Z_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Handrail_Rotate_Angle_Z,st);
+		angle = 0-rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}
+	else if (item == Rotate_By_Z_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Handrail_Rotate_Angle_Z,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}     
+	return(0);
+}
+
+/*
+**创建用于移动扶手的面板
+*/
+create_move_handrail_panel(mainform)
+{
+	move_handrail = W_ADD_WINDOW(mainform, W_PANEL, "move_handrail");	
+	W_REALIZE_WINDOW(move_handrail,	W_FRAME_X,		680,
+                                    W_FRAME_Y,		505,
+                                    W_FRAME_WIDTH,	100,
+                                    W_FRAME_HEIGHT,	200);
+
+	title = W_ADD_PANELITEM(move_handrail, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+								W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"移动扶手");
+
+	seperate_line = W_ADD_PANELITEM(move_handrail, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+										W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR, 	1);
+		                                 							         
+	/* 扶手移动轴 */ 
+	Handrail_Move_X = W_ADD_PANELITEM(move_handrail, W_PANEL_FILL, "Handrail_Move_X");	
+	W_REALIZE_PANELITEM(Handrail_Move_X,	W_PANEL_ROW, 		1, 
+                                            W_PANEL_COL, 		0,
+                                            W_PANEL_LABEL, 		"X: ",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);
+
+	Handrail_Move_Y = W_ADD_PANELITEM(move_handrail, W_PANEL_FILL, "Handrail_Move_Y");	
+	W_REALIZE_PANELITEM(Handrail_Move_Y,	W_PANEL_ROW, 		2, 
+                                            W_PANEL_COL, 		0,
+                                            W_PANEL_LABEL, 		"Y: ",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE,		"",
+                                            W_PANEL_CALLBACK,	0);	
+										
+	Handrail_Move_Z = W_ADD_PANELITEM(move_handrail, W_PANEL_FILL, "Handrail_Move_Z");	
+	W_REALIZE_PANELITEM(Handrail_Move_Z,	W_PANEL_ROW, 		3, 
+                                            W_PANEL_COL, 		0,
+                                            W_PANEL_LABEL, 		"Z: ",
+                                            W_PANEL_LENGTH, 	0,
+                                            W_PANEL_VALUE, 		"",
+                                            W_PANEL_CALLBACK,	0);	
+
+    /* 扶手移动距离 */   
+	Handrail_Move_Distance_X = W_ADD_PANELITEM(move_handrail, W_PANEL_FILL, "Handrail_Move_Distance_X");
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Move_Distance_X,  W_NUMERIC_FLOAT,0.0, 10000.0, "%.0f");	                                                   
+	W_REALIZE_PANELITEM(Handrail_Move_Distance_X,	W_PANEL_ROW, 1, 
+                                                    W_PANEL_COL, 8,
+                                                    W_PANEL_LABEL, "",
+                                                    W_PANEL_LENGTH, 5,
+                                                    W_PANEL_VALUE, "0.0",
+                                                    W_PANEL_CALLBACK, 1);        							                
+	W_SET_NUMERIC_VALUE(Handrail_Move_Distance_X, 0.0);	
+
+							               
+	Handrail_Move_Distance_Y = W_ADD_PANELITEM(move_handrail, W_PANEL_FILL, "Handrail_Move_Distance_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Move_Distance_Y,  W_NUMERIC_FLOAT, 0.0, 10000.0,	"%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Handrail_Move_Distance_Y,	W_PANEL_ROW, 		2, 
+                                                    W_PANEL_COL, 		8,
+                                                    W_PANEL_LABEL, 		"",
+                                                    W_PANEL_LENGTH, 	5,
+                                                    W_PANEL_VALUE, 		"0.0",
+                                                    W_PANEL_CALLBACK, 	0);							               
+	W_SET_NUMERIC_VALUE(Handrail_Move_Distance_Y, 0.0);							               	
+	
+	Handrail_Move_Distance_Z = W_ADD_PANELITEM(move_handrail, W_PANEL_FILL, "Handrail_Move_Distance_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Handrail_Move_Distance_Z,  W_NUMERIC_FLOAT, 0.0, 10000.0, "%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Handrail_Move_Distance_Z,	W_PANEL_ROW, 		3, 
+                                                    W_PANEL_COL, 		8,
+                                                    W_PANEL_LABEL, 		"",
+                                                    W_PANEL_LENGTH, 	5,
+                                                    W_PANEL_VALUE, 		"0.0",
+                                                    W_PANEL_CALLBACK,	0);
+	W_SET_NUMERIC_VALUE(Handrail_Move_Distance_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Handrail_Move_Distance_X, "check_move_distance");
+	W_SET_PANELITEM_HANDLER(Handrail_Move_Distance_Y, "check_move_distance");   
+	W_SET_PANELITEM_HANDLER(Handrail_Move_Distance_Z, "check_move_distance");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	move_right_image  = icon_path + "move_right.bmp";
+	move_left_image = icon_path + "move_left.bmp";
+
+	Move_By_X_N = W_ADD_PANELITEM(move_handrail, W_PANEL_BUTTON, "Move_By_X_N");	
+	W_REALIZE_PANELITEM(Move_By_X_N,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE,		move_left_image, 
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+										
+	Move_By_X_P = W_ADD_PANELITEM(move_handrail, W_PANEL_BUTTON, "Move_By_X_P");	
+	W_REALIZE_PANELITEM(Move_By_X_P,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL); 
+							                  
+	Move_By_Y_N = W_ADD_PANELITEM(move_handrail, W_PANEL_BUTTON, "Move_By_Y_N");	
+	W_REALIZE_PANELITEM(Move_By_Y_N,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Y_P = W_ADD_PANELITEM(move_handrail, W_PANEL_BUTTON, "Move_By_Y_P");	
+	W_REALIZE_PANELITEM(Move_By_Y_P,	W_PANEL_ROW, 			2, 
+										W_PANEL_COL, 			15,
+										W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);							                  
+							                  
+	Move_By_Z_N = W_ADD_PANELITEM(move_handrail, W_PANEL_BUTTON, "Move_By_Z_N");	
+	W_REALIZE_PANELITEM(Move_By_Z_N,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Z_P = W_ADD_PANELITEM(move_handrail, W_PANEL_BUTTON, "Move_By_Z_P");	
+	W_REALIZE_PANELITEM(Move_By_Z_P,    W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+							                   							               			         							         														
+	W_SET_PANELITEM_HANDLER(Move_By_X_P, "move_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_X_N, "move_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_P, "move_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_N, "move_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_P, "move_handrail_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_N, "move_handrail_handler");
+	
+	return(move_handrail);
+}
+
+check_move_distance(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		Distance = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			dummy = 1;
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, dummy);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+move_handrail_handler(item, event_type, button_value)
+{
+	set = PM_GET_OBJECTS_IN_GROUP(Handrail_Handle);
+    
+	if (item == Move_By_X_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Handrail_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Handrail_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Handrail_Position_X,x0);
+		trans_abs_ref();
+	}
+	else if (item == Move_By_X_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Handrail_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Handrail_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Handrail_Position_X,x0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Handrail_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Handrail_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Handrail_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Handrail_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Handrail_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Handrail_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Handrail_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Handrail_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Handrail_Position_Z,z0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Handrail_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Handrail_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Handrail_Position_Z,z0);
+		trans_abs_ref();       
+	}  
+	return(0);
+}
+
+create_command_panel(mainform)
+{	
+	Command = W_ADD_WINDOW(mainform, W_PANEL, "Command");
+	W_REALIZE_WINDOW(Command,	W_FRAME_X, 		0,
+							    W_FRAME_Y,		635,
+							    W_FRAME_WIDTH,	850,
+							    W_FRAME_HEIGHT,	50);
+                                
+	title = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"命令");
+                                
+    seperate_line = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		3,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);	
+		                                 													
+	Create_Handrail = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Create_Handrail");
+	W_REALIZE_PANELITEM(Create_Handrail,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			0,
+							            W_PANEL_BUTTONIMAGE, 	"创建", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Create_Handrail, "create_handrail_handler");
+
+	Delete_Handrail = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Delete_Handrail");
+	W_REALIZE_PANELITEM(Delete_Handrail,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			11,
+							            W_PANEL_BUTTONIMAGE, 	"删除", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	503,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Delete_Handrail, "delete_handrail_handler");
+
+	Browse_Handrail = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Browse_Handrail");
+	W_REALIZE_PANELITEM(Browse_Handrail,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			22,
+							            W_PANEL_BUTTONIMAGE, 	"浏览", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	504,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Browse_Handrail, "browse_handrail_handler");
+
+	Undo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Undo");
+	W_REALIZE_PANELITEM(Undo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			33,
+							    W_PANEL_BUTTONIMAGE, 	"Undo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	505,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Undo, "undo_handler");
+
+	Redo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Redo");
+	W_REALIZE_PANELITEM(Redo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			44,
+							    W_PANEL_BUTTONIMAGE, 	"Redo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	506,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Redo, "redo_handler");
+				 
+	quit = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "quit");
+	W_REALIZE_PANELITEM(quit,	W_PANEL_ROW,         1, 
+								W_PANEL_COL,         55,
+								W_PANEL_BUTTONIMAGE, "退出", 
+							    W_PANEL_WIDTH,       10,
+							    W_PANEL_BUTTONVALUE, 507,
+							    W_PANEL_CALLBACK,    1,
+							    W_PANEL_CLOSEBUTTON, 1,
+							    W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	return(Command);
+}
+
+/*保留1位小数*/
+string_para(float_para)
+{
+    temp = "";
+    S_PRINTF(temp,"%.1f",float_para);
+    return temp;
+}
+
+/*保存设计参数*/
+save_model_size()
+{
+	para = "";
+	if(Handrail_Size_L != 0.0){
+		para = para + "L=" + string_para(Handrail_Size_L);
+	}
+	if(Handrail_Size_s != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//s=" + string_para(Handrail_Size_s);
+		}
+		else{
+			para = para + "s=" + string_para(Handrail_Size_s);
+		}
+	}	
+	if(Handrail_Size_H != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//H=" + string_para(Handrail_Size_H);
+		}
+		else{
+			para = para + "H=" + string_para(Handrail_Size_H);
+		}
+	}
+	if(Handrail_Size_s1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//s1=" + string_para(Handrail_Size_s1);
+		}
+		else{
+			para = para + "s1=" + string_para(Handrail_Size_s1);
+		}
+	}
+	if(Handrail_Size_s2 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//s2=" + string_para(Handrail_Size_s2);
+		}
+		else{
+			para = para + "s2=" + string_para(Handrail_Size_s2);
+		}
+	}
+	if(Handrail_Size_h1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//h1=" + string_para(Handrail_Size_h1);
+		}
+		else{
+			para = para + "h1=" + string_para(Handrail_Size_h1);
+		}
+	}
+	if(Handrail_Size_h2 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//h2=" + string_para(Handrail_Size_h2);
+		}
+		else{
+			para = para + "h2=" + string_para(Handrail_Size_h2);
+		}
+	}
+	if(Handrail_Size_a != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//a=" + string_para(Handrail_Size_a);
+		}
+		else{
+			para = para + "a=" + string_para(Handrail_Size_a);
+		}
+	}
+	if(Handrail_Size_b != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//b=" + string_para(Handrail_Size_b);
+		}
+		else{
+			para = para + "b=" + string_para(Handrail_Size_b);
+		}
+	}
+	if(Handrail_Size_r != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//r=" + string_para(Handrail_Size_r);
+		}
+		else{
+			para = para + "r=" + string_para(Handrail_Size_r);
+		}
+	}
+	if(Handrail_Size_e != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//e=" + string_para(Handrail_Size_e);
+		}
+		else{
+			para = para + "e=" + string_para(Handrail_Size_e);
+		}
+	}
+	if(Handrail_Size_f != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//f=" + string_para(Handrail_Size_f);
+		}
+		else{
+			para = para + "f=" + string_para(Handrail_Size_f);
+		}
+	}
+    
+	Set_Attribute_Value(Handrail_Handle, HandrailSize, para);
+}
+
+/*读取设计参数*/
+read_model_size()
+{
+	nth = 0;
+	para = PM_GET_OBJDATA(Handrail_Handle,nth,HandrailSize);
+	if(ISSTRING(para)){	
+		/*get handrail type & size from parameter of equipment GDL*/
+		flag = 1;
+		while(flag){
+			parameter = STRINGTERM(para,"//");
+			if(parameter != ""){
+				name = STRINGTERM(parameter,"=");
+				value = TAIL(parameter,STRLEN(parameter)-STRLEN(name)-1);
+				if(name == "L"){
+					Handrail_Size_L = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_L,Handrail_Size_L);
+				}
+				else if(name == "s"){
+					Handrail_Size_s = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_s,Handrail_Size_s);
+				}
+				else if(name == "H"){
+					Handrail_Size_H = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_H,Handrail_Size_H);
+				}
+				else if(name == "s1"){
+					Handrail_Size_s1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_s1,Handrail_Size_s1);
+				}
+				else if(name == "s2"){
+					Handrail_Size_s2 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_s2,Handrail_Size_s2);
+				}
+				else if(name == "h1"){
+					Handrail_Size_h1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_h1,Handrail_Size_h1);
+				}
+				else if(name == "h2"){
+					Handrail_Size_h2 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_h2,Handrail_Size_h2);
+				}
+				else if(name == "b"){
+					Handrail_Size_b = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_b,Handrail_Size_b);
+				}
+                else if(name == "a"){
+					Handrail_Size_a = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_a,Handrail_Size_a);
+				}
+                else if(name == "r"){
+					Handrail_Size_r = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_r,Handrail_Size_r);
+				}
+				else if(name == "e"){
+					Handrail_Size_e = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_e,Handrail_Size_e);
+				}
+                else if(name == "f"){
+					Handrail_Size_f = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Handrail_Para_f,Handrail_Size_f);
+				}
+			}
+			else{
+				flag = 0;            
+			}
+			para = TAIL(para,STRLEN(para) - STRLEN(parameter) - 2);        
+		}
+	}
+	return(0);
+}
+
+browse_handrail_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);	
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);   
+}
+
+delete_handrail_handler(item, event_type, button_value)
+{
+	flag = 1;
+	while(flag){
+		tmp = 0;
+		picked_object_handle = PM_PICK_OBJECT("请选择要删除的扶手", tmp, "STRUCTCMP","BEAM");
+		if (!ISINT(picked_object_handle)){	   
+			/*获取扶手的名称*/
+			group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,Group_Type_I);
+			if (ISINT(group_handle)){
+				U_CONFIRM("此零件不属于任何扶手");	      	
+				return(0);
+			}	
+			group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);
+			/* 定义UNDO缓存 */
+			st = PM_UM_OPEN_CHANGE("删除扶手" + group_name);	 
+      	  
+			/* 删除扶手零件 */
+			handrail_members = PM_GET_OBJECTS_IN_GROUP(group_handle);
+			PM_DELETE_OBJECTS_IN_SET(handrail_members, 0);  
+            
+			/* 删除扶手 */   
+			res = PM_DELETE_OBJECT(group_handle);
+         
+			/* 扶手删除不成功，撤销相关操作 */
+			if (res == -1){
+				PM_UM_CLOSE_CHANGE();
+				PM_UM_UNDO_LAST_CHANGE();
+				return(0);
+			}        
+			st = PM_UM_CLOSE_CHANGE();  	      	      						
+		} 
+		else{
+			flag = 0;
+		} 
+	}
+   
+	/*扶手删除成功，进入创建新扶手状态*/   
+	W_SET_PANELITEM_ARGS(Handrail_Name, W_PANEL_VALUE, "Undefined");   
+	W_SET_PANELITEM_ARGS(Create_Handrail, W_PANEL_SENSITIVITY,1);   
+	Modify_flag = 0;
+	return(0);
+}
+
+redo_handler(item, event_type, button_value)
+{
+	res = PM_UM_REDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		handrail_name = PM_GET_OBJDATA(Handrail_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(handrail_name)){ 
+			reload_handrail_data(handrail_name);
+		}
+	}   
+	return(0);
+}
+
+undo_handler(item, event_type, button_value)
+{
+	res = PM_UM_UNDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		handrail_name = PM_GET_OBJDATA(Handrail_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(handrail_name)){ 
+			reload_handrail_data(handrail_name);
+		}
+	}
+	return(0);
+}
+
+delete_handrail_members()
+{
+	handrail_members = PM_GET_OBJECTS_IN_GROUP(Handrail_Handle);
+	PM_DELETE_OBJECTS_IN_SET(handrail_members, 0); 
+	return(0);   
+}
+
+/*
+**加载
+*/
+load_default_setting()
+{
+	permision = PM_PREPARE_TO_EDIT_SETTINGS();
+	if(permision != 0){
+		U_MESSAGE("用户没有保存共享设置的权限");
+	}
+   
+	/*加载扶手信息的默认值*/
+	system_name = "";
+	st = GET_STRING_DEFAULT("Handrail101", "System_Name", system_name);
+	if(st == 0){
+	    Info_System_Name = system_name;
+		Info_System_Id = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);	   
+	}
+	else{
+		system_name = "Foundation";
+		system_id = PM_GET_SYSTEM_ID(system_name);
+		if(system_id != -1){
+			W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+			Info_System_Name = system_name;
+			Info_System_Id = system_id;
+		} 	   
+	}
+	
+	/*加载扶手名称*/
+	description = "";
+	st = GET_STRING_DEFAULT("Handrail101", "Info_Handrail_Desc", description);
+	if(st == 0){
+	    Info_Handrail_Desc = description;
+		W_SET_PANELITEM_ARGS(Handrail_Description, W_PANEL_VALUE, description);
+	}	
+	
+	/*加载扶手托盘*/
+	planning_unit = "";
+	st = GET_STRING_DEFAULT("Handrail101", "Planning_Unit", planning_unit);
+	if(st == 0){
+	    Info_Planning_Unit = planning_unit;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, planning_unit);
+    }
+    
+	/*加载默认的零件*/
+    part_id = "";
+    st = GET_STRING_DEFAULT("Handrail101","Handrail_Part1", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part1:   " + descr);
+		W_SET_PANELITEM_ARGS(Handrail_Part1, W_PANEL_VALUE, descr);
+        Handrail_Part1_Pid = part_id;
+	}
+    
+    st = GET_STRING_DEFAULT("Handrail101","Handrail_Part2", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part2:   " + descr);
+		W_SET_PANELITEM_ARGS(Handrail_Part2, W_PANEL_VALUE, descr);
+        Handrail_Part2_Pid = part_id;
+	}
+    
+    st = GET_STRING_DEFAULT("Handrail101","Handrail_Part3", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part3:   " + descr);
+		W_SET_PANELITEM_ARGS(Handrail_Part3, W_PANEL_VALUE, descr);
+        Handrail_Part3_Pid = part_id;
+	}
+    
+    st = GET_STRING_DEFAULT("Handrail101","Handrail_Part4", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part4:   " + descr);
+		W_SET_PANELITEM_ARGS(Handrail_Part4, W_PANEL_VALUE, descr);
+        Handrail_Part4_Pid = part_id;
+	}
+    
+	/*load default value of handrail size*/
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_L", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_L, size);
+		Handrail_Size_L = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_L, 3000.00);
+		Handrail_Size_L = 3000.00;
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_L", Handrail_Size_L); 
+	}
+	
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s, size);
+		Handrail_Size_s = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s, 1200.00);
+		Handrail_Size_s = 1200.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s", Handrail_Size_s); 
+	}
+	
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_H", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_H, size);
+		Handrail_Size_H = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_H, 1050.00);
+		Handrail_Size_H = 1050.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_H", Handrail_Size_H); 
+	}
+
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s1, size);
+		Handrail_Size_s1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s1, 500.00);
+		Handrail_Size_s1 = 500.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s1", Handrail_Size_s1); 
+	}
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s2", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s2, size);
+		Handrail_Size_s2 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s2, 500.00);
+		Handrail_Size_s2 = 500.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s2", Handrail_Size_s2); 
+	}	
+
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_h1, size);
+		Handrail_Size_h1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_h1, 250.00);
+		Handrail_Size_h1 = 250.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h1", Handrail_Size_h1); 
+	}
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h2", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_h2, size);
+		Handrail_Size_h2 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_h2, 700.00);
+		Handrail_Size_h2 = 700.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_h2", Handrail_Size_h2); 
+	}
+    
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_a", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_a, size);
+		Handrail_Size_a = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_a, 100.00);
+		Handrail_Size_a = 100.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_a", Handrail_Size_a); 
+	}	
+    
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_b", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_b, size);
+		Handrail_Size_b = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_b, 50.00);
+		Handrail_Size_b = 50.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_b", Handrail_Size_b); 
+	}
+    
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_r", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_r, size);
+		Handrail_Size_r = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_r, 15.00);
+		Handrail_Size_r = 15.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_r", Handrail_Size_r); 
+	}	
+    
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s1, size);
+		Handrail_Size_s1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s1, 500.00);
+		Handrail_Size_s1 = 500.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s1", Handrail_Size_s1); 
+	}
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s2", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s2, size);
+		Handrail_Size_s2 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_s2, 500.00);
+		Handrail_Size_s2 = 500.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_s2", Handrail_Size_s2); 
+	}	
+    
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_e", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_e, size);
+		Handrail_Size_e = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_e, 300.00);
+		Handrail_Size_e = 300.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_e", Handrail_Size_e); 
+	}
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_f", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_f, size);
+		Handrail_Size_f = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Handrail_Para_f, 500.00);
+		Handrail_Size_f = 500.00;	  
+		SET_FLOAT_DEFAULT("Handrail101", "Handrail_Para_f", Handrail_Size_f); 
+	}	
+    
+    /* 加载开孔零件 */
+    /* load_virtual_hole_part(); */
+	return(0);
+}
+
+load_virtual_hole_part()
+{
+	/* check default setting */
+	part_code = "";
+	st = GET_STRING_DEFAULT("Handrail101","Hole_Part_Code", part_code);
+	if(st == 0){
+		Hole_Part_Code = part_code;
+	}
+    else{
+		U_CONFIRM("请选择开孔虚拟零件");
+		selectmask = DM_INIT_TAGREC();
+		DM_SET_TAGVAL(selectmask, "KW", Virtual_Hole_DT);
+		loop_flag = 1;
+		while(loop_flag){
+			part_code = DM_BROWSE_PARTCODE("", 0, selectmask);
+			if(ISSTRING(part_code)){
+				part_id = DM_MATCH_PARTID(part_code,10,1,999001);
+				if(ISSTRING(part_id)){
+                    Hole_Part_Code = part_code;
+					SET_STRING_DEFAULT("Handrail101","Hole_Part_Code", Hole_Part_Code);				
+					loop_flag = 0;
+				}
+			}
+			else if(part_code == 0){
+				U_CONFIRM("未选择虚拟开孔零件，程序不能正常运行！请重新启动此程序");
+				loop_flag = 0;
+			}
+		}
+		DM_FREE_TAGREC(selectmask);
+    }
+}
+
+initialize()
+{
+    /* 获取当前光标点坐标并显示到面板中 */
+    /* get the current position and display value of coordinate */
+    x0 = 0;
+    y0 = 0;
+    z0 = 0;   
+    PM_GET_CURRENT_LOC(x0, y0, z0);   
+    W_SET_NUMERIC_VALUE(Handrail_Position_X, x0);
+    W_SET_NUMERIC_VALUE(Handrail_Position_Y, y0);
+    W_SET_NUMERIC_VALUE(Handrail_Position_Z, z0);
+   
+    /* 将绝对坐标转换成相对坐标并显示到面板中 */
+    /* convert abstract coordinate value into reference and display on panel */
+    x_ref = "";
+    y_ref = "";
+    z_ref = "";
+    x_offset = 0;
+    y_offset = 0;
+    z_offset = 0;
+
+    Handrail_X0 = x0;
+    Handrail_Y0 = y0;
+    Handrail_Z0 = z0;
+   
+    res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+    if (res == 0){   
+        W_SET_PANELITEM_ARGS(Handrail_Position_Xref, W_PANEL_VALUE, x_ref);
+        W_SET_PANELITEM_ARGS(Handrail_Position_Yref, W_PANEL_VALUE, y_ref);
+        W_SET_PANELITEM_ARGS(Handrail_Position_Zref, W_PANEL_VALUE, z_ref);
+
+        W_SET_NUMERIC_VALUE(Handrail_Position_Xoff, x_offset);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Yoff, y_offset);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Zoff, z_offset);      
+    }
+    else if (res == -1){     
+        W_SET_PANELITEM_ARGS(Handrail_Position_Xref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Handrail_Position_Yref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Handrail_Position_Zref, W_PANEL_VALUE, "Unset");
+
+        W_SET_NUMERIC_VALUE(Handrail_Position_Xoff, 0);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Yoff, 0);
+        W_SET_NUMERIC_VALUE(Handrail_Position_Zoff, 0); 
+        U_CONFIRM("参考坐标系定义不正确");           
+    }
+    
+    Modify_flag = 0;
+    Part11 = A_ALLOC(15);
+    Part12 = A_ALLOC(15);
+    Part21 = A_ALLOC(15);
+    Part22 = A_ALLOC(15);
+    Part31 = A_ALLOC(15);
+    Part32 = A_ALLOC(15);
+    Part41 = A_ALLOC(15);
+    Part42 = A_ALLOC(15);
+    load_default_setting();
+    return(0);
+}
+
+main()
+{
+	mainform  = create_top_frame();	
+	Panel_1 = create_template_panel(mainform);
+	Panel_2 = create_info_panel(mainform);
+	Panel_3 = create_material_panel(mainform);
+	Panel_4 = create_command_panel(mainform);
+	Panel_5 = create_parameter_panel(mainform);
+	Panel_6 = create_position_panel(mainform);
+	Panel_7 = create_rotate_handrail_panel(mainform);
+	Panel_8 = create_move_handrail_panel(mainform);
+	initialize();	
+	MainWindow = mainform;
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
