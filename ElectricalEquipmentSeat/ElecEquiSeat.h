@@ -40,3 +40,45 @@ global float	Center_Hole_Diameter	= 10.0;
 global float	Earth_Bolt_Rotate_Angle = 15.0;
 global float	Default_Plate_Corner_R  = 15.0;
 global float   Max_Angle_Tolerence     = 0.1;
+
+
+/*向量的叉积*/      
+Vector3d_CrossProduct(float dx1, float dy1, float dz1, float dx2, float dy2, float dz2, float dx3, float dy3, float dz3)
+{
+    dx3 = dy1*dz2 - dz1*dy2;
+    dy3 = dz1*dx2 - dx1*dz2;
+    dz3 = dx1*dy2 - dy1*dx2;
+} 
+
+/*点1延方向移动一定距离得到点2*/
+Point_Move(float x1, float y1, float z1, float x2, float y2, float z2, float v_x, float v_y, float v_z, float distance)
+{
+    vx = 0.0; vy=0.0; vz=0.0;
+    Vector3d_ToUnitVector(v_x,v_y,v_z, vx,vy,vz);
+    x2 = x1+vx*distance;
+    y2 = y1+vy*distance;
+    z2 = z1+vz*distance;
+    return (1);
+}
+
+/*向量的单位向量*/      
+Vector3d_ToUnitVector(float dx1, float dy1, float dz1, float dx2, float dy2, float dz2)
+{
+    length = Vector3d_Length(dx1, dy1, dz1);
+    if (length >= 1.0E-15){
+        dx2 = dx1 / length;
+        dy2 = dy1 / length;
+        dz2 = dz1 / length;
+    }
+    else{
+        dx2 = dx1;
+        dy2 = dy1;
+        dz2 = dz1;
+    }
+} 
+
+/*向量的模*/      
+Vector3d_Length(float dx, float dy, float dz)
+{
+    return (SQRT(dx*dx + dy*dy + dz*dz));
+} 
