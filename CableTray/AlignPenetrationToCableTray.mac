@@ -54,7 +54,7 @@ pick_penetration_handle(prompt)
             /* U_MESSAGE("obj_type="+obj_type); */
             equi_type = PM_GET_OBJDATA(picked_handle, tmp, "eTy");
 			if (!ISINT(equi_type)){
-                if (equi_type=="Penetration") {
+                if (equi_type=="µçÀÂ¹áÍ¨¼þ") {
                     Highlight_Object(picked_handle,TRUE);
                     return (picked_handle);
                 }

@@ -5,6 +5,8 @@
 #define  Part_Number                 "~P0"   /*string - Áã¼ş±àºÅ */
 
 #define Tag_Tray_Label               "~C1"   /*string - ÍĞ¼Ü±ê×¢ÄÚÈİ */
+#define Tag_Tray_Group               "~01"   /*string - ÍĞ¼Ü×éÃû³Æ */
+#define Tag_Tray_Type                "~C2"   /*int - 0 ²»¼ÆÈëÍĞÅÌ, 1 µ¥²ã, 2 Ë«²ã, 3 Èı²ã */
 
 /*  
     This tag may be change in different project, if you find that you can't get correct result,
@@ -24,15 +26,15 @@ global string Beam_Part_Pid         =  "+N3cY4is9GUIlwVWRrSg4.W-6"; /* Ä¬ÈÏµÄ½Ç¸
 global string Plate_Part_Pid        =  "+Ayc6zjQdGXoJr1SAdGiEbm-8"; /* Ä¬ÈÏµÄ¸Ö°åÁã¼ş */
 global string Pad_Part_Pid          =  "+zRTeATilJQwyeKsiW.nwk0-0"; /* Ä¬ÈÏµÄ±ê×¼µæ°åÁã¼ş */
 
-global float Pad_Gap                = 10;   /* Ä¬ÈÏµÄµæ°åÓë½Ç¸ÖµÄ±ß¾à */
-global float Pad_Corner_Radius      = 10;   /* Ä¬ÈÏµÄµæ°åÔ²½Ç°ë¾¶ */
-global int   Max_Panel_Node_Number  = 10;   /* ×î´óµÄ¸Ö°åÂÖÀª¶¥µãÊıÁ¿ */
-
-global float Panel_Default_Thickness = 12;  /* Ä¬ÈÏµÄ´¬Ìå¼×°å/²Õ±Úºñ¶È */
-
+global float Pad_Gap                   = 10;   /* Ä¬ÈÏµÄµæ°åÓë½Ç¸ÖµÄ±ß¾à */
+global float Pad_Corner_Radius         = 10;   /* Ä¬ÈÏµÄµæ°åÔ²½Ç°ë¾¶ */
+global int   Max_Panel_Node_Number     = 10;   /* ×î´óµÄ¸Ö°åÂÖÀª¶¥µãÊıÁ¿ */
+global float Panel_Default_Thickness   = 12;   /* Ä¬ÈÏµÄ´¬Ìå¼×°å/²Õ±Úºñ¶È */
 global float Straight_Default_End_Dist = 130;  /* Ä¬ÈÏµÄÖ±¶ÎÍĞ¼Ü¶Ë²¿½Ç¸Ö¼ä¾à */
 global float Branch_Default_End_Dist   = 125;  /* Ä¬ÈÏµÄÈıÍ¨ÍĞ¼Ü¶Ë²¿½Ç¸Ö¼ä¾à */
 
+global float Mult_Tray_Layer_Height1   = 120;  /* Ä¬ÈÏµÄµÚ¶ş²ãÍĞ¼Ü²ã¸ß(¾àµÚÒ»²ã) */
+global float Mult_Tray_Layer_Height2   = 140;  /* Ä¬ÈÏµÄµÚÈı²ãÍĞ¼Ü²ã¸ß(¾àµÚ¶ş²ã) */
 
 Get_Tray_Leng_Code(length)
 {
@@ -77,6 +79,7 @@ Get_Tray_OffHeight(tray_handle)
 }
 
 /*Ë«²ã¼ä¾à120£¬Èı²ã¿í¶È600(º¬)ÒÔÏÂµÄ²ã¸ß120£¬ÒÔÉÏ140*/
+/*20190930 ĞŞ¸ÄÎª½çÃæ²ÎÊı´«µİµ½Mult_Tray_Layer_Height*/
 Get_Tray_Layer_Height(width,layer)
 {
     if(layer<=2){
@@ -140,40 +143,54 @@ Delete_Support_And_Tray(support_handle)
 /*¸´ÖÆ¶à²ãÍĞ¼Ü*/
 Copy_Tray_Layer(tray_handle, w_x,w_y,w_z, u_x,u_y,u_z, layer)
 {
-    part_id = PM_GET_OBJDATA(tray_handle,0,MMT_TAG_PARTID);
-    tray_width = 1.0 * DM_PARTID_NAMED_DIM(part_id,"Width");
+    /* part_id = PM_GET_OBJDATA(tray_handle,0,MMT_TAG_PARTID); */
+    /* tray_width = 1.0 * DM_PARTID_NAMED_DIM(part_id,"Width"); */
     /* space_height = 1.0 * DM_PARTID_NAMED_DIM(part_id,"SHeight"); */
-    distance = Get_Tray_Layer_Height(tray_width,layer);
+    /* distance = Get_Tray_Layer_Height(tray_width,layer); */
     /* U_MESSAGE("distance="+FTOASCII(distance)); */
     part_type = PM_GET_OBJDATA(tray_handle,0, ".qm");
     /* U_MESSAGE("part_type="+part_type); */
+    label = Get_Attribute_Value(tray_handle,Tag_Tray_Label);
 
     /*main tray space*/
-    Create_Tray_Space(tray_handle,0);
+    space_handle = Create_Tray_Space(tray_handle,0);
+    Set_Attribute_Value(space_handle,Tag_Tray_Label,label);
     
     if (layer==1){
         U_MESSAGE(" ");
+        Set_Attribute_Value(tray_handle,Tag_Tray_Type,1);
     }
     else if (layer==2){
         if(part_type==0){
-            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,   0, tray_handle);
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, Mult_Tray_Layer_Height1,   0, tray_handle);
         }
         else if(part_type==1){
-            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,  50, tray_handle);
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, Mult_Tray_Layer_Height1,  50, tray_handle);
         }
-        Create_Tray_Space(tray_handle2,0);
+        space_handle2 = Create_Tray_Space(tray_handle2,0);
+        
+        Set_Attribute_Value(tray_handle, Tag_Tray_Type,2);
+        Set_Attribute_Value(tray_handle2,Tag_Tray_Type,0);
+        Set_Attribute_Value(space_handle2,Tag_Tray_Label,label);
     }
     else if (layer==3){
         if(part_type==0){
-            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,   0, tray_handle);
-            tray_handle3 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,   0, tray_handle2);
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, Mult_Tray_Layer_Height1,   0, tray_handle);
+            tray_handle3 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, Mult_Tray_Layer_Height2,   0, tray_handle2);
         }
         else if(part_type==1){
-            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance,  50, tray_handle);
-            tray_handle3 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, distance, -50, tray_handle2);
+            tray_handle2 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, Mult_Tray_Layer_Height1,  50, tray_handle);
+            tray_handle3 = Copy_Move_Tray(w_x,w_y,w_z, u_x,u_y,u_z, Mult_Tray_Layer_Height2, -50, tray_handle2);
         }
-        Create_Tray_Space(tray_handle2,0);
-        Create_Tray_Space(tray_handle3,0);
+        space_handle2 = Create_Tray_Space(tray_handle2,0);
+        space_handle3 = Create_Tray_Space(tray_handle3,0);
+        
+        Set_Attribute_Value(tray_handle, Tag_Tray_Type,3);
+        Set_Attribute_Value(tray_handle2,Tag_Tray_Type,0);
+        Set_Attribute_Value(tray_handle3,Tag_Tray_Type,0);
+        
+        Set_Attribute_Value(space_handle2,Tag_Tray_Label,label);
+        Set_Attribute_Value(space_handle3,Tag_Tray_Label,label);
     }
     return (0);
 }
@@ -231,7 +248,7 @@ Create_Tray_Space(tray_handle,w_offset)
     sys_id = PM_GET_OBJDATA(tray_handle,0, "sid");
     length = 1.0*PM_GET_OBJDATA(tray_handle,0, "len");
     part_type = PM_GET_OBJDATA(tray_handle,0, ".qm");
-    
+
     cmd = SUBSTRING(cmd,1);
 
     /*start position of tray*/
@@ -265,7 +282,18 @@ Create_Tray_Space(tray_handle,w_offset)
     else if(part_type==0){
         Create_Standard_Tray_Space(space_set, cmd, sys_id, s_x,s_y,s_z, -u_x,-u_y,-u_z, -v_x,-v_y,-v_z);
     }
+    
+    part_number = PM_NR_MEMBERS_IN_SET(space_set);        
+    for(i=0;i<part_number;i=i+1;){
+        part_handle = PM_GET_MEMBER_IN_SET(space_set,i);
+        if(part_handle!=tray_handle){
+            PM_FREE_SET(space_set);
+            return(part_handle);
+        }
+
+    }
     PM_FREE_SET(space_set);
+	return(-1);
 }
 
 /*·½Ïò¼Ğ½Ç×ª»»Îª·½ÏòÏòÁ¿*/
