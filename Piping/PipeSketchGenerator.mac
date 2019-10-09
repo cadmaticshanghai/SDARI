@@ -1687,12 +1687,12 @@ set_header_field()
     if(ISSTRING(page_number)){
         DM_SET_TAGVAL(page_header_rec,Tag_Drawing_PageNumber,page_number);
     }
-    
+    /*
     total_page = Get_Attribute_Value(Current_Spool_Handle,Tag_Spool_TotalPage);
     if(ISSTRING(total_page)){
         DM_SET_TAGVAL(page_header_rec,Tag_Drawing_TotalPage,total_page);
     }
-
+	*/
     /*Õº∫≈–≈œ¢*/
     drawing_number = get_drawing_number();
 	if(ISSTRING(drawing_number)){

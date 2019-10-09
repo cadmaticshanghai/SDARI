@@ -94,6 +94,34 @@ GetFirstDraftingStyle(string style_name)
 	return(cos_id);
 }
 
+/*获取数据库中的第一个PM标注风格的定义*/
+GetFirstPmDraftingStyle(string style_name)
+{
+	obj_list = COS_QUERY("Drafting Style", "");
+	nr_objs = A_SIZE(obj_list);
+	if(nr_objs < 1){
+		A_FREE(obj_list);
+		return("");
+	}
+	
+	for(i=0;i<nr_objs;i=i+1;){
+		cos_id = A_GET(obj_list, i);
+		COS_READ_OBJECT(cos_id);
+		attrs = COS_GET_OBJECT_ATTRIBUTES(cos_id);
+		if(!ISINT(attrs)){
+			type = DM_GET_TAGVAL(attrs, ".fU");
+			if(type == "pm"){
+				style_name = DM_GET_TAGVAL(attrs, ".dD");
+				DM_FREE_TAGREC(attrs);
+				COS_FREE_OBJECT(cos_id);
+				A_FREE(obj_list);
+				return(cos_id);			
+			}
+		}		
+	}
+	return("");
+}
+
 /* translate 3d point coordinate to view coordinate */
 Translate_3D_To_2D(view_handle,view_scale,view_pos_x,view_pos_y,x,y,z)
 {

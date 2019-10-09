@@ -1,16 +1,24 @@
 /* deinfe tag for model group*/
-#define	Tag_DrawingName             "U76"       /*复板制造图图名*/
+#define	Tag_DrawingName             "~GN"       /*复板制造图图名*/
 
 /* define drawing tag name */ 
 #define	Tag_Drawing_ShipNumber      "~D1"      /* 船号 */
 #define	Tag_Drawing_DrawingNumber   "~D2"      /* 图号 */
 #define	Tag_Drawing_PageNumber      "~D3"      /* 页码 */
 #define	Tag_Drawing_TotalPage       "~D4"      /* 总页数 */
-#define	Tag_Drawing_ModuleName      "~G6"      /* 模型名 */
-#define	Tag_Drawing_UnitName        "G04"      /* 舾装件名称 */
+#define	Tag_Drawing_Amount			"~D5"      /* 数量 */
+#define	Tag_Drawing_Name			"~D6"      /* 复板名称 */
+#define	Tag_Drawing_Material		"~D7"      /* 材质 */
+#define	Tag_Drawing_Thickness       "~D8"      /* 厚度 */
+#define	Tag_Drawing_Weight			"~D9"      /* 重量 */
+#define	Tag_Drawing_Remark			"~DA"      /* 备注 */
+#define	Tag_Drawing_SpoolName		"~DB"      /* 所属管段名称 */
 
 /* 项目属性 */
 #define	Tag_Pro_ShipNumber			"U32"		/* 项目号 */
+
+/*复板属性*/
+#define	Tag_TotalWeight				"MAS"      /* 备注 */
 
 /*尺寸标注设置*/
 global int			DimLinePen = 1;
@@ -28,13 +36,10 @@ global float		DimSymHeight = 2.0;
 #define  Tag_DrawingStatus   "U39"
 #define  Tag_CreationTime    ".c6"
 
-/* define view position*/
-global int	View_X = 85, View_Y = 200;
-
 /*define view size*/
 global float	View_Size  = 100;
 global float	View_Scale = 50;
-global float	View_Position_X = 140;
+global float	View_Position_X = 155;
 global float	View_Position_Y = 105;
 
 global int Text_Colour = 1;

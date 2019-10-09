@@ -13,7 +13,6 @@
 #include "include/geoutils.h"
 #include "include/g2d_ext2df.h"
 
-
 #include "include/PmMgeTags.h"
 #include "include/pm.h"
 #include "include/pm_errors.h"
@@ -38,6 +37,7 @@
 #include "$MarineToolkit/Include/Drawing_Utility.h"
 #include "$MarineToolkit/Include/Structural_Utility.h"
 #include "$MarineToolkit/Include/license.h"
+#include "$MarineToolkit/Include/DoublePlate.h"
 
 global   handle	Block_Name,Planning_Unit,Pro_Number,Dra_Number,Start_Page;
 global   handle	DisplayGrid;
@@ -56,20 +56,17 @@ global   int		Selected_Objects_Number = 0;
 global   int		AutoScale = 1;
 global   int		AutoHighLight = 1;
 global   handle	MainWindow;
-global   int		Maximum_Object_Number = 1000;
                   
 global   handle	Process, Cur_Drawing;
 global   string	Penetration_Name = "",Cur_Drawing_Name = "";
 global   handle   Drawing_Form, Select_Form;
 global   string	Drawing_Form_Name = "";
-global   handle   Drawing,Drawing_View_Top,Drawing_View_AFT,Drawing_View_SB,Drawing_View_ISO;
 global   handle	Open_Next,Open_Previous;
 
-global   handle	Model_Handle, Model_Set;
-global   float		Support_Weight = 0.0;
-global   string	PS_DrawingNo = "";
+global   handle	Model_Handle,View_Handle;
 global   int		Debug = 1; 
-global	int		Part_Label_Mode = 1;
+
+global	handle	Dim_Table;
 
 
 global string   Icon_My_Check_Out =         "$MarineToolkit/ICONS/mycheckout.ico";
@@ -78,7 +75,7 @@ global string   Icon_Local_Server =         "$MarineToolkit/ICONS/local_server.i
 global string   Icon_Replica_Check_Out =    "$MarineToolkit/ICONS/replica_checkout.ico";
 global string   Icon_Replica_Server =       "$MarineToolkit/ICONS/replica.ico";
 global string   Icon_Error =                "$MarineToolkit/ICONS/error.ico";
-global handle   Access_List;                /*用于保存模型权限状态的数组*/
+global handle  Access_List;                /*用于保存模型权限状态的数组*/
 
 /*定义主窗口的列数*/
 #define  Column_Number 8
@@ -103,7 +100,6 @@ init()
 	A_PUT(Column_Description_Array,4,"总页数");
 
 	Object_Info = alloc_2darray(1,1);	
-	Model_Set = PM_INIT_SET();
     Access_List = A_ALLOC(1);	
 }
 
@@ -682,16 +678,17 @@ create_panel_upperpart(mainform)
 										W_PANEL_SEPARATOR,	1);   
      
 	Pro_Number = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "Pro_Number");
-	W_REALIZE_PANELITEM(Pro_Number,	W_PANEL_ROW,         2, 
-									W_PANEL_COL,         0,
-									W_PANEL_LABEL,       "船号:   ",
-									W_PANEL_LENGTH,      15,
-									W_PANEL_VALUE,       "",
-									W_PANEL_CALLBACK,    3);
+	W_REALIZE_PANELITEM(Pro_Number,	W_PANEL_ROW,		2, 
+									W_PANEL_COL,		0,
+									W_PANEL_LABEL,		"工程编号:    ",
+									W_PANEL_DISPLEN,	15,
+									W_PANEL_LENGTH,		100,
+									W_PANEL_VALUE,		"",
+									W_PANEL_CALLBACK,	3);
    
 	Dra_Number = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "Dra_Number");
 	W_REALIZE_PANELITEM(Dra_Number,	W_PANEL_ROW,       2, 
-                                    W_PANEL_COL,       24,
+                                    W_PANEL_COL,       25,
                                     W_PANEL_LABEL,     "图号:  ",
                                     W_PANEL_LENGTH,    27,
                                     W_PANEL_VALUE,     "*",
@@ -1176,7 +1173,7 @@ open_drawing_handler(item, event_type, button_value)
 	}
 	
 	model_handle = PM_GET_MEMBER_IN_SET(Selected_Objects,0);
-	drawing_name = Get_Attribute_Value(model_handle,Tag_Penetration_FabDn);
+	drawing_name = Get_Attribute_Value(model_handle,Tag_DrawingName);
 	if(ISINT(drawing_name)){
 	   U_CONFIRM("尚未生成图形");
 	   return(0);
@@ -1216,7 +1213,6 @@ open_drawing_handler(item, event_type, button_value)
 		}
 		PM_CLOSE_ACTIVE_DRW();
 	}
-	
 	return(0);   
 }
 
@@ -1443,25 +1439,54 @@ create_drawing_handler(item, event_type, button_value)
 	}
 	/* check if selected model in grid */
 	models_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
-	/*if selected any model, then only recreate page of selected model*/
+	/*if selected any model, then only recreate drawings of selected model*/
 	if (models_number > 0){
-		update_drawing();
+		create_drawings(Selected_Objects);
 	}
-	/*if selected nothing, then create drawing for all model*/
+	/*if selected nothing, then create drawings for all model*/
 	else{
-		create_drawing();
+		create_drawings(Object_List);
 	}
     return(0);	
 }
 
-update_drawing()
+/*create drawing*/
+create_drawings(obj_list)
 {
-	U_CONFIRM("更新图纸");
-	return(0);
+	penetration_number = PM_NR_MEMBERS_IN_SET(obj_list);
+	x0 = 0;y0 = 0;z0 = 0;
+	PM_GET_CURRENT_LOC(x0,y0,z0);
+	start_time = GET_TIME(); 	
+	for(i = 0;i<penetration_number;i=i+1;){
+		penetration = PM_GET_MEMBER_IN_SET(obj_list,i);
+		Model_Handle = penetration;
+        process_info = ITOASCII(i+1) + "/" + ITOASCII(penetration_number);
+        W_SET_PANELITEM_ARGS(Process, W_PANEL_VALUE, process_info);
+		nth = 0;
+        penetration_name = PM_GET_OBJDATA(penetration,nth,Tag_Penetration_Name);
+		if(!ISINT(penetration_name)){
+			Penetration_Name = penetration_name;
+			drawing_info = "正在处理复板：" + penetration_name;
+			W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);		
+			res = create_drawing(penetration);
+			if(res == -1){
+				mess = "无法生成复板<" + penetration_name + ">的制作图";
+				U_MESSAGE(mess);
+			}					
+		}
+		else{
+			mess = "第<" + ITOASCII(i+1) + ">个复板未添加生产信息";
+			U_MESSAGE(mess);		
+		}	
+	}
+	end_time = GET_TIME();
+	consumption = end_time - start_time;
+	drawing_info = "处理完毕，共耗时" + ITOASCII(consumption) + "秒";
+	W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);
+	PM_SET_CURRENT_LOC(x0,y0,z0);	
 }
 
-/*create drawing*/
-create_drawing()
+create_drawing(penetration)
 {
 	drawing_name = get_drawing_name();
 	if(ISINT(drawing_name)){
@@ -1478,57 +1503,33 @@ create_drawing()
 	DM_FREE_TAGREC(header_tag_rec);
 	PM_FREE_SET(bom_set);
 	if(res != 0){
-		mess = "无法创建图形:" + Cur_Drawing_Name;
+		mess = "无法创建图形<" + Cur_Drawing_Name + ">";
 		U_MESSAGE(mess);	
 		return(-1);
 	}
+
+	Set_Attribute_Value(penetration,Tag_DrawingName,Cur_Drawing_Name);
+	PM_SAVE(0,1,1);
 	
 	res = PM_OPEN_DRAWING(Cur_Drawing_Name,PM_DRW_OFLG_EDIT,"","");
 	if(res != 0){
-		mess = "无法打开图形:" + Cur_Drawing_Name;
+		mess = "无法打开图形:" + Cur_Drawing_Name + ">";
 		U_MESSAGE(mess);
 		return(-1);
-	}  	
-	create_pages();  
-	return(0); 
-}
-
-create_pages()
-{
-	/* create drawing pages for selected penetrations */
-	x0 = 0;y0 = 0;z0 = 0;
-	PM_GET_CURRENT_LOC(x0,y0,z0);
-	start_time = GET_TIME(); 
-	for(i=0;i<Object_Number;i=i+1;){	   
-		Model_Handle = PM_GET_MEMBER_IN_SET(Object_List, i); 	   
-		process_info = ITOASCII(i+1) + "/" + ITOASCII(Object_Number);
-		W_SET_PANELITEM_ARGS(Process, W_PANEL_VALUE, process_info);
-		drawing_info = "正在处理复板：";
-		nth = 0;
-		model_name = PM_GET_OBJDATA(Model_Handle,nth,Tag_Penetration_Name);
-		if(ISSTRING(model_name)){
-			drawing_info = drawing_info + model_name;		
-		}		
-		W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);
-		Penetration_Name = model_name;
-		res = create_page(i+1);
-		if(res == -1){
-			mess = "无法生成复板:" + Penetration_Name + "的制作图";
-			U_MESSAGE(mess);
-		}
-		/*save drawing name to the attribute of model group*/
-		Set_Attribute_Value(Model_Handle,Tag_Penetration_FabDn,Cur_Drawing_Name);		
-	}	
-	end_time = GET_TIME();
-	consumption = end_time - start_time;
-	drawing_info = "处理完毕，共耗时" + ITOASCII(consumption) + "秒";
-	W_SET_PANELITEM_ARGS(Cur_Drawing, W_PANEL_VALUE, drawing_info);
-	PM_SET_CURRENT_LOC(x0,y0,z0);
+	} 
+ 	
+	res = create_view(); 
+	
+	get_dimension_tables();
+	
+	draw_dimensions();
+	
+	set_header_field();
 	
 	/*save drawing*/ 
 	res = PM_SAVE_ACTIVE_DRW();
 	if(res != 0){
-		mess = "无法保存图形:" + Cur_Drawing_Name;
+		mess = "无法保存图形:" + Cur_Drawing_Name + ">";
 		U_MESSAGE(mess);
 		return(-1);
 	}
@@ -1536,7 +1537,7 @@ create_pages()
 	/*Check In drawing*/
 	res = PM_CHECK_IN_ACTIVE_DRW();
 	if(res != 0){
-		mess = "无法CheckIn图形:" + Cur_Drawing_Name;
+		mess = "无法CheckIn图形:" + Cur_Drawing_Name + ">";
 		U_MESSAGE(mess);
 	return(-1);
 	}
@@ -1544,55 +1545,118 @@ create_pages()
 	/*close drawing*/
 	res = PM_CLOSE_ACTIVE_DRW();
 	if(res != 0){
-		mess = "无法关闭图形:" + Cur_Drawing_Name;
+		mess = "无法关闭图形:" + Cur_Drawing_Name + ">";
 		U_MESSAGE(mess);
 		return(-1);
-	}
+	}		
+	return(0); 
+}
+
+get_dimension_tables()
+{
+	/*	dim_table
+		0, type of dimension
+		1, X coordinate of point 1
+		2, Y coordinate of point 1
+		3, Z coordinate of point 1
+		4, X coordinate of point 2
+		5, Y coordinate of point 2
+		6, Z coordinate of point 2	
+		7, dimension text
+	*/
+	dim_table = DM_2D_ARRAY_CREATE(1,8);
+	Get_Dimension_List(Model_Handle,dim_table);
+	Dim_Table = dim_table;
 	return(0);
 }
 
-create_page(page_number)
+draw_dimensions()
 {
-	icgd_name = Drawing_Form_Name;
-	res = PM_ADD_PAGE_TO_DRW(icgd_name,0);
-	PM_ACTIVATE_PAGE_IN_DRW(page_number);
-	/*create views*/
-	res = create_view(page_number);    
-	if(res != 0){
-		mess = "无法在图形<" + Cur_Drawing_Name + ">的第<" + ITOASCII(page_number) + ">页中创建视图";
-		U_MESSAGE(mess);
-		return(-1);
+	dim_number = DM_2D_ARRAY_SIZE_ROWS(Dim_Table);
+	if(dim_number <= 0){
+	  return(0);
 	}
-   		
+	if(Debug){
+	  U_MESSAGE("**************开始标注复板尺寸***************");
+	}
+	/*开始标注*/
 	style_name = "";
-	drafting_style = GetFirstDraftingStyle(style_name); 
+	drafting_style = GetFirstPmDraftingStyle(style_name); 
 	dw = PM_START_PAGE_ANNOTATION(style_name);
-	DW_ACTIVATEVIEW(dw); 
-	DW_COLOR(Text_Colour);
-	DW_TSIZE(Text_Height);           
+	DW_ACTIVATEVIEW(dw);      
+	InitDrawingSettings();
+	if(ActivateDeActivate2D(View_Handle,1) < 0){
+		msg = "无法启动尺寸标注";
+		U_MESSAGEBOX(msg, U_MB_ERROR, U_MB_OK, U_OK);
+		return(-1);
+	}	
 	
+	for(i=1;i<dim_number;i=i+1;){		
+		type = DM_2D_ARRAY_GET(Dim_Table,i,0);		
+		if(type == "Diameter"){	
+			x1 = DM_2D_ARRAY_GET(Dim_Table,i,1);
+			y1 = DM_2D_ARRAY_GET(Dim_Table,i,2);
+			z1 = DM_2D_ARRAY_GET(Dim_Table,i,3);	
+			x2 = DM_2D_ARRAY_GET(Dim_Table,i,4);
+			y2 = DM_2D_ARRAY_GET(Dim_Table,i,5);
+			z2 = DM_2D_ARRAY_GET(Dim_Table,i,6);		
+			dim_text  = DM_2D_ARRAY_GET(Dim_Table,i,7);
+			add_diameter_dimension(View_Handle,x1, y1, z1, x2, y2, z2,0,3,2.4,0.6,3,dim_text); 			
+		}
+		else if(type == "Radius"){
+			x1 = DM_2D_ARRAY_GET(Dim_Table,i,1);
+			y1 = DM_2D_ARRAY_GET(Dim_Table,i,2);
+			z1 = DM_2D_ARRAY_GET(Dim_Table,i,3);	
+			x2 = DM_2D_ARRAY_GET(Dim_Table,i,4);
+			y2 = DM_2D_ARRAY_GET(Dim_Table,i,5);
+			z2 = DM_2D_ARRAY_GET(Dim_Table,i,6);		
+			dim_text  = DM_2D_ARRAY_GET(Dim_Table,i,7);
+			add_radius_dimension(View_Handle,x1, y1, z1, x2, y2, z2,0,3,2.4,0.6,3,dim_text); 				
+		}
+		else if(type == "Line"){
+			x1 = DM_2D_ARRAY_GET(Dim_Table,i,1);
+			y1 = DM_2D_ARRAY_GET(Dim_Table,i,2);
+			z1 = DM_2D_ARRAY_GET(Dim_Table,i,3);	
+			x2 = DM_2D_ARRAY_GET(Dim_Table,i,4);
+			y2 = DM_2D_ARRAY_GET(Dim_Table,i,5);
+			z2 = DM_2D_ARRAY_GET(Dim_Table,i,6);		
+			dim_text  = DM_2D_ARRAY_GET(Dim_Table,i,7);		
+			add_line_dimension(View_Handle,x1, y1, z1, x2, y2, z2,0,3,2.4,0.6,3,dim_text); 			
+		}
+	}
+   
+	/*结束标注*/ 
 	PM_TERMINATE_PAGE_ANNOTATION(1);
-	return(0);
-}
+	return(0); 
 
-/*创建基座视图*/
-create_view(page_number)
+}
+	
+/*创建复板视图*/
+create_view()
 {
-	view_name = "TOP_" + ITOASCII(page_number);
+	view_name = "TOP";
 	screen = "";
 	display = "";
 	in_drawing = 1;
 	view_handle = PM_CREATE_VIEW(view_name,in_drawing, screen, display);
+	View_Handle = view_handle;
+	if(ISINT(view_handle)){
+		mess = "无法在图形<" + Cur_Drawing_Name + ">中创建视图";
+		U_MESSAGE(mess);
+		return(-1);		
+	}
 	res = set_view_parameter(view_handle);
 	if(res < 0){
+		mess = "无法设置图形<" + Cur_Drawing_Name + ">中的视图参数";
+		U_MESSAGE(mess);
 		return(-1);
 	}
 	models = PM_INIT_SET();
 	PM_ADD_OBJECT_TO_SET(Model_Handle,models);
 	PM_VISUALIZE_SET_TO_VIEW(models,view_handle);
 	res = PM_ASSIGN_VIEW_TO_PAGE(view_name, View_Position_X, View_Position_Y, View_Scale);
-	if(res != 0){
-		mess = "无法将视图分配给图形<" + Cur_Drawing_Name + ">的第<" + ITOASCII(page_number) + ">页";
+	if(res <= 0){
+		mess = "无法将视图分配给图形<" + Cur_Drawing_Name + ">";
 		U_MESSAGE(mess);
 		return(-1);
 	}
@@ -1676,19 +1740,126 @@ set_view_parameter(handle view_handle)
 /* 设置标题栏中的相关信息 */
 set_header_field()
 { 
-	return(0);        
+    page_header_rec = DM_INIT_TAGREC();
+    res = PM_GET_HEADER_FROM_ACTIVE_DRW(page_header_rec);
+    if(res != 0){
+        U_CONFIRM("无法获取标题栏数据");
+        return(0);
+    }
+    
+    /* 项目信息 */ 	
+    pro_number = W_GET_PANELITEM_ARG(Pro_Number,W_PANEL_VALUE);
+    if(pro_number != ""){
+        DM_SET_TAGVAL(page_header_rec,Tag_Drawing_ShipNumber,pro_number);   
+    }
+    
+	/*图号信息*/
+    drawing_number = W_GET_PANELITEM_ARG(Dra_Number,W_PANEL_VALUE);
+	if(drawing_number == "*"){
+		nth = 0;
+		drawing_number = PM_GET_OBJDATA(Model_Handle, nth, Tag_Penetration_FabDn);
+	}
+    if(ISSTRING(drawing_number)){
+        DM_SET_TAGVAL(page_header_rec,Tag_Drawing_DrawingNumber,drawing_number);   
+    }  
+		       
+    /*页码信息*/
+    id = find_model_grid_id(Model_Handle);
+    if(id != -1){
+        W_SET_WINDOW_ARGS(DisplayGrid,W_LISTW_FINDID,id);
+        row = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ROW);
+        W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, row, W_LISTW_COLUMN, 3);
+        page_number = W_GET_WINDOW_ARG(DisplayGrid, W_LISTW_STRING);
+        if(ISSTRING(page_number)){
+            DM_SET_TAGVAL(page_header_rec,Tag_Drawing_PageNumber,page_number);
+        }
+        /*W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, row, W_LISTW_COLUMN, 4);
+        total_page = W_GET_WINDOW_ARG(DisplayGrid, W_LISTW_STRING);
+        if(ISSTRING(total_page)){
+            DM_SET_TAGVAL(page_header_rec,Tag_Drawing_TotalPage,total_page);
+        } */
+		/*管段名称*/
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, row, W_LISTW_COLUMN, 1);
+        spool_name = W_GET_WINDOW_ARG(DisplayGrid, W_LISTW_STRING);
+        if(ISSTRING(spool_name)){
+            DM_SET_TAGVAL(page_header_rec,Tag_Drawing_SpoolName,spool_name);
+        }		
+    }
+	
+	/* 数量 */
+	DM_SET_TAGVAL(page_header_rec,Tag_Drawing_Amount,"1");
+	
+	/* 重量信息 */
+    nth = 0;
+    weight = 1.0 * PM_GET_OBJDATA(Model_Handle, nth, Tag_TotalWeight);
+ 	weight_s = "";
+	S_PRINTF(weight_s, "%.2f", weight); 
+	DM_SET_TAGVAL(page_header_rec,Tag_Drawing_Weight,weight_s);
+	
+	
+    /* 复板名称 */
+    nth = 0;
+    penetration_name = PM_GET_OBJDATA(Model_Handle, nth, Tag_Penetration_Name);
+    if(ISSTRING(penetration_name)){
+        DM_SET_TAGVAL(page_header_rec,Tag_Drawing_Name,penetration_name);
+    }
+
+	/* 复板厚度 */
+    thickness= get_thickness(Model_Handle);
+    DM_SET_TAGVAL(page_header_rec,Tag_Drawing_Thickness,thickness);
+
+	/* 复板材质 */
+    material = get_materail(Model_Handle);
+    DM_SET_TAGVAL(page_header_rec,Tag_Drawing_Material,material);
+	
+	/* 复板备注 */
+    remark = get_remark(Model_Handle);
+    DM_SET_TAGVAL(page_header_rec,Tag_Drawing_Remark,remark);
+    
+	/*设置标题栏信息*/
+	res = PM_SET_HEADER_TO_ACTIVE_DRW(page_header_rec);
+    DM_FREE_TAGREC(page_header_rec);
+	return(0);        	       
 }
 
-get_model_weight()
+get_remark(double_plate)
 {
-   weight = 0;
-   part_number = PM_NR_MEMBERS_IN_SET(Model_Set);
-   for(i=0;i<part_number;i=i+1;){
-      part = PM_GET_MEMBER_IN_SET(Model_Set,i);
-      mass = String_To_Float(PM_GET_OBJDATA(part,0,"MAS"));
-      weight = weight + mass;
-   }
-   return(weight);
+	nth = 0;
+	remark = PM_GET_OBJDATA(double_plate, nth, Tag_Penetration_WeldType);
+	if(ISSTRING(remark)){
+		return(remark);	
+	}
+	else{	
+		return("");
+	}
+}
+
+get_materail(double_plate)
+{
+	nth = 0;
+	part_id = PM_GET_OBJDATA(double_plate, nth, "pid");
+	material = DM_PARTID_DATA(part_id,"MC");
+	if(ISSTRING(material)){
+		return(material);	
+	}
+	else{	
+		return("Q235A");
+	}
+}
+
+get_thickness(double_plate)
+{
+	nth = 0;
+	part_id = PM_GET_OBJDATA(double_plate, nth, "pid");
+	thickness = DM_PARTID_DATA(part_id,"DD");
+	if(ISSTRING(thickness)){
+		thickness = SEARCH(STRINGTERM(thickness,"mm"),"=");
+		thickness = TAIL(thickness,STRLEN(thickness)-1);
+		return(thickness);	
+	}
+	else{	
+		return("0.00");
+	}
 }
 
 /*get drawing name*/
@@ -1700,6 +1871,8 @@ get_drawing_name()
 		W_SET_PANELITEM_ARGS(Dra_Number,W_PANEL_KBDFOCUS,0);
 		return(-1);		
 	}
+	sequence = get_penetration_sequence();
+	drawing_name = drawing_name + "_" + sequence;
 	doc_guid = "";
 	res = PM_FIND_DRAWING_WITH_NAME(drawing_name,doc_guid);
 	/* 如果不存在这个名字的图形，则直接返回这个名字 */
@@ -1725,6 +1898,24 @@ get_drawing_name()
 			return(-1);
 		}		
 	}  
+}
+
+get_penetration_sequence()
+{
+	sequence = "";
+	flag = 1;
+	name = Penetration_Name;
+	while(flag){
+		char = TAIL(name,1);
+		if(char == "1" | char == "2" | char == "3" | char == "4" | char == "5" | char == "6" | char == "7" | char == "8" | char == "9"){
+			sequence = char + sequence;	
+			name = HEAD(name,STRLEN(name)-1);
+		}
+		else{
+			flag = 0;
+		}
+	}
+	return(sequence);
 }
 
 find_model_grid_id(handle model_handle)
@@ -1811,7 +2002,6 @@ exit()
 	PM_FREE_SET(Object_List);
 	PM_FREE_SET(High_Light_List);
 	PM_FREE_SET(Selected_Objects);
-	PM_FREE_SET(Model_Set);
 	A_FREE(Drawing_Tag_Array);
 	A_FREE(Column_Description_Array);
 	free_2darray(Object_Info);
@@ -1832,6 +2022,306 @@ export_active_drw(format, template_dwr, output_dir)
 	DM_FREE_TAGREC(rec);
 	
 	return(r);
+}
+
+set_dimensioning_properties(float scale)
+{
+	DW_TSLANT(0);
+	DW_TTYPE(0);
+	DW_DIMFORM("%Qa");
+	
+	DW_LAYER(DimLineLayer);
+	DW_PEN(DimLinePen);
+	DW_COLOR(DimLineColor);
+	DW_TSIZE(scale * DimTextHeight, scale * DimTextWidth, scale * DimTextSpc);
+	DW_DIMSYMHGHT(scale * DimSymHeight);
+	
+	DW_DIMVALDIST(scale * 1.0);
+	DW_DIMOFFSETEX(scale * 1.0);
+	DW_DIMSYM(1, 1);
+	DW_ZLEVEL(0);
+	
+	return(0);
+}
+
+/* parameter       type     description
+-- view_handle     handle   handle of dimensioning view
+-- dim_type        int      
+-- x1              float    x coordinate of first dimension point (center point)
+-- y1              float    y coordinate of first dimension point (center point)
+-- z1              float    z coordinate of first dimension point (center point)
+-- x2              float    x coordinate of second dimension point (point on arc)
+-- y2              float    y coordinate of second dimension point (point on arc)
+-- z2              float    z coordinate of second dimension point (point on arc)      
+-- distance        int     
+-- txt_h           float
+-- txt_w           float
+-- txt_s           float
+-- sym_h           float
+-- dim_text        string 
+*/ 
+add_radius_dimension(handle view_h, float x1, float y1, float z1,float x2, float y2, float z2, float distance, float txt_h, float txt_w, float txt_s, float sym_h, string dim_text)
+{ 
+	dum = 0.0;	scale = 0.0;
+	res = DW_GET_VIEW_PARAMS(dum, dum, dum, dum, dum, dum, scale);
+	v_dx = 0; v_dy = 0; v_dz = 0;
+	PM_GET_VIEW_PARAMETERS(view_h,"VDIR",v_dx,v_dy,v_dz);
+	
+	dx = x2 - x1;
+	dy = y2 - y1;
+	dz = z2 - z1;
+	VEC_UNITV(dx,dy,dz);
+	
+	angle = 0;
+	GU_GetAngleBetweenTwoVectors(dx,dy,dz,v_dx,v_dy,v_dz,angle);
+	if(angle < 60 & angle > -60){
+	   return(0);
+	}
+	else if(angle > 120){
+	   return(0);
+	}
+	else if(angle < - 120){
+	   return(0);
+	}
+	
+	u1=x1;v1=y1;w1=z1;u2=x2;v2=y2;w2=z2; 
+   
+	PM_VIEW_TRANSFORMATION(view_h,1,u1,v1,w1);	
+	PM_VIEW_TRANSFORMATION(view_h,1,u2,v2,w2);
+
+	dim_type = 7;		
+	ddu = u1 - u2;
+	ddv = v1 - v2;
+	ddw = 0.0;
+	text_move = VEC_UNITV(ddu, ddv, ddw);
+		
+	/* dimension text */
+	nr_char = STRLEN(dim_text);
+	dim_string_len = nr_char * txt_w + (nr_char - 1) * txt_s;
+	/*text_move = scale * (sym_h + dim_string_len/2);*/
+	text_move = text_move + 2 * dim_string_len;
+	set_dimensioning_properties(scale);
+	/*level = distance;*/
+	level = 0;	
+	/* the normal */
+	ndu = -ddv;
+	ndv = ddu;
+		
+	DW_DIMTYPE(dim_type);	
+	DW_DIMSYM(3, 1);
+	
+	test_length = scale*(dim_string_len + 2*sym_h);
+	line_length = SQRT(ddu*ddu+ddv*ddv);
+	
+	if(test_length >= line_length){
+	   location = 1;
+	}
+	else{
+	   location = 2;
+	}
+	
+	if(location == 1){		
+		text_u = u1 - ddu * text_move + ndu * level;
+		text_v = v1 - ddv * text_move + ndv * level;
+	}
+	else if(location == 2){
+		text_u = (u1 + u2)/2 + ndu * level;
+		text_v = (v1 + v2)/2 + ndv * level;
+	}
+	else if(location == 3){
+		text_u = u2 + ddu * text_move + ndu * level;
+		text_v = v2 + ddv * text_move + ndv * level;
+	}
+	DW_DIMOFFSETEX(0);      
+	DW_OPNDIM();
+	DW_PNT(text_u, text_v, w1);		/* dim text level		*/
+	DW_PNT(u1, v1, w1);				/* first end point		*/
+	DW_DIMVAL("","", dim_text);		/* dimension value		*/
+	DW_DIMVALORG(text_u, text_v);	/* dim text location	   */
+	DW_PNT(u2, v2, w2);				/* second end point		*/
+	DW_CLSDIM();
+	
+	return(0);
+}
+
+/* parameter       type     description
+-- view_handle     handle   handle of dimensioning view
+-- dim_type        int      
+-- x1              float    x coordinate of first dimension point (center point)
+-- y1              float    y coordinate of first dimension point (center point)
+-- z1              float    z coordinate of first dimension point (center point)
+-- x2              float    x coordinate of second dimension point (point on arc)
+-- y2              float    y coordinate of second dimension point (point on arc)
+-- z2              float    z coordinate of second dimension point (point on arc)      
+-- distance        int     
+-- txt_h           float
+-- txt_w           float
+-- txt_s           float
+-- sym_h           float
+-- dim_text        string 
+*/ 
+add_diameter_dimension(handle view_h, float x1, float y1, float z1,float x2, float y2, float z2, float distance, float txt_h, float txt_w, float txt_s, float sym_h, string dim_text)
+{ 
+	dum = 0.0;	scale = 0.0;
+	res = DW_GET_VIEW_PARAMS(dum, dum, dum, dum, dum, dum, scale);
+	v_dx = 0; v_dy = 0; v_dz = 0;
+	PM_GET_VIEW_PARAMETERS(view_h,"VDIR",v_dx,v_dy,v_dz);
+	
+	dx = x2 - x1;
+	dy = y2 - y1;
+	dz = z2 - z1;
+	VEC_UNITV(dx,dy,dz);
+	
+	angle = 0;
+	GU_GetAngleBetweenTwoVectors(dx,dy,dz,v_dx,v_dy,v_dz,angle);
+	if(angle < 60 & angle > -60){
+	   return(0);
+	}
+	else if(angle > 120){
+	   return(0);
+	}
+	else if(angle < - 120){
+	   return(0);
+	}
+	
+	u1=x1;v1=y1;w1=z1;u2=x2;v2=y2;w2=z2; 
+   
+	PM_VIEW_TRANSFORMATION(view_h,1,u1,v1,w1);	
+	PM_VIEW_TRANSFORMATION(view_h,1,u2,v2,w2);
+
+	dim_type = 7;		
+	ddu = u2 - u1;
+	ddv = v2 - v1;
+	ddw = 0.0;
+	VEC_UNITV(ddu, ddv, ddw);
+		
+	/* dimension text */
+	nr_char = STRLEN(dim_text);
+	dim_string_len = nr_char * txt_w + (nr_char - 1) * txt_s;
+	text_move = scale * (sym_h + dim_string_len/2) - 15;
+	set_dimensioning_properties(scale);
+	level = distance;
+	/* the normal */
+	ndu = -ddv;
+	ndv = ddu;
+		
+	DW_DIMTYPE(dim_type);	
+	DW_DIMSYM(1, 1);
+	
+	test_length = scale*(dim_string_len + 2*sym_h);
+	line_length = SQRT(ddu*ddu+ddv*ddv);
+	
+	if(test_length >= line_length){
+	   location = 1;
+	}
+	else{
+	   location = 2;
+	}
+	
+	if(location == 1){		
+		text_u = u1 - ddu * text_move + ndu * level;
+		text_v = v1 - ddv * text_move + ndv * level;
+	}
+	else if(location == 2){
+		text_u = (u1 + u2)/2 + ndu * level;
+		text_v = (v1 + v2)/2 + ndv * level;
+	}
+	else if(location == 3){
+		text_u = u2 + ddu * text_move + ndu * level;
+		text_v = v2 + ddv * text_move + ndv * level;
+	}
+	
+	DW_DIMOFFSETEX(0);      
+	DW_OPNDIM();
+	DW_PNT(text_u, text_v, w1);		/* dim text level		*/
+	DW_PNT(u1, v1, w1);				/* first end point		*/
+	DW_DIMVAL("","", dim_text);		/* dimension value		*/
+	DW_DIMVALORG(text_u, text_v);	/* dim text location	*/
+	DW_PNT(u2, v2, w2);				/* second end point		*/
+	DW_CLSDIM();
+	
+	return(0);
+}
+
+/* parameter       type     description
+-- view_handle     handle   handle of dimensioning view
+-- dim_type        int      
+-- x1              float    x coordinate of first dimension point (center point)
+-- y1              float    y coordinate of first dimension point (center point)
+-- z1              float    z coordinate of first dimension point (center point)
+-- x2              float    x coordinate of second dimension point (point on arc)
+-- y2              float    y coordinate of second dimension point (point on arc)
+-- z2              float    z coordinate of second dimension point (point on arc)      
+-- distance        int     
+-- txt_h           float
+-- txt_w           float
+-- txt_s           float
+-- sym_h           float
+-- dim_text        string 
+*/ 
+add_line_dimension(handle view_h, float x1, float y1, float z1,float x2, float y2, float z2, float distance, float txt_h, float txt_w, float txt_s, float sym_h, string dim_text)
+{ 
+	dum = 0.0;	scale = 0.0;
+	res = DW_GET_VIEW_PARAMS(dum, dum, dum, dum, dum, dum, scale);
+	v_dx = 0; v_dy = 0; v_dz = 0;
+	PM_GET_VIEW_PARAMETERS(view_h,"VDIR",v_dx,v_dy,v_dz);
+	
+	dx = x2 - x1;
+	dy = y2 - y1;
+	dz = z2 - z1;
+	VEC_UNITV(dx,dy,dz);
+	
+	angle = 0;
+	GU_GetAngleBetweenTwoVectors(dx,dy,dz,v_dx,v_dy,v_dz,angle);
+	if(angle < 60 & angle > -60){
+	   return(0);
+	}
+	else if(angle > 120){
+	   return(0);
+	}
+	else if(angle < - 120){
+	   return(0);
+	}
+	
+	u1=x1;v1=y1;w1=z1;u2=x2;v2=y2;w2=z2; 
+   
+	PM_VIEW_TRANSFORMATION(view_h,1,u1,v1,w1);	
+	PM_VIEW_TRANSFORMATION(view_h,1,u2,v2,w2);
+
+	dim_type = 7;		
+	ddu = u2 - u1;
+	ddv = v2 - v1;
+	ddw = 0.0;
+	distance = VEC_UNITV(ddu, ddv, ddw);
+		
+	/* dimension text */
+	nr_char = STRLEN(dim_text);
+	dim_string_len = nr_char * txt_w + (nr_char - 1) * txt_s;
+	text_move = scale * (sym_h + dim_string_len/2);
+	text_move = 0;
+	set_dimensioning_properties(scale);
+	level = - distance / 2;
+		
+	/* the normal */
+	ndu = -ddv;
+	ndv = ddu;
+		
+	DW_DIMTYPE(dim_type);	
+	DW_DIMSYM(1, 1);
+		
+	text_u = (u1 + u2)/2 + ndu * level;
+	text_v = (v1 + v2)/2 + ndv * level;
+	
+	DW_DIMOFFSETEX(0);      
+	DW_OPNDIM();
+	DW_PNT(text_u, text_v, w1);		/* dim text level		*/
+	DW_PNT(u1, v1, w1);				/* first end point		*/
+	DW_DIMVAL("","", dim_text);		/* dimension value		*/
+	DW_DIMVALORG(text_u, text_v);	/* dim text location	*/
+	DW_PNT(u2, v2, w2);				/* second end point		*/
+	DW_CLSDIM();
+	
+	return(0);
 }
 
 
