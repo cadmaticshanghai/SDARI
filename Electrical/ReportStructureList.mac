@@ -39,11 +39,11 @@ global int  Debug = 1;
 **脚本语言中似乎无法直接获得一个数组的实际长度，定义一个全局变量用于保存生产信息的数量
 */
 
-#define  Report1_Column_Number 12
-#define  Report2_Column_Number 12
-#define  Report3_Column_Number 12
-#define  Report4_Column_Number 12
-#define  Report5_Column_Number 12
+#define  Report1_Column_Number 13
+#define  Report2_Column_Number 13
+#define  Report3_Column_Number 13
+#define  Report4_Column_Number 13
+#define  Report5_Column_Number 13
 
 /*
 **定义界面语言
@@ -119,9 +119,10 @@ init()
     A_PUT(Title1,6,"材质");
     A_PUT(Title1,7,"数量");
     A_PUT(Title1,8,"单位");
-    A_PUT(Title1,9,"重量");
-    A_PUT(Title1,10,"来源");
-    A_PUT(Title1,11,"备注");
+    A_PUT(Title1,9,"单重");
+    A_PUT(Title1,10,"重量");
+    A_PUT(Title1,11,"来源");
+    A_PUT(Title1,12,"备注");
     
 	Title2 = A_ALLOC(Report2_Column_Number, "STRING");
     A_PUT(Title2,0,"分段");
@@ -133,8 +134,9 @@ init()
     A_PUT(Title2,6,"材质");
     A_PUT(Title2,7,"数量");
     A_PUT(Title2,8,"单位");
-    A_PUT(Title2,9,"重量");
-    A_PUT(Title2,10,"来源");
+    A_PUT(Title2,9,"单重");
+    A_PUT(Title2,10,"重量");
+    A_PUT(Title2,11,"来源");
     A_PUT(Title2,11,"备注");
 	
 	Title3 = A_ALLOC(Report3_Column_Number, "STRING");
@@ -147,9 +149,10 @@ init()
     A_PUT(Title3,6,"材质");
     A_PUT(Title3,7,"数量");
     A_PUT(Title3,8,"单位");
-    A_PUT(Title3,9,"重量");
-    A_PUT(Title3,10,"来源");
-    A_PUT(Title3,11,"备注");
+    A_PUT(Title3,9,"单重");
+    A_PUT(Title3,10,"重量");
+    A_PUT(Title3,11,"来源");
+    A_PUT(Title3,12,"备注");
 
 	Title4 = A_ALLOC(Report4_Column_Number, "STRING");
     A_PUT(Title4,0,"分段");
@@ -161,9 +164,10 @@ init()
     A_PUT(Title4,6,"材质");
     A_PUT(Title4,7,"数量");
     A_PUT(Title4,8,"单位");
-    A_PUT(Title4,9,"重量");
-    A_PUT(Title4,10,"来源");
-    A_PUT(Title4,11,"备注");
+    A_PUT(Title4,9,"单重");
+    A_PUT(Title4,10,"重量");
+    A_PUT(Title4,11,"来源");
+    A_PUT(Title4,12,"备注");
     
 	Title5 = A_ALLOC(Report5_Column_Number, "STRING");
     A_PUT(Title5,0,"分段");
@@ -175,9 +179,10 @@ init()
     A_PUT(Title5,6,"材质");
     A_PUT(Title5,7,"数量");
     A_PUT(Title5,8,"单位");
-    A_PUT(Title5,9,"重量");
-    A_PUT(Title5,10,"来源");
-    A_PUT(Title5,11,"备注");
+    A_PUT(Title5,9,"单重");
+    A_PUT(Title5,10,"重量");
+    A_PUT(Title5,11,"来源");
+    A_PUT(Title5,12,"备注");
 }
 
 fresh()
@@ -288,7 +293,7 @@ get_summation1_info(report)
     /*汇总 需要汇总的列*/
     sumcols = A_ALLOC(2, "INT");
 	A_PUT(sumcols,0,7);
-	A_PUT(sumcols,1,9);
+	A_PUT(sumcols,1,10);
     
     /*汇总后的索引*/
     A_FREE(SummationIndexs1);
@@ -315,7 +320,7 @@ get_summation2_info(report)
     /*汇总 需要汇总的列*/
     sumcols = A_ALLOC(2, "INT");
 	A_PUT(sumcols,0,7);
-	A_PUT(sumcols,1,9);
+	A_PUT(sumcols,1,10);
     
     /*汇总后的索引*/
     A_FREE(SummationIndexs2);
@@ -342,7 +347,7 @@ get_summation3_info(report)
     /*汇总 需要汇总的列*/
     sumcols = A_ALLOC(2, "INT");
 	A_PUT(sumcols,0,7);
-	A_PUT(sumcols,1,9);
+	A_PUT(sumcols,1,10);
     
     /*汇总后的索引*/
     A_FREE(SummationIndexs3);
@@ -369,7 +374,7 @@ get_summation4_info(report)
     /*汇总 需要汇总的列*/
     sumcols = A_ALLOC(2, "INT");
 	A_PUT(sumcols,0,7);
-	A_PUT(sumcols,1,9);
+	A_PUT(sumcols,1,10);
     
     /*汇总后的索引*/
     A_FREE(SummationIndexs4);
@@ -396,7 +401,7 @@ get_summation5_info(report)
     /*汇总 需要汇总的列*/
     sumcols = A_ALLOC(2, "INT");
 	A_PUT(sumcols,0,7);
-	A_PUT(sumcols,1,9);
+	A_PUT(sumcols,1,10);
     
     /*汇总后的索引*/
     A_FREE(SummationIndexs5);
@@ -482,17 +487,21 @@ get_object1_info(object,i)
     unit = "件";
     put_2darray(Report1_Info,i,8,unit);       
    
-    /*重量*/      
+    /*单重*/      
     weight = get_weight_info(object);
     put_2darray(Report1_Info,i,9,weight); 
 
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report1_Info,i,10,weight); 
+    
     /*来源*/  
     source = "";
-    put_2darray(Report1_Info,i,10,source); 
+    put_2darray(Report1_Info,i,11,source); 
     
     /*备注信息*/  
     remark = "";
-    put_2darray(Report1_Info,i,11,remark);  
+    put_2darray(Report1_Info,i,12,remark);  
     
     return(0);
 }
@@ -570,17 +579,21 @@ get_object2_info(object,i)
     unit = "个";
     put_2darray(Report2_Info,i,8,unit);       
    
-    /*重量*/      
+    /*单重*/      
     weight = get_weight_info(object);
     put_2darray(Report2_Info,i,9,weight); 
-
+    
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report2_Info,i,10,weight); 
+    
     /*来源*/  
     source = "";
-    put_2darray(Report2_Info,i,10,source); 
+    put_2darray(Report2_Info,i,11,source); 
     
     /*备注信息*/  
     remark = "";
-    put_2darray(Report2_Info,i,11,remark);  
+    put_2darray(Report2_Info,i,12,remark);  
     
     return(0);
 }
@@ -664,17 +677,21 @@ get_object3_info(object,i)
     unit = "件";
     put_2darray(Report3_Info,i,8,unit);       
    
-    /*重量*/      
+    /*单重*/      
     weight = get_weight_info(object);
     put_2darray(Report3_Info,i,9,weight); 
-
+    
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report3_Info,i,10,weight); 
+    
     /*来源*/  
     source = "";
-    put_2darray(Report3_Info,i,10,source); 
+    put_2darray(Report3_Info,i,11,source); 
     
     /*备注信息*/  
     remark = "";
-    put_2darray(Report3_Info,i,11,remark);  
+    put_2darray(Report3_Info,i,12,remark);  
     
     return(0);
 }
@@ -777,17 +794,21 @@ get_object4_info(object,i)
     unit = get_unit_info(object);
     put_2darray(Report4_Info,i,8,unit);       
    
-    /*重量*/      
+    /*单重*/      
     weight = get_weight_info(object);
     put_2darray(Report4_Info,i,9,weight); 
-
+    
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report4_Info,i,10,weight); 
+    
     /*来源*/  
     source = "";
-    put_2darray(Report4_Info,i,10,source); 
+    put_2darray(Report4_Info,i,11,source); 
     
     /*备注信息*/  
     remark = "";
-    put_2darray(Report4_Info,i,11,remark);  
+    put_2darray(Report4_Info,i,12,remark);  
     
     return(0);
 }
@@ -836,18 +857,23 @@ get_bar_bolting_info(object,i,bolting_type)
     unit = "个";
     put_2darray(Report4_Info,i,8,unit);       
    
-    /*重量*/
+    /*单重*/
     /* weight = rtrim_number(FTOASCII(0.01*count*layer)); */
     weight = "";
     put_2darray(Report4_Info,i,9,weight); 
-
+    
+    /*重量*/
+    /* weight = rtrim_number(FTOASCII(0.01*count*layer)); */
+    weight = "";
+    put_2darray(Report4_Info,i,10,weight); 
+    
     /*来源*/  
     source = "";
-    put_2darray(Report4_Info,i,10,source); 
+    put_2darray(Report4_Info,i,11,source); 
     
     /*备注信息*/  
     remark = "";
-    put_2darray(Report4_Info,i,11,remark);  
+    put_2darray(Report4_Info,i,12,remark);  
     
     return(0);
 }
@@ -925,17 +951,21 @@ get_object5_info(object,i)
     unit = "件";
     put_2darray(Report5_Info,i,8,unit);       
    
-    /*重量*/
+    /*单重*/
     weight = get_weight_info(object);
     put_2darray(Report5_Info,i,9,weight); 
-
+    
+    /*重量*/
+    weight = get_weight_info(object);
+    put_2darray(Report5_Info,i,10,weight); 
+    
     /*来源*/  
     source = "";
-    put_2darray(Report5_Info,i,10,source); 
+    put_2darray(Report5_Info,i,11,source); 
     
     /*备注信息*/  
     remark = "";
-    put_2darray(Report5_Info,i,11,remark);  
+    put_2darray(Report5_Info,i,12,remark);  
     
     return(0);
 }
@@ -1947,7 +1977,16 @@ create_panel_underpart(mainform)
                                          W_PANEL_BUTTONVALUE, 202,
                                          W_PANEL_CALLBACK,    1,
                                          W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
-                                        
+
+	mult_planning_unit = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "mult_planning_unit");
+	W_REALIZE_PANELITEM(mult_planning_unit, W_PANEL_ROW,      23, 
+                                         W_PANEL_COL,         24,
+                                         W_PANEL_BUTTONIMAGE, "批量填写托盘", 
+                                         W_PANEL_WIDTH,       10,
+                                         W_PANEL_BUTTONVALUE, 202,
+                                         W_PANEL_CALLBACK,    1,
+                                         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+                                         
 	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
 	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	     23, 
 	                                    W_PANEL_COL,         49,
@@ -1973,7 +2012,72 @@ create_panel_underpart(mainform)
 	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
 	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
     W_SET_PANELITEM_HANDLER(clear_grid_data, "clear_grid_data_handler");
+    W_SET_PANELITEM_HANDLER(mult_planning_unit, "mult_planning_unit_handler");
 	return(panel_underpart);
+}
+
+/* 对列表中的所有object 批量填写托盘 */
+mult_planning_unit_handler(item, event_type, dummy)
+{
+    if(Summation==1){
+		U_CONFIRM("请取消汇总重新查询后，再执行此操作");
+		return(0);
+    }
+	/*定义菜单信息*/   
+	tag_number = 1;
+	tag_description = A_ALLOC(tag_number);
+	A_PUT(tag_description,0,"托盘");
+
+	tags = A_ALLOC(tag_number);
+	A_PUT(tags,0,Tag_PlanningUnit);
+
+    /*映射相应的列*/
+	maps = A_ALLOC(tag_number);
+	A_PUT(maps,0,1);
+
+	/* get column number of item that will be modified */
+	si = 1;
+	s = DM_CALL_SCRIPT("macro/Select.mac","U_Select","选择要批量修改的信息",tag_number,tag_description,si);
+	if(s<0) return(0);
+
+	attribute_tag  = A_GET(tags, s);
+	attribute_name = A_GET(tag_description, s);
+
+	/* get new value */
+	U_INIT_DIALOG(" 请输入新的属性值 ");
+	dialog_handle = U_SET_STR(attribute_name,"",25);
+	if(U_DIALOG()<0) return(0);
+
+	new_val = U_GET_STR(dialog_handle);
+	if (new_val == ""){
+		U_CONFIRM("输入为空值");
+		return(0);
+	}
+
+	/* assign new value to selected objects */
+	for (i = 0; i < Object_Number; i = i + 1){
+		object = PM_GET_MEMBER_IN_SET(Object_List, i);
+        object_name = PM_GET_OBJDATA(object,0, "nam");
+		access = Get_Object_Access_Status(object);
+		if(access == "CheckOutByMe"){
+			Set_Attribute_Value(object, attribute_tag, new_val);		
+		}
+		else{
+			U_CONFIRM("你没有<"+ object_name +">的修改权限");		
+		}
+	}
+	
+	/* refresh data grid */
+    if(Report_Type==1) get_report1_info();
+    if(Report_Type==2) get_report2_info();
+    if(Report_Type==3) get_report3_info();
+    if(Report_Type==4) get_report4_info();
+    if(Report_Type==5) get_report5_info();
+	publish_model_info();
+    
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
 }
 
 clear_grid_data_handler(item, event_type, dummy)
@@ -2127,7 +2231,7 @@ write_to_temp_file(file)
         info = "Line,#"+ITOASCII(i+1)+",#";
         for(k=3;k<Report1_Column_Number;k=k+1;){
             value = get_2darray(Report1_Info,i,k);
-            if(k == 8){
+            if(k == 80){
                 /*在这里增加合并单元格的列*/
                 info = info + value + ",# ,#";
             }
@@ -2149,7 +2253,7 @@ write_to_temp_file(file)
         info = "Line,#"+ITOASCII(i+1)+",#";
         for(k=3;k<Report2_Column_Number;k=k+1;){
             value = get_2darray(Report2_Info,i,k);
-            if(k == 8){
+            if(k == 80){
                 /*在这里增加合并单元格的列*/
                 info = info + value + ",# ,#";
             }
@@ -2171,7 +2275,7 @@ write_to_temp_file(file)
         info = "Line,#"+ITOASCII(i+1)+",#";
         for(k=3;k<Report3_Column_Number;k=k+1;){
             value = get_2darray(Report3_Info,i,k);
-            if(k == 8){
+            if(k == 80){
                 /*在这里增加合并单元格的列*/
                 info = info + value + ",# ,#";
             }
@@ -2193,7 +2297,7 @@ write_to_temp_file(file)
         info = "Line,#"+ITOASCII(i+1)+",#";
         for(k=3;k<Report4_Column_Number;k=k+1;){
             value = get_2darray(Report4_Info,i,k);
-            if(k == 8){
+            if(k == 80){
                 /*在这里增加合并单元格的列*/
                 info = info + value + ",# ,#";
             }
@@ -2215,7 +2319,7 @@ write_to_temp_file(file)
         info = "Line,#"+ITOASCII(i+1)+",#";
         for(k=3;k<Report5_Column_Number;k=k+1;){
             value = get_2darray(Report5_Info,i,k);
-            if(k == 8){
+            if(k == 80){
                 /*在这里增加合并单元格的列*/
                 info = info + value + ",# ,#";
             }

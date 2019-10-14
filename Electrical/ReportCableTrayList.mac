@@ -450,7 +450,7 @@ publish_model_info()
 create_top_frame()
 {
 	mainform = W_INIT_FRAME();
-	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "电缆支撑件和贯通件制作图册(托盘表)" );	
+	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "电缆支撑件和贯通件制作图册" );	
 	return(mainform);
 }
 
@@ -501,7 +501,7 @@ grid_handler(window, event_type, row, column, item_id)
 		/* 获取选中的模型 */			
 		get_selected_items(DisplayGrid);			
 		auto_highlight();
-		auto_scale_model();			
+		auto_scale_model();		
 	}
 	return(0);
 }
@@ -1028,6 +1028,28 @@ export_to_drawing(item, event_type, dummy)
 
 write_data_to_drawing()
 {
+    U_INIT_DIALOG("请输入报表的信息");
+    block = ""; 
+    phase = ""; 
+    drawingno = ""; 
+    i_m1 = U_SET_STR("分段",block,30); 
+    i_m2 = U_SET_STR("阶段",phase,30);
+    i_m3 = U_SET_STR("图号",drawingno,30);
+    if( U_DIALOG() >= 0 ){
+        block = U_GET_STR(i_m1);
+        phase = U_GET_STR(i_m2);
+        drawingno = U_GET_STR(i_m3);
+    }
+    /*页码信息位置*/
+    page_x = 187;
+    page_y = 281;
+    block_x = 187;
+    block_y = 275;
+    phase_x = 187;
+    phase_y = 269;
+    drawingno_x = 187;
+    drawingno_y = 263;
+    
 	/*计算页数*/ 
 	page_number = Report_Row_Number / Column_Number_Per_Page;
 	page_number = String_To_Int(STRINGTERM(FTOASCII(page_number),"."));
@@ -1062,10 +1084,16 @@ write_data_to_drawing()
 			row_number = (i-1)*Column_Number_Per_Page + j; 
 			if(row_number >= Report_Row_Number){
                 DW_TATTR(0.0,0.0,5);
+                /* 重量等信息 */
                 total_count = get_total_count();
 				DW_TEXT(tot_count_x, tot_count_y, total_count); 
 				total_weight = get_total_weight();
-				DW_TEXT(tot_weight_x, tot_weight_y, total_weight);            
+				DW_TEXT(tot_weight_x, tot_weight_y, total_weight); 
+                /* 页码等信息 */
+                DW_TEXT(page_x, page_y, ITOASCII(i+1));
+                DW_TEXT(block_x, block_y, block);
+                DW_TEXT(phase_x, phase_y, phase);
+                DW_TEXT(drawingno_x, drawingno_y, drawingno);
 				PM_TERMINATE_PAGE_ANNOTATION(1);
 				return(0);             
 			}
@@ -1098,12 +1126,18 @@ write_data_to_drawing()
 			text = get_string(row_number,7);
 			DW_TEXT(x, y, text);                                              
 		}
+        /* 重量等信息 */
         DW_TATTR(0.0,0.0,5);
         total_count = get_total_count();
         DW_TEXT(tot_count_x, tot_count_y, total_count);
 		total_weight = get_total_weight();
 		DW_TEXT(tot_weight_x, tot_weight_y, total_weight);
-		PM_TERMINATE_PAGE_ANNOTATION(1);          
+        /* 页码等信息 */
+        DW_TEXT(page_x, page_y, ITOASCII(i+1));
+        DW_TEXT(block_x, block_y, block);
+        DW_TEXT(phase_x, phase_y, phase);
+        DW_TEXT(drawingno_x, drawingno_y, drawingno);
+		PM_TERMINATE_PAGE_ANNOTATION(1);  
 	}
 	return(0);   
 }

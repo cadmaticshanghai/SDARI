@@ -103,9 +103,10 @@ init0()
     A_PUT(Title,6,"厂家");
     A_PUT(Title,7,"数量");
     A_PUT(Title,8,"单位");
-    A_PUT(Title,9,"重量");
-    A_PUT(Title,10,"来源");
-    A_PUT(Title,11,"备注");
+    A_PUT(Title,9,"单重");
+    A_PUT(Title,10,"重量");
+    A_PUT(Title,11,"来源");
+    A_PUT(Title,12,"备注");
 }
 
 /*
@@ -159,8 +160,8 @@ get_summation_info(report)
 
     /*汇总 需要汇总的列*/
     sumcols = A_ALLOC(2, "INT");
-	A_PUT(sumcols,0,6);
-	A_PUT(sumcols,1,8);
+	A_PUT(sumcols,0,7);
+	A_PUT(sumcols,1,10);
     
     /*汇总后的索引*/
     A_FREE(SummationIndexs);
@@ -236,17 +237,21 @@ get_object_info(object,i)
     unit = get_unit_info(object);
     put_2darray(Report_Info,i,8,unit);  
     
-    /*重量*/      
+    /*单重*/      
     weight = get_weight_info(object);
     put_2darray(Report_Info,i,9,weight); 
-
+    
+    /*重量*/      
+    weight = get_weight_info(object);
+    put_2darray(Report_Info,i,10,weight); 
+    
     /*来源*/  
     source = "";
-    put_2darray(Report_Info,i,10,source);  
+    put_2darray(Report_Info,i,11,source);  
     
     /*备注信息*/  
     remark = "";
-    put_2darray(Report_Info,i,11,remark);  
+    put_2darray(Report_Info,i,12,remark);  
 }
 
 /*获取指定模型的单位*/
@@ -614,25 +619,16 @@ modify_info_handler(item, event_type, button_value)
 		return(0);
 	}
 	/*定义菜单信息*/   
-	tag_number = 4;
+	tag_number = 1;
 	tag_description = A_ALLOC(tag_number);
 	A_PUT(tag_description,0,"托盘");
-    A_PUT(tag_description,1,"内容");
-    A_PUT(tag_description,2,"型号");
-    A_PUT(tag_description,3,"厂家");
 
 	tags = A_ALLOC(tag_number);
 	A_PUT(tags,0,Tag_PlanningUnit);
-	A_PUT(tags,1,Tag_Equip_Desc);
-    A_PUT(tags,2,Tag_Equip_Type);
-    A_PUT(tags,3,Tag_Equip_Supplier);
 
     /*映射相应的列*/
 	maps = A_ALLOC(tag_number);
 	A_PUT(maps,0,1);
-	A_PUT(maps,1,4);
-    A_PUT(maps,2,5);
-    A_PUT(maps,3,6);
 
 	/* get column number of item that will be modified */
 	si = 1;
@@ -915,7 +911,16 @@ create_panel_underpart(mainform)
                                         W_PANEL_BUTTONVALUE, 202,
                                         W_PANEL_CALLBACK,    1,
                                         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
-                                                 
+                                        
+	mult_planning_unit = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "mult_planning_unit");
+	W_REALIZE_PANELITEM(mult_planning_unit, W_PANEL_ROW,      23, 
+                                         W_PANEL_COL,         12,
+                                         W_PANEL_BUTTONIMAGE, "批量填写托盘", 
+                                         W_PANEL_WIDTH,       10,
+                                         W_PANEL_BUTTONVALUE, 202,
+                                         W_PANEL_CALLBACK,    1,
+                                         W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+                                         
 	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
 	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	     23, 
 	                                    W_PANEL_COL,         49,
@@ -940,7 +945,68 @@ create_panel_underpart(mainform)
 	W_SET_PANELITEM_HANDLER(export_report, "export_to_excel");
 	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
 	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
+    W_SET_PANELITEM_HANDLER(mult_planning_unit, "mult_planning_unit_handler");
 	return(panel_underpart);
+}
+
+/* 对列表中的所有object 批量填写托盘 */
+mult_planning_unit_handler(item, event_type, dummy)
+{
+    if(Summation==1){
+		U_CONFIRM("请取消汇总重新查询后，再执行此操作");
+		return(0);
+    }
+	/*定义菜单信息*/   
+	tag_number = 1;
+	tag_description = A_ALLOC(tag_number);
+	A_PUT(tag_description,0,"托盘");
+
+	tags = A_ALLOC(tag_number);
+	A_PUT(tags,0,Tag_PlanningUnit);
+
+    /*映射相应的列*/
+	maps = A_ALLOC(tag_number);
+	A_PUT(maps,0,1);
+
+	/* get column number of item that will be modified */
+	si = 1;
+	s = DM_CALL_SCRIPT("macro/Select.mac","U_Select","选择要批量修改的信息",tag_number,tag_description,si);
+	if(s<0) return(0);
+
+	attribute_tag  = A_GET(tags, s);
+	attribute_name = A_GET(tag_description, s);
+
+	/* get new value */
+	U_INIT_DIALOG(" 请输入新的属性值 ");
+	dialog_handle = U_SET_STR(attribute_name,"",25);
+	if(U_DIALOG()<0) return(0);
+
+	new_val = U_GET_STR(dialog_handle);
+	if (new_val == ""){
+		U_CONFIRM("输入为空值");
+		return(0);
+	}
+
+	/* assign new value to selected objects */
+	for (i = 0; i < Object_Number; i = i + 1){
+		object = PM_GET_MEMBER_IN_SET(Object_List, i);
+        object_name = PM_GET_OBJDATA(object,0, "nam");
+		access = Get_Object_Access_Status(object);
+		if(access == "CheckOutByMe"){
+			Set_Attribute_Value(object, attribute_tag, new_val);		
+		}
+		else{
+			U_CONFIRM("你没有<"+ object_name +">的修改权限");		
+		}
+	}
+	
+	/* refresh data grid */
+    get_report_info();
+	publish_model_info();
+    
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
 }
 
 select_path_handler(item, event_type, dummy)
@@ -1090,7 +1156,7 @@ write_to_temp_file(file)
         item_id = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ITEMID);
         for(k=3;k<Report_Column_Number;k=k+1;){
             value = get_2darray(Report_Info,item_id,k);
-            if(k == 8){
+            if(k == 80){
                 /*在这里增加合并单元格的列*/
                 info = info + value + ",# ,#";
             }
