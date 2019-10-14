@@ -93,6 +93,32 @@ Get_Tray_Layer_Height(width,layer)
     return (140);
 }
 
+/*根据空间范围查找模型*/
+search_mdels_intersect_box(x1,y1,z1,x2,y2,z2,obj_type)
+{
+	models = PM_OBJECTS_IN_BOX(1,x1,y1,z1,x2,y2,z2);
+	model_number = PM_NR_MEMBERS_IN_SET(models);
+	objects = PM_INIT_SET();
+	if(model_number<=0){
+		return(-1);
+	}
+	object_number = 0;
+	for(i=0;i<model_number;i=i+1;){
+		model = PM_GET_MEMBER_IN_SET(models,i);
+		model_type = PM_GET_OBJDATA(model,0,MMT_TAG_OBJTYPE);
+		if(model_type == obj_type){
+			PM_ADD_OBJECT_TO_SET(model,objects);
+			object_number = object_number+1;
+		}
+	}
+	if(object_number>0){
+		return(objects);	
+	}
+	else{
+		return(0);
+	}	
+}
+
 /*删除多层tray及相关space*/
 Delete_Support_And_Tray(support_handle)
 {
@@ -308,7 +334,6 @@ Angle_To_Direction(ang_s,ang_r, dx,dy,dz)
     VEC_UNITV(dx,dy,dz);
     return (0);
 }
-
 
 /*生成部件托架space空间*/
 Create_Standard_Tray_Space(set, cmd, sys_id, px,py,pz, ux,uy,uz, vx,vy,vz)
@@ -903,7 +928,7 @@ Vector3d_ProjectOnPlane(float dx1, float dy1, float dz1, float dx2, float dy2, f
         dz2 = 0.0;
     }
 }
-         
+
 /*向量的镜像*/
 Vector3d_Mirror(float dx1, float dy1, float dz1, float dx2, float dy2, float dz2, float v_dx, float v_dy, float v_dz)
 {

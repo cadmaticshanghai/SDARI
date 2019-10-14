@@ -1187,30 +1187,7 @@ get_tray_distance(tray_handle1,tray_handle2)
     return(Abs(dist));
 }
 
-search_mdels_intersect_box(x1,y1,z1,x2,y2,z2,obj_type)
-{
-	models = PM_OBJECTS_IN_BOX(1,x1,y1,z1,x2,y2,z2);
-	model_number = PM_NR_MEMBERS_IN_SET(models);
-	objects = PM_INIT_SET();
-	if(model_number<=0){
-		return(-1);
-	}
-	object_number = 0;
-	for(i=0;i<model_number;i=i+1;){
-		model = PM_GET_MEMBER_IN_SET(models,i);
-		model_type = PM_GET_OBJDATA(model,0,MMT_TAG_OBJTYPE);
-		if(model_type == obj_type){
-			PM_ADD_OBJECT_TO_SET(model,objects);
-			object_number = object_number+1;
-		}
-	}
-	if(object_number>0){
-		return(objects);	
-	}
-	else{
-		return(0);
-	}	
-}
+
 
 support_align_option_handler(item, event_type, dummy)
 {
