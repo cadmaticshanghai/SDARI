@@ -26,6 +26,7 @@ global string	Earth_Bolt_Pid3 = "";
 global string	Beam_Part1_Pid  = "";
 global string	Beam_Part2_Pid  = "";
 global string	Steel_Plate_Pid = "";
+global string	Steel_Plate2_Pid = "";
 global string	Seat_Hole_Pid   = "";
 global string	Pad_Plate_Pid   = "";
 

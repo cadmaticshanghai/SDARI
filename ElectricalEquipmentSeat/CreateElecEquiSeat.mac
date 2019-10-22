@@ -17,6 +17,7 @@
 #include "include/PmDirectionUtils.h"
 #include "include/quants.h"
 
+global string Script_Suffix = ".bs";
 #include "$MarineToolkit/ElectricalEquipmentSeat/ElecEquiSeat.h"
 
 global float Seat_X = 0.0;
@@ -37,8 +38,7 @@ global float Thickness = 0;
 
 main()
 {
-    if(!license())
-    {
+    if(!license()){
         return(0);
     }
     /* define array for parameter of seat 
@@ -67,36 +67,16 @@ main()
             U_CONFIRM("此设备不属于电气设备或者未输入基座参数");	
             return(0);
         }
-        get_seat_para(obj_h,para_s,seat_para);	
+	
         /* get type of seat and call corresponding script */
+        get_seat_para(obj_h,para_s,seat_para);
         type = A_GET(seat_para,0);
-        if(type != ""){
-            /*Select hull panel that support leg will attach to*/
-            /*If user when to pick position of leg end point directly, he can press ESC */
-            panel_handle = Pick_Hull_Panel("请选择支撑结构,按ESC直接选择支撑面上任意一点");
-            /*User pick leg end position*/
-            if(ISINT(panel_handle)){
-                PickPosition = 1; 
-                res = pick_attached_position(seat_para);
-                if(res == -1){
-                    st = PM_UM_CLOSE_CHANGE();
-                    PM_UM_UNDO_LAST_CHANGE();
-                    return(0);
-                }
-            }
-            else{
-                res = read_panel_data(panel_handle,seat_para);
-                if(res == -1){
-                    st = PM_UM_CLOSE_CHANGE();
-                    PM_UM_UNDO_LAST_CHANGE();
-                    return(0);
-                }
-            }            
-            path = SYS_GETENV("MarineToolkit") + "/ElectricalEquipmentSeat/ElecEquiSeat_" + type + ".bs";
-            PM_CALL_SCRIPT(path,"main","",seat_para);
+        if(type != ""){         
+            path = SYS_GETENV("MarineToolkit") + "/ElectricalEquipmentSeat/ElecEquiSeat_" + type + Script_Suffix;
+            PM_CALL_SCRIPT(path,"create_by_equi",obj_h);
         }
         else{
-            U_CONFIRM("基座参数中未包含基座类型");
+            U_CONFIRM("设备参数中未包含基座类型");
             return(0);            
         }		
     } 
@@ -180,8 +160,7 @@ get_seat_para(obj_h,para,seat_para)
 	Seat_X = lox;
 	Seat_Y = loy;
 	Seat_Z = loz;
-	  
-    
+	
     A_PUT(seat_para,11,lox);
     A_PUT(seat_para,12,loy);
     A_PUT(seat_para,13,loz);
@@ -191,7 +170,6 @@ get_seat_para(obj_h,para,seat_para)
     A_PUT(seat_para,17,vdx);
     A_PUT(seat_para,18,vdy);
     A_PUT(seat_para,19,vdz);
-             
     return(0);    
 }
 
@@ -262,11 +240,11 @@ check_date()
 /*check if the passed model is hull structure*/
 Is_Hull_Part(handle part_handle)
 {
-   check = PM_GET_OBJDATA(part_handle,0,".qL");
-   if(check == "1"){
-      return(1);
-   }
-   return(0);
+    check = PM_GET_OBJDATA(part_handle,0,".qL");
+    if(check == "1"){
+        return(1);
+    }
+    return(0);
 }
 
 Pick_Hull_Panel(string prompt)
@@ -310,8 +288,7 @@ pick_attached_position(seat_para)
         
     A_PUT(seat_para,20,x0);  
     A_PUT(seat_para,21,y0);
-    A_PUT(seat_para,22,z0);        
-        
+    A_PUT(seat_para,22,z0);
     return(0);
 }
 
@@ -338,7 +315,7 @@ read_panel_data(panel,seat_para)
         U_CONFIRM("设备底座平面与结构平面的夹角大于0.1度");
         return(-1);
     }
-      
+     
     x = 0; y =0; z = 0;
     PlaneLineIntersectPoint(seat_dx,seat_dy,seat_dz,panel_x,panel_y,panel_z,seat_dx,seat_dy,seat_dz,Seat_X,Seat_Y,Seat_Z,x,y,z);   
     
@@ -419,9 +396,8 @@ PlaneLineIntersectPoint(plane_dx,plane_dy,plane_dz,plane_x,plane_y,plane_z,line_
     m3 = line_z;  
     vpt = v1 * vp1 + v2 * vp2 + v3 * vp3;  
     /*首先判断直线是否与平面平行*/  
-    if (vpt == 0)  
-    {  
-       return(-1);  
+    if (vpt == 0){  
+        return(-1);  
     }   
     t = ((n1 - m1) * vp1 + (n2 - m2) * vp2 + (n3 - m3) * vp3) / vpt;  
     x = m1 + v1 * t;  

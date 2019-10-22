@@ -3244,6 +3244,111 @@ initialize()
 	return(0);
 }
 
+create_by_equi(equi_h)
+{
+    if(!license()){
+        return(0);
+    }
+	mainform  = create_top_frame();	
+	Panel_1 = create_template_panel(mainform);
+	Panel_2 = create_info_panel(mainform);
+	Panel_3 = create_material_panel(mainform);
+	Panel_4 = create_command_panel(mainform);
+	Panel_5 = create_parameter_panel(mainform);
+	Panel_6 = create_position_panel(mainform);
+	Panel_7 = create_rotate_seat_panel(mainform);
+	Panel_8 = create_move_seat_panel(mainform);
+    
+	initialize();
+	load_default_setting();
+	MainWindow = mainform;
+    
+	/* 检查是否已经选择了所需的零件 */
+	leg = W_GET_PANELITEM_ARG(Seat_Part2, W_PANEL_VALUE);
+	if (leg == "Undefined"){
+		U_CONFIRM("请先选择支撑脚材料");
+		return(-1);
+	}
+	frame = W_GET_PANELITEM_ARG(Seat_Part1, W_PANEL_VALUE);
+	if (frame == "Undefined"){
+		U_CONFIRM("请先选择框架材料");
+		return(-1);
+	} 
+    para_s = Get_Attribute_Value(equi_h, SeatPara);
+    get_seat_para(equi_h,para_s);
+	check_seat_para();
+    
+	/* Select hull panel that support leg will attach to */
+	/* If want to pick leg end point directly, press ESC */
+	panel_handle = Pick_Hull_Panel("请选择支撑结构,按ESC直接选择支撑面上任意一点");
+	/*User pick leg end position*/
+	if(ISINT(panel_handle)){
+		res = pick_attached_position();
+		if(res == -1){
+			return(0);
+		}
+	}
+	else{
+		res = read_panel_data(panel_handle);
+		if(res == -1){
+			return(0);
+		}
+	}	
+		
+	/* 获取基座名称 */
+	SeatName = W_GET_PANELITEM_ARG(Seat_Name, W_PANEL_VALUE);     
+	if (SeatName == "Undefined"){
+		res = auto_naming();
+		SeatName = W_GET_PANELITEM_ARG(Seat_Name, W_PANEL_VALUE);
+		if(res == -1){
+			U_CONFIRM("请先输入基座编号！");
+			return(0);
+		}
+	}
+	/* 计算基座高度 */
+	dx = Seat_X - Root_X; dy = Seat_Y - Root_Y; dz = Seat_Z - Root_Z;
+	Seat_Size_D = VEC_UNITV(dx,dy,dz);
+	W_SET_NUMERIC_VALUE(Seat_Para_D,Seat_Size_D);
+    
+	res = calculate_seat_para(); 
+	if(res == -1){
+		U_CONFIRM("电气设备基座参数不正确，请检查！");     
+		return(0);
+	}
+
+	/* 定义UNDO缓存 */
+	st = PM_UM_OPEN_CHANGE("创建电气设备基座:" + SeatName);
+   
+	/* 定义基座组 */  
+	group_h = Create_Group(Group_Type, SeatName); 
+	if(ISINT(group_h)){
+		U_CONFIRM("无法创建电气设备基座模型组，请检查是否已经定义了这种类型的模型组？");
+		st = PM_UM_CLOSE_CHANGE();
+		PM_UM_UNDO_LAST_CHANGE();
+		return(0);
+	}
+	Seat_Handle = group_h; 
+	
+	res = create_seat_part();
+	/* 基座创建不成功，删除相关定义 */
+	if (res == -1){
+		PM_UM_CLOSE_CHANGE();
+		PM_UM_UNDO_LAST_CHANGE();
+		return(0);
+	}
+	st = PM_UM_CLOSE_CHANGE();
+   
+    /*基座创建成功，进入修改状态*/
+    W_SET_PANELITEM_ARGS(Modify_Seat, W_PANEL_SENSITIVITY,1);
+	W_SET_PANELITEM_ARGS(Create_Seat, W_PANEL_SENSITIVITY,0);
+	Modify_flag = 1; 
+    
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
+
 main(seat_name)
 {
     if(!license()){

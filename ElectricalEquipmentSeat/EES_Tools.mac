@@ -1,0 +1,615 @@
+/* $Id: EES_Tools.mac,v1.0.0 2015/04/15 Wallis.liu $ */
+
+/*
+**	这个程序用于集中显示电气设备基座参数化程序.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/dw.h"
+#include "include/PmDirectionUtils.h"
+#include "include/quants.h"
+#include "$MarineToolkit/ElectricalEquipmentSeat/ElecEquiSeat.h"
+
+
+global string Script_Path = "";
+global string Script_Suffix = ".bs";
+
+global handle Seat_AA,Seat_AB,Seat_AC,Seat_AD;
+global handle Seat_BA,Seat_BB,Seat_BC,Seat_BD;
+global handle Seat_CA,Seat_CB,Seat_CC,Seat_CD;
+global handle Seat_DA,Seat_DB,Seat_DC,Seat_DD;
+global handle Seat_EA,Seat_EB,Seat_EC,Seat_ED;
+global handle Seat_FA,Seat_FB,Seat_FC,Seat_FD;
+global handle Seat_GA,Seat_GB;
+global handle Seat_HA,Seat_HB,Seat_HC;
+global handle Seat_OA,Seat_OB,Seat_OC;
+global handle MainWindow;
+
+
+init()
+{
+    Script_Path = SYS_GETENV("MarineToolkit") + "/ElectricalEquipmentSeat/ElecEquiSeat";
+}
+
+/*
+**创建顶层窗体
+**Create Top frame
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();	 
+	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "电气设备基座工具板");	
+	return(mainform);	
+}
+
+/*
+**创建用于显示参数化创建各种类型的电气设备基座的窗口的命令
+*/
+create_panel(mainform)
+{  
+	Command = W_ADD_WINDOW(mainform, W_PANEL, "Command");
+	W_REALIZE_WINDOW(Command,   W_FRAME_X, 0,
+                                W_FRAME_Y, 0,
+							    W_FRAME_WIDTH, 20,
+							    W_FRAME_HEIGHT, 50);
+
+	title = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,  W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"参数化建模");
+
+    seperate_line = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 8,
+		                                W_PANEL_BUTTONIMAGE,	"",
+		                                W_PANEL_SEPARATOR,  1);	
+		                                 													
+	Seat_AA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_AA");
+	W_REALIZE_PANELITEM(Seat_AA,    W_PANEL_ROW, 1, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "AA", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 11,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_AA, "create_seat_handler");
+
+	Seat_AB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_AB");
+	W_REALIZE_PANELITEM(Seat_AB,    W_PANEL_ROW, 1, 
+	                                W_PANEL_COL, 6,
+                                    W_PANEL_BUTTONIMAGE, "AB",
+                                    W_PANEL_LABEL, "AB",                                  
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 12,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_AB, "create_seat_handler");	
+	
+	Seat_AC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_AC");
+	W_REALIZE_PANELITEM(Seat_AC,    W_PANEL_ROW, 1, 
+	                                W_PANEL_COL, 12,
+						            W_PANEL_BUTTONIMAGE, "AC", 
+						            W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 13,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_AC, "create_seat_handler");		
+
+	Seat_AD = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_AD");
+	W_REALIZE_PANELITEM(Seat_AD,    W_PANEL_ROW, 1, 
+	                                W_PANEL_COL, 18,
+                                    W_PANEL_BUTTONIMAGE, "AD", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 14,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_AD, "create_seat_handler");	
+
+    /* B型基座 */
+	Seat_BA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_BA");
+	W_REALIZE_PANELITEM(Seat_BA,    W_PANEL_ROW, 2, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "BA", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 21,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_BA, "create_seat_handler");
+
+	Seat_BB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_BB");
+	W_REALIZE_PANELITEM(Seat_BB,    W_PANEL_ROW, 2, 
+	                                W_PANEL_COL, 6,
+                                    W_PANEL_BUTTONIMAGE, "BB", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 22,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_BB, "create_seat_handler");	
+	
+	Seat_BC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_BC");
+	W_REALIZE_PANELITEM(Seat_BC,    W_PANEL_ROW, 2, 
+	                                W_PANEL_COL, 12,
+                                    W_PANEL_BUTTONIMAGE, "BC", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 23,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_BC, "create_seat_handler");		
+
+	Seat_BD = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_BD");
+	W_REALIZE_PANELITEM(Seat_BD,    W_PANEL_ROW, 2, 
+	                                W_PANEL_COL, 18,
+                                    W_PANEL_BUTTONIMAGE, "BD", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 24,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	 
+	W_SET_PANELITEM_HANDLER(Seat_BD, "create_seat_handler");	
+
+    /* C型基座 */
+	Seat_CA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_CA");
+	W_REALIZE_PANELITEM(Seat_CA,    W_PANEL_ROW, 3, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "CA", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 31,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_CA, "create_seat_handler");
+
+	Seat_CB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_CB");
+	W_REALIZE_PANELITEM(Seat_CB,    W_PANEL_ROW, 3, 
+	                                W_PANEL_COL, 6,
+                                    W_PANEL_BUTTONIMAGE, "CB", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 32,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_CB, "create_seat_handler");	
+	
+	Seat_CC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_CC");
+	W_REALIZE_PANELITEM(Seat_CC,    W_PANEL_ROW, 3, 
+	                                W_PANEL_COL, 12,
+                                    W_PANEL_BUTTONIMAGE, "CC", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 33,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	 
+	W_SET_PANELITEM_HANDLER(Seat_CC, "create_seat_handler");		
+
+	Seat_CD = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_CD");
+	W_REALIZE_PANELITEM(Seat_CD,    W_PANEL_ROW, 3, 
+	                                W_PANEL_COL, 18,
+                                    W_PANEL_BUTTONIMAGE, "CD", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 34,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_CD, "create_seat_handler");	
+
+    /* D型基座 */
+	Seat_DA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_DA");
+	W_REALIZE_PANELITEM(Seat_DA,    W_PANEL_ROW, 4, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "DA", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 41,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_DA, "create_seat_handler");
+
+	Seat_DB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_DB");
+	W_REALIZE_PANELITEM(Seat_DB,    W_PANEL_ROW, 4, 
+	                                W_PANEL_COL, 6,
+                                    W_PANEL_BUTTONIMAGE, "DB", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 42,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_DB, "create_seat_handler");	
+	
+	Seat_DC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_DC");
+	W_REALIZE_PANELITEM(Seat_DC,    W_PANEL_ROW, 4, 
+	                                W_PANEL_COL, 12,
+                                    W_PANEL_BUTTONIMAGE, "DC", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 43,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_DC, "create_seat_handler");		
+
+	Seat_DD = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_DD");
+	W_REALIZE_PANELITEM(Seat_DD,    W_PANEL_ROW, 4, 
+	                                W_PANEL_COL, 18,
+                                    W_PANEL_BUTTONIMAGE, "DD", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 44,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_DD, "create_seat_handler");	
+
+    /* E型基座 */
+	Seat_EA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_EA");
+	W_REALIZE_PANELITEM(Seat_EA,    W_PANEL_ROW, 5, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "EA", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 51,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_EA, "create_seat_handler");
+
+	Seat_EB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_EB");
+	W_REALIZE_PANELITEM(Seat_EB,    W_PANEL_ROW, 5, 
+	                                W_PANEL_COL, 6,
+                                    W_PANEL_BUTTONIMAGE, "EB", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 52,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_EB, "create_seat_handler");	
+	
+	Seat_EC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_EC");
+	W_REALIZE_PANELITEM(Seat_EC,    W_PANEL_ROW, 5, 
+	                                W_PANEL_COL, 12,
+                                    W_PANEL_BUTTONIMAGE, "EC", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 53,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_EC, "create_seat_handler");		
+
+	Seat_ED = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_ED");
+	W_REALIZE_PANELITEM(Seat_ED,    W_PANEL_ROW, 5, 
+	                                W_PANEL_COL, 18,
+                                    W_PANEL_BUTTONIMAGE, "ED", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 54,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_ED, "create_seat_handler");	
+    
+    /* F型基座 */
+	Seat_FA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_FA");
+	W_REALIZE_PANELITEM(Seat_FA,    W_PANEL_ROW, 6, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "FA", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 61,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_FA, "create_seat_handler");
+
+	Seat_FB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_FB");
+	W_REALIZE_PANELITEM(Seat_FB,    W_PANEL_ROW, 6, 
+	                                W_PANEL_COL, 6,
+                                    W_PANEL_BUTTONIMAGE, "FB", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 62,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_FB, "create_seat_handler");	
+	
+	Seat_FC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_FC");
+	W_REALIZE_PANELITEM(Seat_FC,    W_PANEL_ROW, 6, 
+	                                W_PANEL_COL, 12,
+                                    W_PANEL_BUTTONIMAGE, "FC", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 63,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_FC, "create_seat_handler");		
+
+	Seat_FD = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_FD");
+	W_REALIZE_PANELITEM(Seat_FD,    W_PANEL_ROW, 6, 
+	                                W_PANEL_COL, 18,
+                                    W_PANEL_BUTTONIMAGE, "FD", 
+                                    W_PANEL_WIDTH, 5,
+                                    W_PANEL_BUTTONVALUE, 64,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);		 
+	W_SET_PANELITEM_HANDLER(Seat_FD, "create_seat_handler");	
+
+    /* G型基座 */
+	Seat_GA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_GA");
+	W_REALIZE_PANELITEM(Seat_GA,    W_PANEL_ROW, 7, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "GA", 
+                                    W_PANEL_WIDTH, 11,
+                                    W_PANEL_BUTTONVALUE, 71,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_GA, "create_seat_handler");
+
+	Seat_GB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_GB");
+	W_REALIZE_PANELITEM(Seat_GB,    W_PANEL_ROW, 7, 
+	                                W_PANEL_COL, 12,
+                                    W_PANEL_BUTTONIMAGE, "GB", 
+                                    W_PANEL_WIDTH, 11,
+                                    W_PANEL_BUTTONVALUE, 72,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_GB, "create_seat_handler");	
+
+    /* H型基座 */
+	Seat_HA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_HA");
+	W_REALIZE_PANELITEM(Seat_HA,    W_PANEL_ROW, 8, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "HA", 
+                                    W_PANEL_WIDTH, 7,
+                                    W_PANEL_BUTTONVALUE, 81,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_HA, "create_seat_handler");
+
+	Seat_HB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_HB");
+	W_REALIZE_PANELITEM(Seat_HB,    W_PANEL_ROW, 8, 
+	                                W_PANEL_COL, 8,
+                                    W_PANEL_BUTTONIMAGE, "HB", 
+                                    W_PANEL_WIDTH, 7,
+                                    W_PANEL_BUTTONVALUE, 82,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_HB, "create_seat_handler");	
+	
+	Seat_HC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_HC");
+	W_REALIZE_PANELITEM(Seat_HC,    W_PANEL_ROW, 8, 
+	                                W_PANEL_COL, 16,
+                                    W_PANEL_BUTTONIMAGE, "HC", 
+                                    W_PANEL_WIDTH, 7,
+                                    W_PANEL_BUTTONVALUE, 83,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_HC, "create_seat_handler");	
+	
+    /* O型基座 */
+	Seat_OA = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_OA");
+	W_REALIZE_PANELITEM(Seat_OA,    W_PANEL_ROW, 9, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "A", 
+                                    W_PANEL_WIDTH, 7,
+                                    W_PANEL_BUTTONVALUE, 91,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_OA, "create_seat_handler");
+
+	Seat_OB = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_OB");
+	W_REALIZE_PANELITEM(Seat_OB,    W_PANEL_ROW, 9, 
+	                                W_PANEL_COL, 8,
+                                    W_PANEL_BUTTONIMAGE, "B", 
+                                    W_PANEL_WIDTH, 7,
+                                    W_PANEL_BUTTONVALUE, 92,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_OB, "create_seat_handler");	
+	
+	Seat_OC = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Seat_OC");
+	W_REALIZE_PANELITEM(Seat_OC,    W_PANEL_ROW, 9, 
+	                                W_PANEL_COL, 16,
+                                    W_PANEL_BUTTONIMAGE, "C", 
+                                    W_PANEL_WIDTH, 7,
+                                    W_PANEL_BUTTONVALUE, 93,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Seat_OC, "create_seat_handler");	
+
+    seperate_line1 = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "seperate_line1");
+	W_REALIZE_PANELITEM(seperate_line1, W_PANEL_ROW, 10,
+	                                    W_PANEL_COL, 0,
+		                                W_PANEL_BUTTONIMAGE,	"",
+		                                W_PANEL_SEPARATOR, 1);	
+
+	Modify = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Modify");	
+	W_REALIZE_PANELITEM(Modify,     W_PANEL_ROW, 12, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_BUTTONIMAGE, "修 改", 
+                                    W_PANEL_WIDTH, 10,
+                                    W_PANEL_BUTTONVALUE, 111,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+
+	Delete = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Delete");	
+	W_REALIZE_PANELITEM(Delete,     W_PANEL_ROW, 12, 
+	                                W_PANEL_COL, 13,
+                                    W_PANEL_BUTTONIMAGE, "删 除", 
+                                    W_PANEL_WIDTH, 10,
+                                    W_PANEL_BUTTONVALUE, 111,
+                                    W_PANEL_CALLBACK, 1,
+                                    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);
+		                                 	
+	quit = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "quit");	
+	W_REALIZE_PANELITEM(quit,   W_PANEL_ROW, 13, 
+	                            W_PANEL_COL, 0,
+                                 W_PANEL_BUTTONIMAGE, "退 出", 
+                                 W_PANEL_WIDTH, 23,
+                                 W_PANEL_BUTTONVALUE, 111,
+                                 W_PANEL_CALLBACK, 1,
+                                 W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	W_SET_PANELITEM_HANDLER(Modify, "modify_handler");
+	W_SET_PANELITEM_HANDLER(Delete, "delete_handler");
+	
+	return(Command);
+}
+
+quit_handler(item, event_type, button_value)
+{  
+	U_MESSAGE("退出电气设备基座工具板");
+	return(99);
+}
+
+modify_handler(item, event_type, button_value)
+{  
+    tmp = 0;
+    picked_object_handle = PM_PICK_OBJECT("请选择电气设备基座", tmp, "STRUCTCMP","BEAM","STANDCMP");
+	if (!ISINT(picked_object_handle)){	   
+        /*get name of seat*/
+        group_handle = PM_GET_OBJECT_GROUP(picked_object_handle, Group_Type_I);
+        if (ISINT(group_handle)){
+            U_CONFIRM("此零件不属于任何电气设备基座");	
+            return(0);
+        }			  
+		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
+        /* check type of seat */
+        type = PM_GET_OBJDATA(group_handle, 0, SeatType);
+        if(ISINT(type)){
+            U_CONFIRM("此零件不属于任何电气设备基座");	
+            return(0);	      
+        }	
+        else{
+            check = STRINGTERM(type,"_");
+            if(check != "EES"){
+                U_CONFIRM("此零件不属于任何电气设备基座");	
+                return(0);		         
+            }
+        }   	
+        type = SEARCH(type,"_");
+        type = "_"+TAIL(type,2);
+        
+		/*call the corresponding script*/
+        path = Script_Path + type + Script_Suffix;	
+        PM_CALL_SCRIPT(path,"main",group_name);			
+    } 
+    else{
+        return(0);
+    } 
+    return(0);
+}
+
+delete_handler(item, event_type, button_value)
+{  
+    flag = 1;
+    while(flag){
+        tmp = 0;
+        picked_object_handle = PM_PICK_OBJECT("请选择要删除的电气设备基座", tmp, "STRUCTCMP","BEAM");
+        if (!ISINT(picked_object_handle)){	   
+            /*获取电气设备基座的名称*/
+            group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,Group_Type_I);
+            if (ISINT(group_handle)){
+                U_CONFIRM("此零件不属于任何电气设备基座");	      	
+                return(0);
+            }	
+            group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);
+            /* 定义UNDO缓存 */
+            st = PM_UM_OPEN_CHANGE("删除电气设备基座" + group_name);	 
+      	  
+            /* 删除基座零件 */
+            seat_members = PM_GET_OBJECTS_IN_GROUP(group_handle);
+            PM_DELETE_OBJECTS_IN_SET(seat_members, 0);  
+            
+            /* 删除基座 */   
+            res = PM_DELETE_OBJECT(group_handle);
+         
+            /* 基座删除不成功，撤销相关操作 */
+            if (res == -1){
+                PM_UM_CLOSE_CHANGE();
+                PM_UM_UNDO_LAST_CHANGE();
+                return(0);
+            }
+            st = PM_UM_CLOSE_CHANGE();  	      	      						
+        } 
+        else{
+            flag = 0;
+        } 
+    }
+    return(0);
+}
+
+map_button_value(button_value)
+{
+    type = "";
+    map_handle = DM_MAP_CREATE("INT","STRING"); 
+
+    DM_MAP_INSERT(map_handle, 11, "AA");
+    DM_MAP_INSERT(map_handle, 12, "AB");
+    DM_MAP_INSERT(map_handle, 13, "AC");
+    DM_MAP_INSERT(map_handle, 14, "AD");
+    
+    DM_MAP_INSERT(map_handle, 21, "BA");
+    DM_MAP_INSERT(map_handle, 22, "BB");
+    DM_MAP_INSERT(map_handle, 23, "BC");
+    DM_MAP_INSERT(map_handle, 24, "BD");
+    
+    DM_MAP_INSERT(map_handle, 31, "CA");
+    DM_MAP_INSERT(map_handle, 32, "CB");
+    DM_MAP_INSERT(map_handle, 33, "CC");
+    DM_MAP_INSERT(map_handle, 34, "CD");
+    
+    DM_MAP_INSERT(map_handle, 41, "DA");
+    DM_MAP_INSERT(map_handle, 42, "DB");
+    DM_MAP_INSERT(map_handle, 43, "DC");
+    DM_MAP_INSERT(map_handle, 44, "DD");
+    
+    DM_MAP_INSERT(map_handle, 51, "EA");
+    DM_MAP_INSERT(map_handle, 52, "EB");
+    DM_MAP_INSERT(map_handle, 53, "EC");
+    DM_MAP_INSERT(map_handle, 54, "ED");
+    
+    DM_MAP_INSERT(map_handle, 61, "FA");
+    DM_MAP_INSERT(map_handle, 62, "FB");
+    DM_MAP_INSERT(map_handle, 63, "FC");
+    DM_MAP_INSERT(map_handle, 64, "FD");
+    
+    DM_MAP_INSERT(map_handle, 71, "GA");
+    DM_MAP_INSERT(map_handle, 72, "GB");
+    
+    DM_MAP_INSERT(map_handle, 81, "HA");
+    DM_MAP_INSERT(map_handle, 82, "HB");
+    DM_MAP_INSERT(map_handle, 83, "HC");
+    
+    DM_MAP_INSERT(map_handle, 91, "A");
+    DM_MAP_INSERT(map_handle, 92, "B");
+    DM_MAP_INSERT(map_handle, 93, "C");
+    
+    res = DM_MAP_FIND(map_handle, button_value, type); 
+    DM_MAP_DELETE(map_handle); 
+    return(type);
+}
+
+create_seat_handler(item, event_type, button_value)
+{
+    type = map_button_value(button_value);
+    if(type!=""){
+        path = Script_Path + "_" + type + Script_Suffix;	
+        W_UNMAP_FRAME(MainWindow);
+        PM_CALL_SCRIPT(path,"main","");
+        W_MAP_FRAME(MainWindow); 
+    }
+    else{
+        U_CONFIRM("未定义的支架类型，请检查程序");
+    }
+}
+
+main()
+{ 
+    init();
+	mainform  = create_top_frame();	
+	Panel = create_panel(mainform);		
+	MainWindow = mainform;
+
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
