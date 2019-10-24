@@ -25,6 +25,7 @@ global string	Earth_Bolt_Pid2 = "";
 global string	Earth_Bolt_Pid3 = "";
 global string	Beam_Part1_Pid  = "";
 global string	Beam_Part2_Pid  = "";
+global string	Beam_Part3_Pid  = "";
 global string	Steel_Plate_Pid = "";
 global string	Steel_Plate2_Pid = "";
 global string	Seat_Hole_Pid   = "";
@@ -45,6 +46,51 @@ global float	Default_Plate_Corner_R  = 15.0;
 global float   Max_Angle_Tolerence     = 0.1;
 
 
+/*
+**方向旋转&坐标平移
+*/
+move_set_to_direction(x1,y1,z1, ux1,uy1,uz1, vx1,vy1,vz1, x2,y2,z2, ux2,uy2,uz2, vx2,vy2,vz2, set)
+{
+    nr = PM_NR_MEMBERS_IN_SET(set);
+    if (nr == 0) {
+        U_MESSAGE("Empty set, operation canceled");
+        return(-1);
+    }
+    if (PM_WRITE_MDL_OF_SET("move.mdl", set) != 0){
+        return(-1);
+    }
+
+    /* 旋转对象的转换矩阵 */
+	trans_1 = PM_CREATE_TMAT(1, x1,y1,z1, ux1,uy1,uz1, vx1,vy1,vz1);
+	trans_1 = PM_INVERSE_TMAT(trans_1);
+
+    /* 变换到原点 */
+    trans_0 = TRF_TMAT_CREATE();
+    trans_2 = PM_JOIN_TMATS(trans_0, trans_1);
+    
+    /* 变换到参考对象 */
+    trans_3 = PM_CREATE_TMAT(1, x2,y2,z2, ux2,uy2,uz2, vx2,vy2,vz2);
+    trans_2 = PM_JOIN_TMATS(trans_2, trans_3);
+    /* print_matrix(cur_tm); */
+
+	/* open undo task */
+    PM_UM_OPEN_CHANGE("Move set");
+
+	/*Notify PM that we are going to relocate objects using a sequence of deletes and MDL-loads. */
+	if (!PM_OK_TO_RELOCATE_OBJECTS_IN_SET(set)) {
+		F_DELETE_FILE("move.mdl");
+		PM_UM_CLOSE_CHANGE();
+		return(-1);
+	}
+
+	PM_DELETE_OBJECTS_IN_SET(set, 0);
+	PM_READ_MDL_INTO_SET("move.mdl", 1, "", trans_2, set);
+	PM_RELOCATION_ACCEPTED();
+	PM_UM_CLOSE_CHANGE();
+	F_DELETE_FILE("move.mdl");
+	return(0);
+}
+
 /* 根据型材创建垫板 */
 create_bar_pad_plate(seat, bar_handle, node, plate_id, system_id, part_num)
 {
@@ -63,6 +109,7 @@ create_bar_pad_plate(seat, bar_handle, node, plate_id, system_id, part_num)
     /* 型材截面uv轴 */
     udx=0;udy=0;udz=0;vdx=0;vdy=0;vdz=0;wdx=0;wdy=0;wdz=0;
     get_bar_uvwdir(bar_handle,udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
+    get_bar_end_dir(bar_handle,node,udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
     px=0;py=0;pz=0;
     get_bar_node_pos(bar_handle,node,px,py,pz);
     tmat_h = PM_CREATE_TMAT(1,px,py,pz,udx,udy,udz,vdx,vdy,vdz);
@@ -306,10 +353,41 @@ get_bar_node_pos(bar_handle,node,x,y,z)
     z = 1.0 * PM_GET_OBJDATA(bar_handle,0,"loz");
     if(node==1) return(0);
     
-    len = 1.0 * PM_GET_OBJDATA(bar_handle,0,"len");
+    /* len = 1.0 * PM_GET_OBJDATA(bar_handle,0,"len"); */
+    len = 1.0 * PM_GET_OBJDATA(bar_handle,0,"axl");
     udx=0;udy=0;udz=0;vdx=0;vdy=0;vdz=0;wdx=0;wdy=0;wdz=0;
     get_bar_uvwdir(bar_handle,udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
     Point_Move(x,y,z, x,y,z, wdx,wdy,wdz, len);
+    return(0);
+}
+
+/* 端切方向 */
+get_bar_end_dir(bar_handle,node,u_x,u_y,u_z,v_x,v_y,v_z,w_x,w_y,w_z)
+{
+    wdx=0;wdy=0;wdz=0;
+    if(node==1){
+        axs = PM_GET_OBJDATA(bar_handle,0,"n1s");
+        axr = PM_GET_OBJDATA(bar_handle,0,"n1r");
+        angle_to_direction(axs,axr, wdx,wdy,wdz);
+    }
+    else{
+        sxs = PM_GET_OBJDATA(bar_handle,0,"n2s");
+        sxr = PM_GET_OBJDATA(bar_handle,0,"n2r");
+        angle_to_direction(sxs,sxr, wdx,wdy,wdz);
+    }
+    if(Vector3d_Length(wdx,wdy,wdz)==0) return(0);
+
+    udx=0;udy=0;udz=0;
+    vdx=0;vdy=0;vdz=0;
+    Vector3d_CrossProduct(wdx,wdy,wdz, w_x,w_y,w_z, udx,udy,udz);
+    Vector3d_CrossProduct(wdx,wdy,wdz, udx,udy,udz, vdx,vdy,vdz);
+    Vector3d_ToUnitVector(udx,udy,udz, udx,udy,udz);
+    Vector3d_ToUnitVector(vdx,vdy,vdz, vdx,vdy,vdz);
+    Vector3d_ToUnitVector(wdx,wdy,wdz, wdx,wdy,wdz);
+    
+    u_x = udx;  u_y = udy;  u_z = udz;
+    v_x = vdx;  v_y = vdy;  v_z = vdz;
+    w_x = wdx;  w_y = wdy;  w_z = wdz;
     return(0);
 }
 
@@ -333,13 +411,35 @@ get_bar_uvwdir(bar_handle,u_x,u_y,u_z,v_x,v_y,v_z,w_x,w_y,w_z)
 /*方向夹角转换为方向向量*/
 angle_to_direction(ang_s,ang_r, dx,dy,dz)
 {
-    slope_angle = string_to_float(ang_s);
-    rotation_angle = string_to_float(ang_r);
+    dx=0;   dy=0;   dz=0;
+    
+    slope_angle = 0.0;
+    if(ISSTRING(ang_s)){
+        slope_angle = string_to_float(ang_s);
+    }
+    else if(ISFLOAT(ang_s)){
+        slope_angle = 1.0*ang_s;
+    }
+    else if(ang_s==0){
+        return(0);
+    }
+    
+    rotation_angle = 0.0;
+    if(ISSTRING(ang_s)){
+        rotation_angle = string_to_float(ang_r);
+    }
+    else if(ISFLOAT(ang_r) | ISINT(ang_r)){
+        rotation_angle = 1.0*ang_r;
+    }
+    else if(ang_r==0){
+        return(0);
+    }
+    
     dx = COS(slope_angle) * COS(rotation_angle);
     dy = COS(slope_angle) * SIN(rotation_angle);
     dz = SIN(slope_angle);
     VEC_UNITV(dx,dy,dz);
-    return (0);
+    return(0);
 }
 
 get_rectangular_curve(float length,float width,float radius)
@@ -513,7 +613,7 @@ get_pad_type(part_id)
     if(mat_code=="A" | mat_code=="B" | mat_code=="C" | mat_code=="D" | mat_code=="E" | mat_code=="F"){
         pat_type = "A";
     }
-    else if(mat_code=="G" | mat_code=="H" | mat_code=="I" | mat_code=="J" | mat_code=="K" | mat_code=="L"){
+    else if(mat_code=="G" | mat_code=="H" | mat_code=="I" | mat_code=="J" | mat_code=="K" | mat_code=="L" | mat_code=="R"){
         pat_type = "C";
     }
     else if(mat_code=="S" | mat_code=="T"){
@@ -567,7 +667,7 @@ get_pad_curve(part_id)
         radius = 15;
         curve = get_triangle_curve(width,height,t1,t2,gap,radius);
     }
-    else if(mat_code=="G" | mat_code=="H"){
+    else if(mat_code=="G" | mat_code=="H" | mat_code=="R"){
         d = 55;
         curve = get_circle_curve(0.5*d);
     }
@@ -829,12 +929,43 @@ get_material2(part_id)
     return("");    
 }
 
+/*材料3*/
+get_material3(part_id)
+{
+    gt = DM_PARTID_DATA(part_id, "GT");
+    
+    /*型材*/
+    if(gt == "1"){
+        if(is_flat_bar(part_id)){
+            size1 = PM_GET_DIMENSION(part_id, 3, 1);  
+            size2 = PM_GET_DIMENSION(part_id, 3, 2);  
+            if(size1 == 50.0 & size2 == 6){
+                return("q");
+            }
+        }
+    }  
+    /*钢板*/
+    else if(gt == "15"){  
+        size1 = PM_GET_DIMENSION(part_id, 3, 1);  
+        if(size1 == 10.0){
+            return("q");
+        }
+    }
+    return("");    
+}
+
 /*向量的叉积*/      
 Vector3d_CrossProduct(float dx1, float dy1, float dz1, float dx2, float dy2, float dz2, float dx3, float dy3, float dz3)
 {
     dx3 = dy1*dz2 - dz1*dy2;
     dy3 = dz1*dx2 - dx1*dz2;
     dz3 = dx1*dy2 - dy1*dx2;
+} 
+
+/*向量的点积*/      
+Vector3d_DotProduct(float dx1, float dy1, float dz1, float dx2, float dy2, float dz2)
+{
+    return (dx1*dx2 + dy1*dy2 + dz1*dz2);
 } 
 
 /*点1延方向移动一定距离得到点2*/
@@ -846,6 +977,17 @@ Point_Move(float x1, float y1, float z1, float x2, float y2, float z2, float v_x
     y2 = y1+vy*distance;
     z2 = z1+vz*distance;
     return (1);
+}
+
+/*点1绕点和方向旋转既定角度得到点2*/
+Point_Rotate(float x1, float y1, float z1, float x2, float y2, float z2,  float px, float py, float pz, float pu, float pv, float pw, float angle)
+{
+    /*矩阵旋转变换*/
+    trans = PM_CREATE_TMAT(1, 0,0,0, 1,0,0, 0,1,0);
+    trans = Trans_Rotate(trans, px,py,pz, pu,pv,pw, angle);
+    /*点的3D变换*/
+    Point3d_Transform(x1,y1,z1, x2,y2,z2, trans);
+    return(1);
 }
 
 /*向量的单位向量*/      
@@ -869,6 +1011,82 @@ Vector3d_Length(float dx, float dy, float dz)
 {
     return (SQRT(dx*dx + dy*dy + dz*dz));
 } 
+
+/*向量的比例放大*/      
+Vector3d_BlankProduct(float dx1, float dy1, float dz1, float dx2, float dy2, float dz2, float sc)
+{
+    dx2 = dx1 * sc;
+    dy2 = dy1 * sc;
+    dz2 = dz1 * sc;
+} 
+
+/*向量的旋转*/      
+Vector3d_Rotate(float dx1, float dy1, float dz1, float rdx, float rdy, float rdz, float angle, float dx2, float dy2, float dz2)
+{
+    c1 = COS(angle);
+    rvec_length = Vector3d_Length(rdx, rdy, rdz);
+    if (rvec_length >= 1.0E-15){
+        urvec_x = 0.0; urvec_y = 0.0; urvec_z = 0.0; 
+        Vector3d_ToUnitVector(rdx,rdy,rdz, urvec_x,urvec_y,urvec_z);
+        
+        dotProd = Vector3d_DotProduct(dx1,dy1,dz1, urvec_x,urvec_y,urvec_z);
+        c2 = (1.0 - c1) * dotProd;
+        c3 = SIN(angle);
+        
+        dx2 = c1*dx1 + c2*urvec_x + c3*(urvec_y*dz1 - urvec_z*dy1);
+        dy2 = c1*dy1 + c2*urvec_y + c3*(urvec_z*dx1 - urvec_x*dz1);
+        dz2 = c1*dz1 + c2*urvec_z + c3*(urvec_x*dy1 - urvec_y*dx1);
+    }
+    else{
+        Vector3d_BlankProduct(dx1,dy1,dz1, dx2,dy2,dz2, c1);
+    }
+}  
+
+/*点的3D变换*/      
+Point3d_Transform(float x0, float y0, float z0, float x1, float y1, float z1, handle trans)
+{
+    matrix11=0.0;
+    matrix12=0.0;
+    matrix13=0.0;
+    matrix14=0.0;
+    TRF_TMAT_GET(trans, 0, 0, matrix11);
+    TRF_TMAT_GET(trans, 0, 1, matrix12);
+    TRF_TMAT_GET(trans, 0, 2, matrix13);
+    TRF_TMAT_GET(trans, 0, 3, matrix14);
+    matrix21=0.0;
+    matrix22=0.0;
+    matrix23=0.0;
+    matrix24=0.0;
+    TRF_TMAT_GET(trans, 1, 0, matrix21);
+    TRF_TMAT_GET(trans, 1, 1, matrix22);
+    TRF_TMAT_GET(trans, 1, 2, matrix23);
+    TRF_TMAT_GET(trans, 1, 3, matrix24);
+    matrix31=0.0;
+    matrix32=0.0;
+    matrix33=0.0;
+    matrix34=0.0;
+    TRF_TMAT_GET(trans, 2, 0, matrix31);
+    TRF_TMAT_GET(trans, 2, 1, matrix32);
+    TRF_TMAT_GET(trans, 2, 2, matrix33);
+    TRF_TMAT_GET(trans, 2, 3, matrix34);
+    matrix41=0.0;
+    matrix42=0.0;
+    matrix43=0.0;
+    matrix44=0.0;
+    TRF_TMAT_GET(trans, 3, 0, matrix41);
+    TRF_TMAT_GET(trans, 3, 1, matrix42);
+    TRF_TMAT_GET(trans, 3, 2, matrix43);
+    TRF_TMAT_GET(trans, 3, 3, matrix44);
+
+    proj = x0*matrix14 + y0*matrix24 +z0*matrix34 + matrix44;
+    if (proj <= 1.0E-15 & proj >= -1.0E-15){
+        proj = 1.0;
+    }
+    x1 = (x0*matrix11 + y0*matrix21 + z0*matrix31 + matrix41)/proj;
+    y1 = (x0*matrix12 + y0*matrix22 + z0*matrix32 + matrix42)/proj;
+    z1 = (x0*matrix13 + y0*matrix23 + z0*matrix33 + matrix43)/proj;
+    return (1);
+}
 
 /*基座参数处理*/
 handle_para(float para)
@@ -923,4 +1141,54 @@ round_float_as_string(float x, int n)
         return(part1);
     }
     return(part1+"."+part2);
+}
+
+Abs(float x)
+{
+    if(x>=0){
+        return(x);
+    }
+    return(-1*x);
+}
+
+/*矩阵旋转变换*/
+Trans_Rotate(handle trans1, float p_x, float p_y, float p_z, float v_x, float v_y, float v_z, float angle)
+{
+    /* print_matrix(trans1); */
+    w_vec_x = v_x; w_vec_y = v_y; w_vec_z = v_z;
+    VEC_UNITV(w_vec_x,w_vec_y,w_vec_z);
+    
+    u_vec_x = 0.0; u_vec_y = 0.0; u_vec_z = 0.0; 
+    if (Abs(w_vec_x) + Abs(w_vec_y) > 1.0E-15){
+        u_vec_x = w_vec_y;
+        u_vec_y = -w_vec_x;
+    }else{
+        u_vec_y = -w_vec_z;
+        u_vec_z = w_vec_y;
+    }
+    
+    v_vec_x = 0.0; v_vec_y = 0.0; v_vec_z = 0.0; 
+    VEC_CROSS_PRODUCT(w_vec_x,w_vec_y,w_vec_z, u_vec_x,u_vec_y,u_vec_z, v_vec_x,v_vec_y,v_vec_z);
+    
+    /*注意 PM_CREATE_TMAT 方法有时候不灵，建议用 Trans_SetFromPointAndTwoVectors 替代*/
+    trans_2 = PM_CREATE_TMAT(1, p_x,p_y,p_z, u_vec_x,u_vec_y,u_vec_z, v_vec_x,v_vec_y,v_vec_z);
+    /* trans_2 = Trans_SetFromPointAndTwoVectors(p_x,p_y,p_z, u_vec_x,u_vec_y,u_vec_z, v_vec_x,v_vec_y,v_vec_z); */
+
+    trans_3 = PM_CREATE_TMAT(1, 0,0,0, 1,0,0, 0,1,0);
+
+    matrix11=COS(angle);
+    matrix12=SIN(angle);
+    matrix21=-1.0 * SIN(angle);
+    matrix22=COS(angle);
+
+    TRF_TMAT_PUT(trans_3, 0, 0, matrix11);
+    TRF_TMAT_PUT(trans_3, 0, 1, matrix12);
+    TRF_TMAT_PUT(trans_3, 1, 0, matrix21);
+    TRF_TMAT_PUT(trans_3, 1, 1, matrix22);
+
+    trans_3 = PM_JOIN_TMATS(trans_3, trans_2);
+    trans_2 = PM_INVERSE_TMAT(trans_2);
+    trans_2 = PM_JOIN_TMATS(trans_2, trans_3);
+    trans   = PM_JOIN_TMATS(trans1, trans_2);
+    return (trans);
 }
