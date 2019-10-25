@@ -112,7 +112,12 @@ create_bar_pad_plate(seat, bar_handle, node, plate_id, system_id, part_num)
     get_bar_end_dir(bar_handle,node,udx,udy,udz,vdx,vdy,vdz,wdx,wdy,wdz);
     px=0;py=0;pz=0;
     get_bar_node_pos(bar_handle,node,px,py,pz);
-    tmat_h = PM_CREATE_TMAT(1,px,py,pz,udx,udy,udz,vdx,vdy,vdz);
+    if(node==1){
+        tmat_h = PM_CREATE_TMAT(1,px,py,pz, -udx,-udy,-udz, vdx,vdy,vdz);
+    }
+    else{
+        tmat_h = PM_CREATE_TMAT(1,px,py,pz, udx,udy,udz, vdx,vdy,vdz);
+    }
     
     /*
     size = 1.0*DM_PARTID_DATA(bar_id, "D31");
@@ -943,9 +948,31 @@ get_material3(part_id)
                 return("q");
             }
         }
+        else if(is_steel_pipe(part_id)){
+            size1 = PM_GET_DIMENSION(part_id, 3, 1);  
+            size2 = PM_GET_DIMENSION(part_id, 3, 2);  
+            if(size2 == 16.0){
+                return("q");
+            } 
+        }
     }  
     /*¸Ö°å*/
     else if(gt == "15"){  
+        size1 = PM_GET_DIMENSION(part_id, 3, 1);  
+        if(size1 == 10.0){
+            return("q");
+        }
+    }
+    return("");    
+}
+
+/*²ÄÁÏ4*/
+get_material4(part_id)
+{
+    gt = DM_PARTID_DATA(part_id, "GT");
+    
+    /*¸Ö°å*/
+    if(gt == "15"){  
         size1 = PM_GET_DIMENSION(part_id, 3, 1);  
         if(size1 == 10.0){
             return("q");

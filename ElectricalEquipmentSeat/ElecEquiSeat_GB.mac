@@ -1,7 +1,7 @@
-/* $Id: ElecEquiSeat_HA.mac,v1.0.0 2018/09/06 Wallis.liu $ */
+/* $Id: ElecEquiSeat_GB.mac,v1.0.0 2018/09/06 Wallis.liu $ */
 
 /*
-**	This macro use to create electrical equipment seat - Type HA.
+**	This macro use to create electrical equipment seat - Type GB.
 */
 
 #include "include/dmutil.h"
@@ -16,8 +16,8 @@
 
 #include "$MarineToolkit/ElectricalEquipmentSeat/ElecEquiSeat.h"
 
-global string	Seat_Type  = "EES_HA";
-global string	Seat_Type_P = "EES_PHA";
+global string	Seat_Type  = "EES_GB";
+global string	Seat_Type_P = "EES_PGB";
 global string  Block_Name = "";
 global handle Seat_Handle;
 global handle Equipment_Handle;
@@ -29,8 +29,8 @@ global handle Template, Information, Material, Command, Parameters, Position, Or
 
 /* 控件 */
 global handle System_Name, Select_System, Seat_Name, Pick_Seat, Seat_Description;
-global handle Seat_Part1, Seat_Part2, Seat_Part3, Seat_Earth, Seat_Pad, Seat_Pad_Switch,Seat_Pad_Type;
-global handle Select_Seat_Part1, Select_Seat_Part2, Select_Seat_Part3, Select_Seat_Pad;
+global handle Seat_Part1, Seat_Part2, Seat_Part3, Seat_Part4, Seat_Earth, Seat_Pad, Seat_Pad_Switch,Seat_Pad_Type;
+global handle Select_Seat_Part1, Select_Seat_Part2, Select_Seat_Part3, Select_Seat_Part4, Select_Seat_Pad;
 global handle Seat_Para_W, Seat_Para_W1, Seat_Para_L, Seat_Para_L1;
 global handle Seat_Para_a, Seat_Para_a1, Seat_Para_b, Seat_Para_c, Seat_Para_D, Seat_Para_d;
 global handle Seat_Position_X,Seat_Position_Xref,Seat_Position_Xoff;
@@ -87,8 +87,7 @@ global float Seat_Size_b  = 0.0;
 global float Seat_Size_c  = 0.0;
 global float Seat_Size_D  = 0.0;
 global float Seat_Size_d  = 0.0;
-global float Seat_Size_h  = 5.0;
-global float Seat_Cut     = 20;
+global float Seat_Size_h  = 85;
 
 global string Seat_Earth_Type  = "";
 global string Pad_Switch = "off";
@@ -101,7 +100,7 @@ global string Pad_Type = "";
 create_top_frame()
 {
 	mainform = W_INIT_FRAME();
-	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "电气设备基座 - (P)HA型");	
+	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "电气设备基座 - (P)GB型");	
 	return(mainform);	
 }
 
@@ -112,7 +111,7 @@ create_top_frame()
 create_template_panel(mainform)
 {  
 	/* 图标完整文件名（包含路径） */
-	pic = Icon_Path + "EES_HA.bmp";
+	pic = Icon_Path + "EES_GB.bmp";
    
     /* 向主窗体添加一个面板，用于显示参数化模型样板 */
 	Template = W_ADD_WINDOW(mainform, W_PANEL, "Template");
@@ -266,7 +265,7 @@ seat_description_handler(item, event_type, dummy)
 {   
     if (event_type == W_EVENT_ITEM_LEFT){
         SeatDescription = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
-        SET_STRING_DEFAULT("ElecEquiSeat_HA", "SeatDescription", SeatDescription);
+        SET_STRING_DEFAULT("ElecEquiSeat_GB", "SeatDescription", SeatDescription);
         if(Modify_flag){
 			st = PM_UM_OPEN_CHANGE("修改基座名称:" + SeatDescription);
 			Set_Attribute_Value(Seat_Handle,SeatDes,SeatDescription);	
@@ -288,7 +287,7 @@ select_system_handler(item, event_type, button_value)
 		SystemName = system_name;
 		SystemId = PM_GET_SYSTEM_ID(system_name);
 		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
-		SET_STRING_DEFAULT("ElecEquiSeat_HA", "System_Name", system_name);
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "System_Name", system_name);
 		if(Modify_flag){
 			/* 定义UNDO缓存 */
 			st = PM_UM_OPEN_CHANGE("重新选择基座系统:" + system_name);
@@ -311,8 +310,8 @@ pick_seat_handler(item, event_type, button_value)
             U_CONFIRM("此零件不属于任何电气设备基座");
             W_SET_PANELITEM_ARGS(Seat_Name, W_PANEL_VALUE, "Undefined");	
             return(0);
-        }		
-	  
+        }
+        
 		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
         /* 判断电气设备基座类型是否匹配 */
         type = PM_GET_OBJDATA(group_handle, 0, SeatType);
@@ -356,7 +355,7 @@ reload_seat_data(string seat_name)
         SystemName = sys;
         SystemId = PM_GET_SYSTEM_ID(SystemName);
 		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, SystemName);
-		SET_STRING_DEFAULT("ElecEquiSeat_HA", "System_Name", SystemName);	   
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "System_Name", SystemName);	   
     }	
 	
 	/*获取电气设备基座的描述 */
@@ -364,31 +363,23 @@ reload_seat_data(string seat_name)
 	if(!ISINT(des)){
         SeatDescription = des;
 		W_SET_PANELITEM_ARGS(Seat_Description, W_PANEL_VALUE, des);
-		SET_STRING_DEFAULT("ElecEquiSeat_HA", "SeatDescription", des);
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "SeatDescription", des);
     }
 	
 	/* get seat part parameter */	
 	p_number = PM_NR_MEMBERS_IN_SET(parts);
 	part1_1 = "";
-    part1_2 = "";
-    part1_3 = "";
 	part2_1 = "";
 	part3_1 = "";
     part4_1 = "";
-	part5_1 = "";
-    part6_1 = "";
+    part5_1 = "";
+    part7_1 = "";
 	for (i = 0; i < p_number; i = i + 1;){
 		part = PM_GET_MEMBER_IN_SET(parts, i);
 		part_number = Get_Attribute_Value(part,Part_Number);
 		if (part_number == "1-1"){
 			part1_1 = part;
 		}
-		else if (part_number == "1-2"){
-			part1_2 = part;
-		} 
-		else if (part_number == "1-3"){
-			part1_3 = part;
-		} 
 		else if (part_number == "2-1"){
 			part2_1 = part;
 		} 
@@ -397,13 +388,13 @@ reload_seat_data(string seat_name)
 		} 
 		else if (part_number == "4-1"){
 			part4_1 = part;
-		}           
+		} 
 		else if (part_number == "5-1"){
 			part5_1 = part;
-		}     
-		else if (part_number == "6-1"){
-			part6_1 = part;
-		}          
+		}             
+		else if (part_number == "7-1"){
+			part7_1 = part;
+		}
 	}     
    
     /* get part id of seat's part */
@@ -412,36 +403,36 @@ reload_seat_data(string seat_name)
 		Beam_Part1_Pid = part_id;
 		beam_descr = Pid_To_Description(part_id);
 		W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, beam_descr);
-		SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part1_Pid", part_id); 
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part1_Pid", part_id); 
 		part_code = STRINGTERM(part_id,"-");
-		SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part_Code", part_code);
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part_Code", part_code);
 	}
     part_id = PM_GET_OBJDATA(part2_1, 0, MMT_TAG_PARTID);
 	if(!ISINT(part_id)){
 		Beam_Part2_Pid = part_id;
 		beam_descr = Pid_To_Description(part_id);
 		W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, beam_descr);
-		SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part2_Pid", part_id); 
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part2_Pid", part_id); 
 	}
     part_id = PM_GET_OBJDATA(part3_1, 0, MMT_TAG_PARTID);
 	if(!ISINT(part_id)){
 		Beam_Part3_Pid = part_id;
 		beam_descr = Pid_To_Description(part_id);
 		W_SET_PANELITEM_ARGS(Seat_Part3, W_PANEL_VALUE, beam_descr);
-		SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part3_Pid", part_id); 
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part3_Pid", part_id); 
 	}
-    part_id = PM_GET_OBJDATA(part5_1, 0, MMT_TAG_PARTID);
+    part_id = PM_GET_OBJDATA(part4_1, 0, MMT_TAG_PARTID);
 	if(!ISINT(part_id)){
-		Seat_Size_d = DM_PARTID_DATA(part_id, "D32");
-		part_code = STRINGTERM(part_id,"-");
-		Hole_Part_Code = part_code;
-		SET_STRING_DEFAULT("ElecEquiSeat_HA","Hole_Part_Code", Hole_Part_Code);			
+		Steel_Plate_Pid = part_id;
+		beam_descr = Pid_To_Description(part_id);
+		W_SET_PANELITEM_ARGS(Seat_Part4, W_PANEL_VALUE, beam_descr);
+		SET_STRING_DEFAULT("ElecEquiSeat_GB", "Steel_Plate_Pid", part_id); 
 	}
-    part_id = PM_GET_OBJDATA(part6_1, 0, MMT_TAG_PARTID);
+    part_id = PM_GET_OBJDATA(part7_1, 0, MMT_TAG_PARTID);
 	if(!ISINT(part_id)){
 	    Pad_Switch = "on";
         Pad_Plate_Pid = part_id;
-	    SET_STRING_DEFAULT("ElecEquiSeat_HA", "Pad_Switch", "on");
+	    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Pad_Switch", "on");
 	    W_SET_PANELITEM_ARGS(Seat_Pad_Type, W_PANEL_SENSITIVITY,1);
         W_SET_PANELITEM_ARGS(Seat_Pad, W_PANEL_SENSITIVITY,1);
         W_SET_PANELITEM_ARGS(Select_Seat_Pad, W_PANEL_SENSITIVITY,1);
@@ -454,24 +445,24 @@ reload_seat_data(string seat_name)
 	}
     
 	/*获取并设置基座的接地信息*/
-	part_id = PM_GET_OBJDATA(part4_1, 0, MMT_TAG_PARTID);
+	part_id = PM_GET_OBJDATA(part5_1, 0, MMT_TAG_PARTID);
 	size = DM_PARTID_DATA(part_id,"DD");
 	if(ISSTRING(part_id)){
 		part_code = STRINGTERM(part_id,"-");
 		part_id = DM_MATCH_PARTID(part_code,0,1,6.0);
 		if(ISSTRING(part_id)){
 			Earth_Bolt_Pid1 = part_id;
-			SET_STRING_DEFAULT("ElecEquiSeat_HA","Earth_Bolt_Pid1", part_id);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB","Earth_Bolt_Pid1", part_id);
 		}
 		part_id = DM_MATCH_PARTID(part_code,0,1,8.0);
 		if(ISSTRING(part_id)){
 			Earth_Bolt_Pid2 = part_id;
-			SET_STRING_DEFAULT("ElecEquiSeat_HA","Earth_Bolt_Pid2", part_id);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB","Earth_Bolt_Pid2", part_id);
 		}								
 		part_id = DM_MATCH_PARTID(part_code,0,1,10.0);
 		if(ISSTRING(part_id)){
 			Earth_Bolt_Pid3 = part_id;
-			SET_STRING_DEFAULT("ElecEquiSeat_HA","Earth_Bolt_Pid3", part_id);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB","Earth_Bolt_Pid3", part_id);
 		}
 		if(size == "EB1"){
 			Earth_Type = "EB1";
@@ -492,17 +483,19 @@ reload_seat_data(string seat_name)
     v_x = 0.0;	    v_y = 0.0;	    v_z = 0.0;
     w_x = 0.0;	    w_y = 0.0;	    w_z = 0.0;
     get_bar_uvwdir(part1_1, u_x,u_y,u_z,v_x,v_y,v_z,w_x,w_y,w_z);
-    Seat_Udx = w_x; Seat_Udy = w_y; Seat_Udz = w_z;
-    Seat_Vdx = u_x; Seat_Vdy = u_y; Seat_Vdz = u_z; 
+    Seat_Udx =  v_x; Seat_Udy =  v_y; Seat_Udz =  v_z;
+    Seat_Vdx = -w_x; Seat_Vdy = -w_y; Seat_Vdz = -w_z; 
     
-    ax = 0.0;	    ay = 0.0;	    az = 0.0;
-    bx = 0.0;	    by = 0.0;	    bz = 0.0;
-    get_bar_node_pos(part1_2,1,ax,ay,az);
-    get_bar_node_pos(part1_3,2,bx,by,bz);
-	Seat_X = (ax + bx)/2.0;
-	Seat_Y = (ay + by)/2.0;
-	Seat_Z = (az + bz)/2.0;
+    px = 0.0;	    py = 0.0;	    pz = 0.0;
+    bar_3_dia = 1.0 * DM_PARTID_DATA(Beam_Part3_Pid, "D32");
+    plt_1_thk = 1.0 * PM_GET_DIMENSION(Steel_Plate_Pid, 3, 1);
+    get_bar_node_pos(part1_1,1,px,py,pz);
+    Point_Move(px,py,pz, px,py,pz, w_x,w_y,w_z,  -plt_1_thk-0.5*bar_3_dia);
+    Point_Move(px,py,pz, px,py,pz, u_x,u_y,u_z,  Seat_Size_h+0.5*bar_3_dia);
     
+	Seat_X = px;
+	Seat_Y = py;
+	Seat_Z = pz;
 	W_SET_NUMERIC_VALUE(Seat_Position_X, Seat_X);
 	W_SET_NUMERIC_VALUE(Seat_Position_Y, Seat_Y);
 	W_SET_NUMERIC_VALUE(Seat_Position_Z, Seat_Z);   
@@ -528,7 +521,7 @@ reload_seat_data(string seat_name)
 		W_SET_NUMERIC_VALUE(Seat_Position_Yoff, 0);
 		W_SET_NUMERIC_VALUE(Seat_Position_Zoff, 0);       
 		U_CONFIRM("参考坐标系定义不正确");           
-	}			
+	}
 	return(0);
 }
 
@@ -539,7 +532,7 @@ create_material_panel(mainform)
    
 	/* 设置面板参数 */
 	W_REALIZE_WINDOW(Material,	W_FRAME_X,		0,
-							    W_FRAME_Y,		430,
+							    W_FRAME_Y,		425,
 							    W_FRAME_WIDTH,	410,
 							    W_FRAME_HEIGHT,	100);
 							            
@@ -569,7 +562,7 @@ create_material_panel(mainform)
 	Select_Seat_Part1 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Part1");	
 	W_REALIZE_PANELITEM(Select_Seat_Part1,	W_PANEL_ROW,			1, 
 											W_PANEL_COL,			34,
-                  							W_PANEL_BUTTONIMAGE,	"选择角钢", 
+                  							W_PANEL_BUTTONIMAGE,	"选择钢管", 
                   							W_PANEL_WIDTH,			10,
                   							W_PANEL_BUTTONVALUE,	201,
                   							W_PANEL_CALLBACK,		1,
@@ -603,7 +596,7 @@ create_material_panel(mainform)
 	Seat_Part3 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Seat_Part3");
 	W_REALIZE_PANELITEM(Seat_Part3,	W_PANEL_ROW,			3, 
 									W_PANEL_COL,			0,
-							        W_PANEL_LABEL,			"零件3材料:     ",
+							        W_PANEL_LABEL,			"挂钩 材料:     ",
 							        W_PANEL_LENGTH,			100,
 							        W_PANEL_DISPLEN,		22,
 									W_PANEL_CALLBACK,		1,
@@ -614,7 +607,7 @@ create_material_panel(mainform)
 	Select_Seat_Part3 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Part3");	
 	W_REALIZE_PANELITEM(Select_Seat_Part3,	W_PANEL_ROW,			3, 
 											W_PANEL_COL,			34,
-                  						    W_PANEL_BUTTONIMAGE,	"选择扁钢", 
+                  						    W_PANEL_BUTTONIMAGE,	"选择圆钢", 
                      						W_PANEL_WIDTH,			10,
                      						W_PANEL_BUTTONVALUE,	202,
                      						W_PANEL_CALLBACK,		1,
@@ -622,9 +615,32 @@ create_material_panel(mainform)
                      						W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
 	W_SET_PANELITEM_HANDLER(Select_Seat_Part3, "select_seat_part3_handler"); 
     
+	/* 零件4材料 */
+	Seat_Part4 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Seat_Part4");
+	W_REALIZE_PANELITEM(Seat_Part4,	W_PANEL_ROW,			4, 
+									W_PANEL_COL,			0,
+							        W_PANEL_LABEL,			"腹板 材料:     ",
+							        W_PANEL_LENGTH,			100,
+							        W_PANEL_DISPLEN,		22,
+									W_PANEL_CALLBACK,		1,
+									W_PANEL_SENSITIVITY,	1,
+							        W_PANEL_VALUE,			"Undefined"); 
+	W_SET_PANELITEM_HANDLER(Seat_Part4, "seat_part4_handler"); 	
+	
+	Select_Seat_Part4 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Part4");	
+	W_REALIZE_PANELITEM(Select_Seat_Part4,	W_PANEL_ROW,			4, 
+											W_PANEL_COL,			34,
+                  						    W_PANEL_BUTTONIMAGE,	"选择钢板", 
+                     						W_PANEL_WIDTH,			10,
+                     						W_PANEL_BUTTONVALUE,	202,
+                     						W_PANEL_CALLBACK,		1,
+											W_PANEL_SENSITIVITY,	1,
+                     						W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Select_Seat_Part4, "select_seat_part4_handler"); 
+    
 	/* 垫板材料 */
 	Seat_Pad_Switch = W_ADD_PANELITEM(Material, W_PANEL_TOGGLE, "Seat_Pad_Switch");
-	W_REALIZE_PANELITEM(Seat_Pad_Switch,	W_PANEL_ROW,			4, 
+	W_REALIZE_PANELITEM(Seat_Pad_Switch,	W_PANEL_ROW,			5, 
 											W_PANEL_COL,			0,
                      						W_PANEL_LABEL,			"",
                      						W_PANEL_CHOICESTRING,	"加垫板   ",
@@ -635,7 +651,7 @@ create_material_panel(mainform)
 	W_SET_PANELITEM_HANDLER(Seat_Pad_Switch, "seat_pad_switch_handler");
 
 	Seat_Pad_Type = W_ADD_PANELITEM(Material, W_PANEL_CHOICE, "Seat_Pad_Type");
-	W_REALIZE_PANELITEM(Seat_Pad_Type,	W_PANEL_ROW,			5, 
+	W_REALIZE_PANELITEM(Seat_Pad_Type,	W_PANEL_ROW,			6, 
 										W_PANEL_COL,			0,
 										W_PANEL_LABEL,			"垫板类型:      ",
 										W_PANEL_CHOICESTRING,	"A型  ",
@@ -648,17 +664,18 @@ create_material_panel(mainform)
 	W_SET_PANELITEM_HANDLER(Seat_Pad_Type, "seat_pad_type_handler");
     
 	Select_Seat_Hole = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Hole");
-	W_REALIZE_PANELITEM(Select_Seat_Hole,	W_PANEL_ROW,			5, 
+	W_REALIZE_PANELITEM(Select_Seat_Hole,	W_PANEL_ROW,			7, 
 											W_PANEL_COL,			34,
                   						    W_PANEL_BUTTONIMAGE,	"选择开孔", 
                   						    W_PANEL_WIDTH,			10,
                   						    W_PANEL_BUTTONVALUE,	203,
+                                            W_PANEL_SENSITIVITY,	0,
                   						    W_PANEL_CALLBACK,		0,
                   						    W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
 	W_SET_PANELITEM_HANDLER(Select_Seat_Hole, "select_seat_hole_handler");
     
 	Seat_Pad = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Seat_Pad");
-	W_REALIZE_PANELITEM(Seat_Pad,	W_PANEL_ROW,		6, 
+	W_REALIZE_PANELITEM(Seat_Pad,	W_PANEL_ROW,		7, 
 									W_PANEL_COL,		0,
 							        W_PANEL_LABEL,		"垫板材料:    ",
 							        W_PANEL_LENGTH,		24,
@@ -668,7 +685,7 @@ create_material_panel(mainform)
 	W_SET_PANELITEM_HANDLER(Seat_Pad, "seat_pad_handler"); 
 	
 	Select_Seat_Pad = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Pad");
-	W_REALIZE_PANELITEM(Select_Seat_Pad,	W_PANEL_ROW,			6, 
+	W_REALIZE_PANELITEM(Select_Seat_Pad,	W_PANEL_ROW,			7, 
 											W_PANEL_COL,			34,
                   						    W_PANEL_BUTTONIMAGE,	"选择垫板", 
                   						    W_PANEL_WIDTH,			10,
@@ -679,7 +696,7 @@ create_material_panel(mainform)
 	
 	/* 接地材料 */
 	Seat_Earth = W_ADD_PANELITEM(Material, W_PANEL_CHOICE, "Seat_Earth");
-	W_REALIZE_PANELITEM(Seat_Earth,	W_PANEL_ROW,			7, 
+	W_REALIZE_PANELITEM(Seat_Earth,	W_PANEL_ROW,			8, 
 									W_PANEL_COL,			0,
 							        W_PANEL_LABEL,			"接地螺丝:    ",
 							        W_PANEL_CHOICESTRING,	"EB1",
@@ -692,7 +709,7 @@ create_material_panel(mainform)
 	W_SET_PANELITEM_HANDLER(Seat_Earth, "seat_earth_handler"); 
     
 	Select_Seat_Earth = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Seat_Earth");
-	W_REALIZE_PANELITEM(Select_Seat_Earth,	W_PANEL_ROW,			7, 
+	W_REALIZE_PANELITEM(Select_Seat_Earth,	W_PANEL_ROW,			8, 
 											W_PANEL_COL,			34,
                   						    W_PANEL_BUTTONIMAGE,	"选择接地", 
                   						    W_PANEL_WIDTH,			10,
@@ -712,7 +729,7 @@ seat_pad_handler(item, event_type, dummy)
 		if(is_steel_plate(pid)){
 			pad_descr = Pid_To_Description(pid);
 			W_SET_PANELITEM_ARGS(Seat_Pad, W_PANEL_VALUE, pad_descr);
-			SET_STRING_DEFAULT("ElecEquiSeat_HA", "Pad_Plate_Pid", pid);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB", "Pad_Plate_Pid", pid);
 		}
 	}
 	return(0); 
@@ -736,17 +753,17 @@ select_seat_earth_handler(item, event_type, dummy)
     part_id = DM_MATCH_PARTID(part_code,0,1,6.0);
     if(ISSTRING(part_id)){
         Earth_Bolt_Pid1 = part_id;
-        SET_STRING_DEFAULT("ElecEquiSeat_HA","Earth_Bolt_Pid1", part_id);
+        SET_STRING_DEFAULT("ElecEquiSeat_GB","Earth_Bolt_Pid1", part_id);
     }
     part_id = DM_MATCH_PARTID(part_code,0,1,8.0);
     if(ISSTRING(part_id)){
         Earth_Bolt_Pid2 = part_id;
-        SET_STRING_DEFAULT("ElecEquiSeat_HA","Earth_Bolt_Pid2", part_id);
+        SET_STRING_DEFAULT("ElecEquiSeat_GB","Earth_Bolt_Pid2", part_id);
     }								
     part_id = DM_MATCH_PARTID(part_code,0,1,10.0);
     if(ISSTRING(part_id)){
         Earth_Bolt_Pid3 = part_id;
-        SET_STRING_DEFAULT("ElecEquiSeat_HA","Earth_Bolt_Pid3", part_id);
+        SET_STRING_DEFAULT("ElecEquiSeat_GB","Earth_Bolt_Pid3", part_id);
     }
 
 	if(Modify_flag){
@@ -777,7 +794,7 @@ select_seat_hole_handler(item, event_type, dummy)
         }
     }
     Hole_Part_Code = part_code;
-    SET_STRING_DEFAULT("ElecEquiSeat_HA","Hole_Part_Code", Hole_Part_Code);	
+    SET_STRING_DEFAULT("ElecEquiSeat_GB","Hole_Part_Code", Hole_Part_Code);	
     
 	if(Modify_flag){
         st = PM_UM_OPEN_CHANGE("修改虚拟孔");
@@ -813,7 +830,7 @@ select_seat_pad_handler(item, event_type, button_value)
     Pad_Plate_Pid = pid;
     pad_descr = Pid_To_Description1(pid);
     W_SET_PANELITEM_ARGS(Seat_Pad, W_PANEL_VALUE, pad_descr);
-    SET_STRING_DEFAULT("ElecEquiSeat_HA", "Pad_Plate_Pid", pid);
+    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Pad_Plate_Pid", pid);
     
 	if(Modify_flag){
         st = PM_UM_OPEN_CHANGE("修改垫板材料");
@@ -860,14 +877,14 @@ seat_pad_switch_handler(item, event_type, dummy)
     s = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
 	if ( s == "0" ){
         Pad_Switch = "off";
-        SET_STRING_DEFAULT("ElecEquiSeat_HA", "Pad_Switch", "off");
+        SET_STRING_DEFAULT("ElecEquiSeat_GB", "Pad_Switch", "off");
         W_SET_PANELITEM_ARGS(Seat_Pad_Type, W_PANEL_SENSITIVITY,0);
         W_SET_PANELITEM_ARGS(Seat_Pad, W_PANEL_SENSITIVITY,0);
         W_SET_PANELITEM_ARGS(Select_Seat_Pad, W_PANEL_SENSITIVITY,0);
 	}
 	else if( s == "1"){
 	    Pad_Switch = "on";
-	    SET_STRING_DEFAULT("ElecEquiSeat_HA", "Pad_Switch", "on");
+	    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Pad_Switch", "on");
 	    W_SET_PANELITEM_ARGS(Seat_Pad_Type, W_PANEL_SENSITIVITY,1);
         W_SET_PANELITEM_ARGS(Seat_Pad, W_PANEL_SENSITIVITY,1);
         W_SET_PANELITEM_ARGS(Select_Seat_Pad, W_PANEL_SENSITIVITY,1);
@@ -893,10 +910,10 @@ seat_part1_handler(item, event_type, dummy)
 {	
 	pid = Beam_Part1_Pid;
 	if(ISSTRING(pid)){
-		if(is_equal_angle_bar(pid)){
+		if(is_steel_pipe(pid)){
 			beam_descr = Pid_To_Description(pid);
 			W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, beam_descr);
-			SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part1_Pid", pid);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part1_Pid", pid);
 		}
 	}	
 	return(0);
@@ -909,7 +926,7 @@ seat_part2_handler(item, event_type, dummy)
 		if(is_steel_pipe(pid)){
 			beam_descr = Pid_To_Description(pid);
 			W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, beam_descr);
-			SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part2_Pid", pid);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part2_Pid", pid);
 		}
 	}	
 	return(0); 
@@ -919,10 +936,23 @@ seat_part3_handler(item, event_type, dummy)
 {
 	pid = Beam_Part3_Pid;
 	if(ISSTRING(pid)){
-		if(is_flat_bar(pid)){
+		if(is_steel_pipe(pid)){
 			beam_descr = Pid_To_Description(pid);
 			W_SET_PANELITEM_ARGS(Seat_Part3, W_PANEL_VALUE, beam_descr);
-			SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part3_Pid", pid);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part3_Pid", pid);
+		}
+	}	
+	return(0); 
+}
+
+seat_part4_handler(item, event_type, dummy)
+{
+	pid = Steel_Plate_Pid;
+	if(ISSTRING(pid)){
+		if(is_steel_plate(pid)){
+			beam_descr = Pid_To_Description(pid);
+			W_SET_PANELITEM_ARGS(Seat_Part4, W_PANEL_VALUE, beam_descr);
+			SET_STRING_DEFAULT("ElecEquiSeat_GB", "Steel_Plate_Pid", pid);
 		}
 	}	
 	return(0); 
@@ -932,7 +962,7 @@ seat_earth_handler(item, event_type, dummy)
 {
     earth_type = W_GET_PANELITEM_ARG(Seat_Earth,W_PANEL_VALUE);
     Earth_Type = earth_type;
-    SET_STRING_DEFAULT("ElecEquiSeat_HA", "Earth_Type", earth_type);
+    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Earth_Type", earth_type);
     if(Modify_flag){
         re_select_earth_bolt();
     }
@@ -951,7 +981,7 @@ re_select_earth_bolt()
     else{
         earth_bolt_pid = Earth_Bolt_Pid3;
     }   
-    put_2darray(Part_Para,8,14,earth_bolt_pid);  
+    put_2darray(Part_Para,4,14,earth_bolt_pid);  
 
     /* 定义UNDO缓存 */
     st = PM_UM_OPEN_CHANGE("重新选择阶段螺栓类型:" + Earth_Type);
@@ -962,7 +992,7 @@ re_select_earth_bolt()
 
 select_seat_part1_handler(item, event_type, button_value)
 {
-	U_MESSAGE("选择零件1的材料(角钢)");
+	U_MESSAGE("选择零件1的材料(钢管)");
 	selectmask = DM_INIT_TAGREC();
 	DM_SET_TAGVAL(selectmask, "KW", "*BEAM*");	
 	
@@ -970,13 +1000,13 @@ select_seat_part1_handler(item, event_type, button_value)
 	while(loop_flag){	
         pid = DM_BROWSE_PARTCODE(Beam_Part_Code, 1, selectmask);
 		if(ISSTRING(pid)){
-			if(is_equal_angle_bar(pid)){
+			if(is_steel_pipe(pid)){
                 mat_code = get_material1(pid);
                 if(mat_code!=""){
                     Beam_Part1_Pid = pid;  
                     beam_descr = Pid_To_Description(pid);
                     W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, beam_descr);
-                    SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part1_Pid", pid);	
+                    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part1_Pid", pid);	
                     loop_flag = 0;
                 }
                 else{
@@ -990,7 +1020,7 @@ select_seat_part1_handler(item, event_type, button_value)
 	}
 	if(Modify_flag){
 		/* 定义UNDO缓存 */
-		st = PM_UM_OPEN_CHANGE("重新选择面板角钢");
+		st = PM_UM_OPEN_CHANGE("重新选择材料1");
 		delete_seat_members();
 		create_seat_part();             
 		st = PM_UM_CLOSE_CHANGE(); 	   
@@ -1000,7 +1030,7 @@ select_seat_part1_handler(item, event_type, button_value)
 
 select_seat_part2_handler(item, event_type, button_value)
 {
-	U_MESSAGE("选择零件2的材料(角钢)");
+	U_MESSAGE("选择零件2的材料(圆钢)");
 	selectmask = DM_INIT_TAGREC();
 	DM_SET_TAGVAL(selectmask, "KW", "*BEAM*");
 	
@@ -1014,7 +1044,7 @@ select_seat_part2_handler(item, event_type, button_value)
                     Beam_Part2_Pid = pid;
                     beam_descr = Pid_To_Description(pid);
                     W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, beam_descr);
-                    SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part2_Pid", pid);
+                    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part2_Pid", pid);
                     loop_flag = 0;
                 }
                 else{
@@ -1028,7 +1058,7 @@ select_seat_part2_handler(item, event_type, button_value)
 	}
 	if(Modify_flag){
 		/* 定义UNDO缓存 */
-		st = PM_UM_OPEN_CHANGE("重新选择支撑脚角钢");
+		st = PM_UM_OPEN_CHANGE("重新选择材料2");
 		delete_seat_members();
 		create_seat_part();             
 		st = PM_UM_CLOSE_CHANGE(); 	   
@@ -1038,7 +1068,7 @@ select_seat_part2_handler(item, event_type, button_value)
 
 select_seat_part3_handler(item, event_type, button_value)
 {
-	U_MESSAGE("选择零件3的材料(扁钢)");
+	U_MESSAGE("选择零件3的材料(圆钢)");
 	selectmask = DM_INIT_TAGREC();
 	DM_SET_TAGVAL(selectmask, "KW", "*BEAM*");
 	
@@ -1046,13 +1076,13 @@ select_seat_part3_handler(item, event_type, button_value)
 	while(loop_flag){
         pid = DM_BROWSE_PARTCODE(Beam_Part_Code, 1, selectmask);
 		if(ISSTRING(pid)){
-			if(is_flat_bar(pid)){
+			if(is_steel_pipe(pid)){
                 mat_code = get_material3(pid);
                 if(mat_code!=""){
                     Beam_Part3_Pid = pid;
                     beam_descr = Pid_To_Description(pid);
                     W_SET_PANELITEM_ARGS(Seat_Part3, W_PANEL_VALUE, beam_descr);
-                    SET_STRING_DEFAULT("ElecEquiSeat_HA", "Beam_Part3_Pid", pid);
+                    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Beam_Part3_Pid", pid);
                     loop_flag = 0;
                 }
                 else{
@@ -1066,7 +1096,45 @@ select_seat_part3_handler(item, event_type, button_value)
 	}
 	if(Modify_flag){
 		/* 定义UNDO缓存 */
-		st = PM_UM_OPEN_CHANGE("重新选择支撑脚角钢");
+		st = PM_UM_OPEN_CHANGE("重新选择材料3");
+		delete_seat_members();
+		create_seat_part();             
+		st = PM_UM_CLOSE_CHANGE(); 	   
+	}	
+	return(0);  
+}
+
+select_seat_part4_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择零件4的材料(钢板)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "*PLATE*");
+	
+	loop_flag = 1;
+	while(loop_flag){
+        pid = DM_BROWSE_PARTCODE(Steel_Plate_Code, 1, selectmask);
+		if(ISSTRING(pid)){
+			if(is_steel_plate(pid)){
+                mat_code = get_material4(pid);
+                if(mat_code!=""){
+                    Steel_Plate_Pid = pid;
+                    beam_descr = Pid_To_Description(pid);
+                    W_SET_PANELITEM_ARGS(Seat_Part4, W_PANEL_VALUE, beam_descr);
+                    SET_STRING_DEFAULT("ElecEquiSeat_GB", "Steel_Plate_Pid", pid);
+                    loop_flag = 0;
+                }
+                else{
+                    U_CONFIRM("所选材料不符合标准要求，请重新选择！");
+                } 
+			}
+		}
+        else{
+            return(-1); 
+        }
+	}
+	if(Modify_flag){
+		/* 定义UNDO缓存 */
+		st = PM_UM_OPEN_CHANGE("重新选择材料4");
 		delete_seat_members();
 		create_seat_part();             
 		st = PM_UM_CLOSE_CHANGE(); 	   
@@ -1087,9 +1155,14 @@ create_seat_handler(item, event_type, button_value)
 		U_CONFIRM("请先选择框架材料");
 		return(-1);
 	}
-	frame1 = W_GET_PANELITEM_ARG(Seat_Part3, W_PANEL_VALUE);
-	if (frame1 == "Undefined"){
-		U_CONFIRM("请先选择加强材料");
+	frame = W_GET_PANELITEM_ARG(Seat_Part3, W_PANEL_VALUE);
+	if (frame == "Undefined"){
+		U_CONFIRM("请先选择挂钩材料");
+		return(-1);
+	}
+	frame = W_GET_PANELITEM_ARG(Seat_Part4, W_PANEL_VALUE);
+	if (frame == "Undefined"){
+		U_CONFIRM("请先选择腹板材料");
 		return(-1);
 	}
     /* check pad material inputed or not*/
@@ -1234,7 +1307,7 @@ Pick_Equipment()
 		return(obj_h);		
         /* get type of seat */
 		/*
-        if(Seat_Type == "EES_HA"){
+        if(Seat_Type == "EES_GB"){
 			Equipment_Handle = obj_h;
 			return(obj_h); 
         }
@@ -1491,6 +1564,11 @@ get_seat_para(obj_h,para)
         }
         para = TAIL(para,STRLEN(para) - STRLEN(parameter) - 2);        
     }
+	if(Seat_Size_L1 == 0){
+		Seat_Size_L1 = (2*Seat_Size_D/3.0)/COS(30);
+		W_SET_NUMERIC_VALUE(Seat_Para_L1,Seat_Size_L1);
+	}
+    /*
 	if(Seat_Size_a == 0){
 		Seat_Size_a = (Seat_Size_W - Seat_Size_W1)/2;
 		W_SET_NUMERIC_VALUE(Seat_Para_a,Seat_Size_a);
@@ -1499,7 +1577,6 @@ get_seat_para(obj_h,para)
 		Seat_Size_b = (Seat_Size_L - Seat_Size_L1)/2;
 		W_SET_NUMERIC_VALUE(Seat_Para_b,Seat_Size_b);
 	}
-	/*
 	if(Seat_Size_a1 == 0){
 		Seat_Size_a1 = (Seat_Size_L - Seat_Size_L1)/2;	
 		W_SET_NUMERIC_VALUE(Seat_Para_a1,Seat_Size_a1);
@@ -1548,9 +1625,11 @@ get_seat_para(obj_h,para)
 
 calculate_seat_para()
 {           
-    /* 获取零件1的边长 */
-    bar_1_size = 1.0 * DM_PARTID_DATA(Beam_Part1_Pid, "D31");
-	bar_1_thickness = 1.0 * DM_PARTID_DATA(Beam_Part1_Pid, "D32");
+    /* 获取零件尺寸 */
+	bar_1_dia = 1.0 * DM_PARTID_DATA(Beam_Part1_Pid, "D32");
+    bar_2_dia = 1.0 * DM_PARTID_DATA(Beam_Part2_Pid, "D32");
+    bar_3_dia = 1.0 * DM_PARTID_DATA(Beam_Part3_Pid, "D32");
+    plt_1_thk = 1.0 * PM_GET_DIMENSION(Steel_Plate_Pid, 3, 1);
 	pad_plate_thk = 0;
     if(Pad_Switch == "on"){
         pad_plate_thk = 1.0 * PM_GET_DIMENSION(Pad_Plate_Pid, 3, 1);
@@ -1558,112 +1637,116 @@ calculate_seat_para()
     
     /*计算零件1-1相关参数*/
     if(1){
-        x1 = - (0.5*Seat_Size_W-bar_1_size);
-        y1 = - 0.5*bar_1_size;
-        z1 =   Seat_Size_h;   
-        x2 =   (0.5*Seat_Size_W-bar_1_size);
-        y2 = - 0.5*bar_1_size;
-        z2 =   Seat_Size_h;   
-        x_dx  = 0;  x_dy  = 0;  x_dz  = 1;   
-        end1x = -1; end1y = 0;  end1z = 1;	
-        end2x =  1; end2y = 0;  end2z = 1; 	
-        Put_Beam_Data_To_Arrary(Part_Para,0,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }
-    /*计算零件1-2相关参数*/
-    if(1){
-        x1 =   (0.5*Seat_Size_W-bar_1_size);
-        y1 = - 0.5*Seat_Size_L;
-        z1 =   0;   
-        x2 =   (0.5*Seat_Size_W-bar_1_size);
-        y2 =   0.5*Seat_Size_L;
-        z2 =   0;   
+        x1 =   0;
+        y1 = - (0.5*bar_3_dia+plt_1_thk);
+        z1 =   Seat_Size_h+0.5*bar_3_dia;   
+        x2 =   0;
+        y2 = - (0.5*bar_3_dia+Seat_Size_D-pad_plate_thk);
+        z2 =   Seat_Size_h+0.5*bar_3_dia;      
         x_dx  = 1; x_dy  =  0;  x_dz  = 0;   
-        end1x = 0; end1y = -1;  end1z = 0;	
-        end2x = 0; end2y =  1;  end2z = 0; 	
-        Put_Beam_Data_To_Arrary(Part_Para,1,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }
-    /*计算零件1-3相关参数*/
-    if(1){
-        x1 = - (0.5*Seat_Size_W-bar_1_size);
-        y1 = - 0.5*Seat_Size_L;
-        z1 =   0;   
-        x2 = - (0.5*Seat_Size_W-bar_1_size);
-        y2 =   0.5*Seat_Size_L;
-        z2 =   0;   
-        x_dx  = 0; x_dy  =  0;  x_dz  = 1;   
-        end1x = 0; end1y = -1;  end1z = 0;	
-        end2x = 0; end2y =  1;  end2z = 0; 
-        Put_Beam_Data_To_Arrary(Part_Para,2,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }
-    /*计算零件1-4相关参数*/
-    if(1){
-        x1 =   (0.5*Seat_Size_W-bar_1_size);
-        y1 = - 0.5*bar_1_size;
-        z1 =   Seat_Size_h;   
-        x2 =   (0.5*Seat_Size_W-bar_1_size);
-        y2 = - 0.5*bar_1_size;
-        z2 =   Seat_Size_D-pad_plate_thk;   
-        x_dx  = -1; x_dy  = 0;  x_dz  =  0;   
-        end1x = -1; end1y = 0;  end1z = -1;	
-        end2x =  0; end2y = 0;  end2z =  1; 	
-        Put_Beam_Data_To_Arrary(Part_Para,3,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }
-    /*计算零件1-5相关参数*/
-    if(1){
-        x1 = - (0.5*Seat_Size_W-bar_1_size);
-        y1 = - 0.5*bar_1_size;
-        z1 =   Seat_Size_h;   
-        x2 = - (0.5*Seat_Size_W-bar_1_size);
-        y2 = - 0.5*bar_1_size;
-        z2 =   Seat_Size_D-pad_plate_thk;   
-        x_dx  = 0; x_dy  = 1;  x_dz  =  0;   
-        end1x = 1; end1y = 0;  end1z = -1;	
-        end2x = 0; end2y = 0;  end2z =  1; 	
-        Put_Beam_Data_To_Arrary(Part_Para,4,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+        end1x = 0; end1y =  1;  end1z = 0;	
+        end2x = 0; end2y = -1;  end2z = 0; 	
+        Put_Beam_Data_To_Arrary(Part_Para,0,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
     }
     /*计算零件2-1相关参数*/
     if(1){
-        x1 = - (0.5*Seat_Size_W-1.5*bar_1_size);
-        y1 = - 0.5*bar_1_size;
-        z1 =   Seat_Size_D/3.0;    
-        x2 = - (0.5*Seat_Size_W-1.5*bar_1_size);
-        y2 = - (0.5*bar_1_size+(2.0/3.0)*Seat_Size_D*TAN(30));
-        z2 =   Seat_Size_D;   
+        x1 =   0;
+        y1 = - (0.5*bar_3_dia+Seat_Size_D/3.0);
+        z1 =   Seat_Size_h;
+        x2 =   0;
+        y2 = - (0.5*bar_3_dia+Seat_Size_D);
+        z2 =   Seat_Size_h+(2/3.0)*Seat_Size_D*TAN(30);
         x_dx  = 1; x_dy  = 0;  x_dz  = 0;   
-        end1x = 0; end1y = 1;  end1z = 0;	
-        end2x = 0; end2y = 0;  end2z = 1; 	
+        end1x = 0; end1y = 0;  end1z = -1;	
+        end2x = 0; end2y = -1;  end2z = 0; 	
+        Point_Move(x1,y1,z1, x1,y1,z1, x2-x1,y2-y1,z2-z1,  0.5*bar_1_dia/SIN(30));
         Point_Move(x2,y2,z2, x2,y2,z2, x2-x1,y2-y1,z2-z1, -pad_plate_thk/COS(30));
-        Put_Beam_Data_To_Arrary(Part_Para,5,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+        Put_Beam_Data_To_Arrary(Part_Para,1,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
     }
     /*计算零件2-2相关参数*/
     if(1){
-        x1 =   (0.5*Seat_Size_W-1.5*bar_1_size);
-        y1 = - 0.5*bar_1_size;
-        z1 =   Seat_Size_D/3.0;   
-        x2 =   (0.5*Seat_Size_W-1.5*bar_1_size);
-        y2 = - (0.5*bar_1_size+(2.0/3.0)*Seat_Size_D*TAN(30));
-        z2 =   Seat_Size_D;   
-        x_dx  = 1; x_dy  = 0;  x_dz  = 0;   
-        end1x = 0; end1y = 1;  end1z = 0;	
-        end2x = 0; end2y = 0;  end2z = 1; 	
+        x1 =   0;
+        y1 = - (0.5*bar_3_dia+Seat_Size_D/3.0);
+        z1 =   Seat_Size_h;
+        x2 = - (2/3.0)*Seat_Size_D*TAN(30);
+        y2 = - (0.5*bar_3_dia+Seat_Size_D);
+        z2 =   Seat_Size_h;
+        x_dx  = 0; x_dy  = 0;  x_dz  = 1;   
+        end1x = 1; end1y = 0;  end1z = 0;	
+        end2x = 0; end2y = -1;  end2z = 0; 	
+        Point_Move(x1,y1,z1, x1,y1,z1, x2-x1,y2-y1,z2-z1,  0.5*bar_1_dia/SIN(30));
         Point_Move(x2,y2,z2, x2,y2,z2, x2-x1,y2-y1,z2-z1, -pad_plate_thk/COS(30));
-        Put_Beam_Data_To_Arrary(Part_Para,6,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+        Put_Beam_Data_To_Arrary(Part_Para,2,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
     }
     /*计算零件3-1相关参数*/
+    Rb = 0.5*(50-bar_3_dia);
+    Ra = (Rb * SIN(45))/(1-SIN(45));
     if(1){
-        x1 = - (0.5*Seat_Size_W-2*bar_1_size);
-        y1 = - 0.5*bar_1_size+0.5*bar_1_thickness;
-        z1 =   0.5*Seat_Size_D;   
-        x2 =   (0.5*Seat_Size_W-2*bar_1_size);
-        y2 = - 0.5*bar_1_size+0.5*bar_1_thickness;
-        z2 =   0.5*Seat_Size_D;     
-        x_dx  = 0;  x_dy  = 1;  x_dz  = 0;   
+        x1 = - (0.5*Seat_Size_W1-Rb*COS(45)-Ra*SIN(45));
+        y1 =   0;
+        z1 =   Seat_Size_h+0.5*bar_3_dia;   
+        x2 =   (0.5*Seat_Size_W1-Rb*COS(45)-Ra*SIN(45));
+        y2 =   0;
+        z2 =   Seat_Size_h+0.5*bar_3_dia;  
+        x_dx  =  0; x_dy  = 1;  x_dz  = 0;   
         end1x = -1; end1y = 0;  end1z = 0;	
         end2x =  1; end2y = 0;  end2z = 0; 	
+        Put_Beam_Data_To_Arrary(Part_Para,3,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+    }
+    /*计算零件3-1a相关参数*/
+    if(1){
+        x1 = - (0.5*Seat_Size_W1-Rb*COS(45)-Ra*SIN(45));
+        y1 =   0;
+        z1 =   Seat_Size_h+0.5*bar_3_dia;   
+        x2 = - (0.5*Seat_Size_W1-Rb*COS(45));
+        y2 =   0;
+        z2 =   Seat_Size_h+0.5*bar_3_dia-Rb*SIN(45);  
+        x_dx  =  0; x_dy  = 1;  x_dz  =  0;   
+        end1x =  1; end1y = 0;  end1z =  0;	
+        end2x = -1; end2y = 0;  end2z = -1; 	
+        Put_Beam_Data_To_Arrary(Part_Para,5,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+    }
+    /*计算零件3-1b相关参数*/
+    if(1){
+        x1 = - (0.5*Seat_Size_W1-Rb*COS(45));
+        y1 =   0;
+        z1 =   Seat_Size_h+0.5*bar_3_dia-Rb*SIN(45);   
+        x2 = - (0.5*Seat_Size_W1-Rb*SIN(30));
+        y2 =   0;
+        z2 =   Seat_Size_h+0.5*bar_3_dia+Rb*COS(30);  
+        x_dx  =  0; x_dy  = 1;  x_dz  =  0;   
+        end1x =  1; end1y = 0;  end1z = -1;	
+        end2x = -1; end2y = 0;  end2z =  1; 
+        Put_Beam_Data_To_Arrary(Part_Para,6,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+    }
+    /*计算零件3-1c相关参数*/
+    if(1){
+        x1 =   (0.5*Seat_Size_W1-Rb*COS(45)-Ra*SIN(45));
+        y1 =   0;
+        z1 =   Seat_Size_h+0.5*bar_3_dia;  
+        x2 =   (0.5*Seat_Size_W1-Rb*COS(45));
+        y2 =   0;
+        z2 =   Seat_Size_h+0.5*bar_3_dia-Rb*SIN(45);  
+        x_dx  =  0; x_dy  = 1;  x_dz  =  0;   
+        end1x = -1; end1y = 0;  end1z =  0;	
+        end2x = 1; end2y = 0;  end2z = -1; 
         Put_Beam_Data_To_Arrary(Part_Para,7,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
     }
+    /*计算零件3-1d相关参数*/
+    if(1){
+        x1 =   (0.5*Seat_Size_W1-Rb*COS(45));
+        y1 =   0;
+        z1 =   Seat_Size_h+0.5*bar_3_dia-Rb*SIN(45);   
+        x2 =   (0.5*Seat_Size_W1-Rb*SIN(30));
+        y2 =   0;
+        z2 =   Seat_Size_h+0.5*bar_3_dia+Rb*COS(30);  
+        x_dx  =  0; x_dy  = 1;  x_dz  =  0;   
+        end1x =  1; end1y = 0;  end1z = -1;	
+        end2x = -1; end2y = 0;  end2z =  1; 
+        Put_Beam_Data_To_Arrary(Part_Para,8,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+    }
     
-    /* 计算零件4-1（接地螺栓）参数*/
+    /* 计算零件5-1（接地螺栓）参数*/
     if(1){
         if(Earth_Type == "EB1"){
             earth_bolt_pid = Earth_Bolt_Pid1;
@@ -1674,79 +1757,14 @@ calculate_seat_para()
         else{
             earth_bolt_pid = Earth_Bolt_Pid3;
         }
-        lox = - (0.5*Seat_Size_W-3*bar_1_size);
-        loy = - 0.5*bar_1_size;
-        loz =   Seat_Size_h+0.5*bar_1_size;    
-        udx = 0;    udy = 1;    udz = 0;   
+        lox = - 0.5*bar_1_dia;
+        loy = - 1.0*bar_1_dia;
+        loz =   Seat_Size_h;    
+        udx = 1;    udy = 0;    udz = 0;   
         vdx = 0;    vdy = 0;    vdz = 1; 
-        Put_Beam_Data_To_Arrary(Part_Para,8,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz,0,0,0,0,0,earth_bolt_pid);	
+        Put_Beam_Data_To_Arrary(Part_Para,4,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz,0,0,0,0,0,earth_bolt_pid);	
     }
 
-    /*虚拟孔最小长度5mm*/
-    hole_thk = bar_1_thickness;
-    if(hole_thk<5.0)hole_thk=5;
-    /*计算零件5-1相关参数*/
-    if(1){
-        x1 = - 0.5*Seat_Size_W1;
-        y1 = - 0.5*Seat_Size_L1;
-        z1 =   0;   
-        x2 = - 0.5*Seat_Size_W1;
-        y2 = - 0.5*Seat_Size_L1;
-        z2 =   hole_thk;   
-        x_dx  = 0; x_dy  = 1;  x_dz  =  0;   
-        end1x = 1; end1y = 0;  end1z = -1;	
-        end2x = 0; end2y = 0;  end2z =  1; 	
-        Put_Beam_Data_To_Arrary(Part_Para,9,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }	
-    /*计算零件5-2相关参数*/
-    if(1){
-        x1 = - 0.5*Seat_Size_W1;
-        y1 =   0.5*Seat_Size_L1;
-        z1 =   0;   
-        x2 = - 0.5*Seat_Size_W1;
-        y2 =   0.5*Seat_Size_L1;
-        z2 =   hole_thk;   
-        x_dx  = 0; x_dy  = 1;  x_dz  =  0;   
-        end1x = 1; end1y = 0;  end1z = -1;	
-        end2x = 0; end2y = 0;  end2z =  1; 	
-        Put_Beam_Data_To_Arrary(Part_Para,10,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }
-    /*计算零件5-3相关参数*/
-    if(1){
-        x1 =   0.5*Seat_Size_W1;
-        y1 =   0.5*Seat_Size_L1;
-        z1 =   0;   
-        x2 =   0.5*Seat_Size_W1;
-        y2 =   0.5*Seat_Size_L1;
-        z2 =   hole_thk;   
-        x_dx  = 0; x_dy  = 1;  x_dz  =  0;   
-        end1x = 1; end1y = 0;  end1z = -1;	
-        end2x = 0; end2y = 0;  end2z =  1; 	
-        Put_Beam_Data_To_Arrary(Part_Para,11,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }
-    /*计算零件5-4相关参数*/
-    if(1){
-        x1 =   0.5*Seat_Size_W1;
-        y1 = - 0.5*Seat_Size_L1;
-        z1 =   0;   
-        x2 =   0.5*Seat_Size_W1;
-        y2 = - 0.5*Seat_Size_L1;
-        z2 =   hole_thk;   
-        x_dx  = 0; x_dy  = 1;  x_dz  =  0;   
-        end1x = 1; end1y = 0;  end1z = -1;	
-        end2x = 0; end2y = 0;  end2z =  1; 	
-        Put_Beam_Data_To_Arrary(Part_Para,12,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
-    }
-    
-	/*查找对应的孔零件*/
-	seat_hole_pid = DM_MATCH_PARTID(Hole_Part_Code,3,2,Seat_Size_d); 
-    if(!ISSTRING(seat_hole_pid)){
-        mess = "孔径为:" + FTOASCII(Seat_Size_d) + ",标准库中没有定义这种规格的零件";
-        U_CONFIRM(mess);
-    }
-    else{
-        Seat_Hole_Pid = seat_hole_pid;
-    }	
     return(0);
 }
 
@@ -1789,103 +1807,84 @@ create_seat_part()
 	part_handle = Create_Beam(Beam_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
 	Set_Attribute_Value(part_handle, Part_Number,  "1-1");   
 	PM_ADD_OBJECT_TO_SET(part_handle, seat);  
-
-	/* 生成零件1-2 */
-	Get_Beam_Data_From_Arrary(Part_Para,1,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Beam_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "1-2");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
-    /* 倒切角 */
-    anglebar_headside_a_cut(part_handle,Seat_Cut);
-    anglebar_tailside_a_cut(part_handle,Seat_Cut);
-
-	/* 生成零件1-3 */
-	Get_Beam_Data_From_Arrary(Part_Para,2,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Beam_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "1-3");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);    
-    /* 倒切角 */
-    anglebar_headside_b_cut(part_handle,Seat_Cut);
-    anglebar_tailside_b_cut(part_handle,Seat_Cut);
-    
-	/* 生成零件1-4 */
-	Get_Beam_Data_From_Arrary(Part_Para,3,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Beam_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "1-4"); 
-	PM_ADD_OBJECT_TO_SET(part_handle, seat); 
+    pad_handle = create_bar_pad_plate(seat, part_handle, 1, Steel_Plate_Pid, SystemId, "4-1");
     /*create pads*/
     if(Pad_Switch == "on"){
         pad_handle = create_bar_pad_plate(seat, part_handle, 2, Pad_Plate_Pid, SystemId, "6-1");
     }
     
-	/* 生成零件1-5 */
-	Get_Beam_Data_From_Arrary(Part_Para,4,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Beam_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "1-5");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
-    /*create pads*/
-    if(Pad_Switch == "on"){
-        pad_handle = create_bar_pad_plate(seat, part_handle, 2, Pad_Plate_Pid, SystemId, "6-2");
-    }
-    
 	/* 生成零件2-1 */
-	Get_Beam_Data_From_Arrary(Part_Para,5,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Beam_Part2_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "2-1");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
-    /*create pads*/
-    if(Pad_Switch == "on"){
-        pad_handle = create_bar_pad_plate(seat, part_handle, 2, Pad_Plate_Pid, SystemId, "6-3");
+    if(Seat_Size_D>800){
+        Get_Beam_Data_From_Arrary(Part_Para,1,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
+        part_handle = Create_Beam(Beam_Part2_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, Part_Number,  "2-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat);
+        /*create pads*/
+        if(Pad_Switch == "on"){
+            pad_handle = create_bar_pad_plate(seat, part_handle, 2, Pad_Plate_Pid, SystemId, "6-2");
+        }
     }
-    
+
 	/* 生成零件2-2 */
-	Get_Beam_Data_From_Arrary(Part_Para,6,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Beam_Part2_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "2-2");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
-    /*create pads*/
-    if(Pad_Switch == "on"){
-        pad_handle = create_bar_pad_plate(seat, part_handle, 2, Pad_Plate_Pid, SystemId, "6-3");
+    if(Seat_Size_D>1000){
+        Get_Beam_Data_From_Arrary(Part_Para,2,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
+        part_handle = Create_Beam(Beam_Part2_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, Part_Number,  "2-2");   
+        PM_ADD_OBJECT_TO_SET(part_handle, seat);
+        /*create pads*/
+        if(Pad_Switch == "on"){
+            pad_handle = create_bar_pad_plate(seat, part_handle, 2, Pad_Plate_Pid, SystemId, "6-3");
+        }
     }
-    
+
 	/* 生成零件3-1 */
-	Get_Beam_Data_From_Arrary(Part_Para,7,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
+	Get_Beam_Data_From_Arrary(Part_Para,3,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
 	part_handle = Create_Beam(Beam_Part3_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
 	Set_Attribute_Value(part_handle, Part_Number,  "3-1");   
 	PM_ADD_OBJECT_TO_SET(part_handle, seat);
     
+	/* 生成零件3-1a */
+    bar_3_dia = 1.0 * DM_PARTID_DATA(Beam_Part3_Pid, "D32");
+    Rb = 0.5*(50-bar_3_dia);
+    Ra = (Rb * SIN(45))/(1-SIN(45));
+    amp = Ra - Ra*COS(45/2.0);
+	Get_Beam_Data_From_Arrary(Part_Para,5,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
+	part_handle = Create_Beam(Beam_Part3_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+	PM_SET_BENDING_INFO_OF_BEAM(part_handle, 3, amp);
+    Set_Attribute_Value(part_handle, Part_Number,  "3-1");
+	PM_ADD_OBJECT_TO_SET(part_handle, seat);
+    
+	/* 生成零件3-1b */
+    amp = Rb + Rb*COS(105/2.0);
+	Get_Beam_Data_From_Arrary(Part_Para,6,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
+	part_handle = Create_Beam(Beam_Part3_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+	PM_SET_BENDING_INFO_OF_BEAM(part_handle, 2, amp); 
+    Set_Attribute_Value(part_handle, Part_Number,  "3-1");   
+	PM_ADD_OBJECT_TO_SET(part_handle, seat);
+
+	/* 生成零件3-1c */
+    amp = Ra - Ra*COS(45/2.0);
+	Get_Beam_Data_From_Arrary(Part_Para,7,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
+	part_handle = Create_Beam(Beam_Part3_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+	PM_SET_BENDING_INFO_OF_BEAM(part_handle, 2, amp); 
+    Set_Attribute_Value(part_handle, Part_Number,  "3-1");   
+	PM_ADD_OBJECT_TO_SET(part_handle, seat);
+    
+	/* 生成零件3-1d */
+    amp = Rb + Rb*COS(105/2.0);
+	Get_Beam_Data_From_Arrary(Part_Para,8,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
+	part_handle = Create_Beam(Beam_Part3_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+	PM_SET_BENDING_INFO_OF_BEAM(part_handle, 3, amp); 
+    Set_Attribute_Value(part_handle, Part_Number,  "3-1");   
+	PM_ADD_OBJECT_TO_SET(part_handle, seat);
+    
 	/* 生成接地螺栓 */
-	Get_Beam_Data_From_Arrary(Part_Para,8,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);  	   
+	Get_Beam_Data_From_Arrary(Part_Para,4,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);  	   
 	earth_handle = Create_Standcomp(end2z, SystemId, x1, y1, z1, x2, y2, z2, x_dx, x_dy, x_dz, tmat_h);   
-	Set_Attribute_Value(earth_handle, Part_Number,  "4-1");   
+	Set_Attribute_Value(earth_handle, Part_Number,  "5-1");   
 	PM_ADD_OBJECT_TO_SET(earth_handle, seat);
-
-	/*生成孔零件*/ 
-	/* 生成零件5-1 */
-	Get_Beam_Data_From_Arrary(Part_Para,9,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Seat_Hole_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "5-1");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
-
-	/* 生成零件5-2 */
-	Get_Beam_Data_From_Arrary(Part_Para,10,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Seat_Hole_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "5-2");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
     
-	/* 生成零件5-3 */
-	Get_Beam_Data_From_Arrary(Part_Para,11,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Seat_Hole_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "5-3");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
-    
-	/* 生成零件5-4 */
-	Get_Beam_Data_From_Arrary(Part_Para,12,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz, end1x,end1y,end1z,end2x,end2y,end2z);
-	part_handle = Create_Beam(Seat_Hole_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
-	Set_Attribute_Value(part_handle, Part_Number,  "5-4");   
-	PM_ADD_OBJECT_TO_SET(part_handle, seat);
-
-	PM_ADD_SET_TO_GROUP(seat, Seat_Handle);     
+	PM_ADD_SET_TO_GROUP(seat, Seat_Handle);
 	PM_FREE_SET(seat);     
 
 	Set_Attribute_Value(Seat_Handle, SeatDes, 	SeatDescription);
@@ -1901,7 +1900,7 @@ create_seat_part()
 
 quit_handler(item, event_type, button_value)
 {    
-	U_MESSAGE("退出BD型电气设备基座参数化建模窗口");
+	U_MESSAGE("退出电气设备基座参数化建模窗口");
 	return(99);
 }
 
@@ -1911,7 +1910,6 @@ quit_handler(item, event_type, button_value)
 create_parameter_panel(mainform)
 {
 	Parameters = W_ADD_WINDOW(mainform, W_PANEL, "Parameters");
-	
 	W_REALIZE_WINDOW(Parameters,	W_FRAME_X,		410,
 									W_FRAME_Y,		0,
 							        W_FRAME_WIDTH,	300,
@@ -1930,162 +1928,132 @@ create_parameter_panel(mainform)
 		                                 							         
     /* 基座参数W */
 	Seat_Para_W = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_W");
-	
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_W,	W_NUMERIC_FLOAT,
 											0, 10000,
 											"%.2f");
-   	
 	W_REALIZE_PANELITEM(Seat_Para_W,	W_PANEL_ROW,		1, 
 										W_PANEL_COL,		1,
 							            W_PANEL_LABEL,		"W: ",
 							            W_PANEL_LENGTH,		10,
-							            W_PANEL_CALLBACK,	1);
-							               							               
+                                        W_PANEL_SENSITIVITY,0,
+							            W_PANEL_CALLBACK,	1);						               							               
 	W_SET_PANELITEM_HANDLER(Seat_Para_W,	"seat_para_handler"); 
 	
 	/* 基座参数W1 */
 	Seat_Para_W1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_W1");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_W1,	W_NUMERIC_FLOAT,
 												0, 10000,
-												"%.2f");
-                                           	
+												"%.2f");                              	
 	W_REALIZE_PANELITEM(Seat_Para_W1,	W_PANEL_ROW,		1, 
 										W_PANEL_COL,		17,
 							            W_PANEL_LABEL,		"W1: ",
 							            W_PANEL_LENGTH,		10,
-							            W_PANEL_CALLBACK,	1);
-							               						              							               
+							            W_PANEL_CALLBACK,	1);			               						              							               
 	W_SET_PANELITEM_HANDLER(Seat_Para_W1,	"seat_para_handler");
 
 	/* 基座参数L */
 	Seat_Para_L = W_ADD_PANELITEM(Parameters,	W_PANEL_FILL,	"Seat_Para_L");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_L,	W_NUMERIC_FLOAT,
 											0, 10000,
 											"%.2f");
-	
 	W_REALIZE_PANELITEM(Seat_Para_L,	W_PANEL_ROW,		2, 
 										W_PANEL_COL,		1,
 							            W_PANEL_LABEL,		"L: ",
 							            W_PANEL_LENGTH,		10,
-										W_PANEL_SENSITIVITY,1,
-							            W_PANEL_CALLBACK,	1);
-							                  							               
+                                        W_PANEL_SENSITIVITY,0,
+							            W_PANEL_CALLBACK,	1);			                  							               
 	W_SET_PANELITEM_HANDLER(Seat_Para_L,	"seat_para_handler");
 
 
 	/* 基座参数L1 */
 	Seat_Para_L1 = W_ADD_PANELITEM(Parameters,	W_PANEL_FILL,	"Seat_Para_L1");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_L1,	W_NUMERIC_FLOAT,
 												0, 10000,
 												"%.2f");
-	
 	W_REALIZE_PANELITEM(Seat_Para_L1,	W_PANEL_ROW,		2, 
 										W_PANEL_COL,		17,
 							            W_PANEL_LABEL,		"L1: ",
 							            W_PANEL_LENGTH,		10,
-										W_PANEL_SENSITIVITY,1,
-							            W_PANEL_CALLBACK,	1);
-							                  							               
+										W_PANEL_SENSITIVITY,0,
+							            W_PANEL_CALLBACK,	1);      							               
 	W_SET_PANELITEM_HANDLER(Seat_Para_L1, "seat_para_handler");	
 
 	/* 基座参数a */	
 	Seat_Para_a = W_ADD_PANELITEM(Parameters,	W_PANEL_FILL,	"Seat_Para_a");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_a,	W_NUMERIC_FLOAT,
 											0, 10000,
 											"%.2f");
-	
 	W_REALIZE_PANELITEM(Seat_Para_a,	W_PANEL_ROW,			3, 
 										W_PANEL_COL,			1,
 							            W_PANEL_LABEL,			"a: ",
 							            W_PANEL_LENGTH,			10,
 							            W_PANEL_SENSITIVITY,	0,
-							            W_PANEL_CALLBACK,		1);
-							               
+							            W_PANEL_CALLBACK,		1);				               
 	W_SET_PANELITEM_HANDLER(Seat_Para_a, "seat_para_handler");
 
 	/* 基座参数a1 */
 	Seat_Para_a1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_a1");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_a1,	W_NUMERIC_FLOAT,
 												0, 10000,
 												"%.2f");
-	
 	W_REALIZE_PANELITEM(Seat_Para_a1,	W_PANEL_ROW,		3, 
 										W_PANEL_COL,		17,
 							            W_PANEL_LABEL,		"a1: ",
 							            W_PANEL_LENGTH,		10,
 										W_PANEL_SENSITIVITY,0,
 							            W_PANEL_CALLBACK,	1,
-										W_PANEL_SENSITIVITY,0);
-							               					               							               
+										W_PANEL_SENSITIVITY,0);  					               							               
 	W_SET_PANELITEM_HANDLER(Seat_Para_a1, "seat_para_handler");				
 
 	/* 基座参数b */	
 	Seat_Para_b = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_b");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_b,	W_NUMERIC_FLOAT,
 											0, 10000,
 											"%.2f");
-	
 	W_REALIZE_PANELITEM(Seat_Para_b,	W_PANEL_ROW,			4, 
 										W_PANEL_COL,			1,
 							            W_PANEL_LABEL,			"b: ",
 							            W_PANEL_LENGTH,			10,
 										W_PANEL_SENSITIVITY,	0,
-							            W_PANEL_SENSITIVITY,	0,
-							            W_PANEL_CALLBACK,		1);							               							               
-							               
+							            W_PANEL_CALLBACK,		1);							               							                         
 	W_SET_PANELITEM_HANDLER(Seat_Para_b, "seat_para_handler");
 
 	/* 基座参数c */
 	Seat_Para_c = W_ADD_PANELITEM(Parameters,	W_PANEL_FILL,	"Seat_Para_c");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_c,	W_NUMERIC_FLOAT,
 											0, 10000,
-											"%.2f");
-                                           	
+											"%.2f");               	
 	W_REALIZE_PANELITEM(Seat_Para_c,	W_PANEL_ROW,			4, 
 										W_PANEL_COL,			17,
 							            W_PANEL_LABEL,			"c:  ",
 							            W_PANEL_LENGTH,			10,
 										W_PANEL_SENSITIVITY,	0,
-							            W_PANEL_SENSITIVITY,	0,
-							            W_PANEL_CALLBACK,		1);							               						               
-							               
+							            W_PANEL_CALLBACK,		1);							               						               				               
 	W_SET_PANELITEM_HANDLER(Seat_Para_c, "seat_para_handler");		
 
 	/* 基座参数D */	
 	Seat_Para_D = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_D");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_D,	W_NUMERIC_FLOAT,
 											0, 10000,
 											"%.2f");
-	
 	W_REALIZE_PANELITEM(Seat_Para_D,	W_PANEL_ROW,		5, 
 										W_PANEL_COL,		1,
 							            W_PANEL_LABEL,		"D: ",
 							            W_PANEL_LENGTH,		10,
-							            W_PANEL_CALLBACK,	1);
-							               							               							               
+							            W_PANEL_CALLBACK,	1);			               							               
 	W_SET_PANELITEM_HANDLER(Seat_Para_D, "seat_para_handler");
 
 	/* 基座参数d */
 	Seat_Para_d = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Seat_Para_d");
-
 	W_CONFIG_NUMERIC_PANELITEM(Seat_Para_d,	W_NUMERIC_FLOAT,
 											0, 10000,
 											"%.2f");
-	
 	W_REALIZE_PANELITEM(Seat_Para_d,	W_PANEL_ROW,		5, 
 										W_PANEL_COL,		17,
 							            W_PANEL_LABEL,		"d:  ",
 							            W_PANEL_LENGTH,		10,
-							            W_PANEL_CALLBACK,	1);
-							               							               							               
+                                        W_PANEL_SENSITIVITY,0,
+							            W_PANEL_CALLBACK,	1);	               							               							               
 	W_SET_PANELITEM_HANDLER(Seat_Para_d, "seat_para_handler");	
 		         							         														
 	return(Parameters);
@@ -2098,85 +2066,15 @@ seat_para_handler(item, event_type, dummy)
 {
 	/* 处理输入新数值后 */
 	if (event_type == W_EVENT_ITEM_LEFT){		
-		if (item == Seat_Para_W){
-			/* 检查参数W是否正确 */
-			st = 0;
-			value = W_GET_NUMERIC_VALUE(item, st);
-			if (st != -1 & value != 0){
-				Seat_Size_W = value;
-				w1 = W_GET_NUMERIC_VALUE(Seat_Para_W1, st);
-				a = (value - w1) / 2;
-				W_SET_NUMERIC_VALUE(Seat_Para_a, a);        
-				Seat_Size_a = a; 
-				if(Modify_flag){
-					/* 定义UNDO缓存 */
-					st = PM_UM_OPEN_CHANGE("修改电气设备基座参数:W");
-					delete_seat_members();
-					create_seat_part();             
-					st = PM_UM_CLOSE_CHANGE();           
-				}					  				 							        
-			}
-			else{
-				reload_seat_data(SeatName);
-			}			
-		}
-		else if (item == Seat_Para_W1){
-			/* 检查参数W是否正确 */
+        if (item == Seat_Para_W1){
+			/* 检查参数W1是否正确 */
 			st = 0;
 			value = W_GET_NUMERIC_VALUE(item, st);
 			if (st != -1 & value != 0){
 				Seat_Size_W1 = value;
-				w = W_GET_NUMERIC_VALUE(Seat_Para_W, st);
-				a = (w - value) / 2;
-				W_SET_NUMERIC_VALUE(Seat_Para_a, a);        
-				Seat_Size_a = a; 
 				if(Modify_flag){
 					/* 定义UNDO缓存 */
 					st = PM_UM_OPEN_CHANGE("修改电气设备基座参数:W1");
-					delete_seat_members();
-					create_seat_part();             
-					st = PM_UM_CLOSE_CHANGE();           
-				}					  				 							        
-			}
-			else{
-				reload_seat_data(SeatName);
-			}			
-		}
-		else if (item == Seat_Para_L){
-			/* 检查参数W是否正确 */
-			st = 0;
-			value = W_GET_NUMERIC_VALUE(item, st);
-			if (st != -1 & value != 0){
-				Seat_Size_L = value;
-				L1 = W_GET_NUMERIC_VALUE(Seat_Para_L1, st);
-				b = (value - L1) / 2;
-				W_SET_NUMERIC_VALUE(Seat_Para_b, b);        
-				Seat_Size_b = b; 
-				if(Modify_flag){
-					/* 定义UNDO缓存 */
-					st = PM_UM_OPEN_CHANGE("修改电气设备基座参数:L");
-					delete_seat_members();
-					create_seat_part();             
-					st = PM_UM_CLOSE_CHANGE();           
-				}					  				 							        
-			}
-			else{
-				reload_seat_data(SeatName);
-			}			
-		}
-		else if (item == Seat_Para_L1){
-			/* 检查参数W是否正确 */
-			st = 0;
-			value = W_GET_NUMERIC_VALUE(item, st);
-			if (st != -1 & value != 0){
-				Seat_Size_L1 = value;
-				L = W_GET_NUMERIC_VALUE(Seat_Para_L, st);
-				b = (L - value) / 2;
-				W_SET_NUMERIC_VALUE(Seat_Para_b, b);        
-				Seat_Size_b = b; 
-				if(Modify_flag){
-					/* 定义UNDO缓存 */
-					st = PM_UM_OPEN_CHANGE("修改电气设备基座参数:L1");
 					delete_seat_members();
 					create_seat_part();             
 					st = PM_UM_CLOSE_CHANGE();           
@@ -2192,30 +2090,12 @@ seat_para_handler(item, event_type, dummy)
 			value = W_GET_NUMERIC_VALUE(item, st);
 			if (st != -1 & value != 0){
 				Seat_Size_D = value; 
-                a1 = (2. / 3.0 )* value / COS(30);
-                W_SET_NUMERIC_VALUE(Seat_Para_a1, a1);        
-				Seat_Size_a1 = a1; 
+                L1 = (2 / 3.0 )* value / COS(30);
+                W_SET_NUMERIC_VALUE(Seat_Para_L1, L1);               
+				Seat_Size_L1 = L1; 
 				if(Modify_flag){
 					/* 定义UNDO缓存 */
 					st = PM_UM_OPEN_CHANGE("修改电气设备基座参数:D");
-					delete_seat_members();
-					create_seat_part();             
-					st = PM_UM_CLOSE_CHANGE();           
-				}					  				 							        
-			}
-			else{
-				reload_seat_data(SeatName);
-			}			
-		}
-		else if (item == Seat_Para_d){
-			/* 检查参数W是否正确 */
-			st = 0;
-			value = W_GET_NUMERIC_VALUE(item, st);
-			if (st != -1 & value != 0){
-				Seat_Size_d = value; 
-				if(Modify_flag){
-					/* 定义UNDO缓存 */
-					st = PM_UM_OPEN_CHANGE("修改电气设备基座参数:d");
 					delete_seat_members();
 					create_seat_part();             
 					st = PM_UM_CLOSE_CHANGE();           
@@ -2553,7 +2433,6 @@ create_rotate_seat_panel(mainform)
 		                                 W_PANEL_LABEL,	"",
 		                                 W_PANEL_SEPARATOR, 1);
 
-
     /* 基座旋转操作-标题 */
    
     seat_rotate_title1 = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "seat_position_title1");
@@ -2811,7 +2690,6 @@ create_move_seat_panel(mainform)
 	                                    W_PANEL_COL, 7,
 		                                 W_PANEL_LABEL,	"",
 		                                 W_PANEL_SEPARATOR, 1);
-
 
     /* 基座移动操作-标题 */
    
@@ -3203,7 +3081,7 @@ delete_seat_handler(item, event_type, button_value)
 				
 			/* 删除基座 */   
 			res = PM_DELETE_OBJECT(group_handle);
-			 
+            
 			/* 基座删除不成功，撤销相关操作 */
 			if (res == -1){
 				PM_UM_CLOSE_CHANGE();
@@ -3299,7 +3177,7 @@ load_default_setting()
 {   
     /*加载基座信息的默认值 Load default value*/
 	system_name = "";
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA", "System_Name", system_name);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB", "System_Name", system_name);
 	if(st == 0){
         SystemName = system_name;
         SystemId = PM_GET_SYSTEM_ID(system_name);
@@ -3307,7 +3185,7 @@ load_default_setting()
 	}
 
 	description = "";
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA", "SeatDescription", description);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB", "SeatDescription", description);
 	if(st == 0){
         SeatDescription = description;
 		W_SET_PANELITEM_ARGS(Seat_Description, W_PANEL_VALUE, description);
@@ -3325,11 +3203,11 @@ load_default_setting()
 	**	2. load from library with specified catalouge name (it is too slow, hide it now);
 	**	3. select from library manually;
 	*/	
-	load_virtual_hole_part();
+	/* load_virtual_hole_part(); */
 		
 	/* read earth bolt type from default setting, if doesn't exist, then set it as "EB1"*/
 	earth_type = "";
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA", "Earth_Type", earth_type);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB", "Earth_Type", earth_type);
 	if(st == 0){	
 		Earth_Type = earth_type;
 		if(earth_type == "EB1"){  
@@ -3379,31 +3257,11 @@ load_virtual_hole_part()
 {
 	/* check default setting */
 	part_code = "";
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA","Hole_Part_Code", part_code);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB","Hole_Part_Code", part_code);
 	if(st == 0){
 		Hole_Part_Code = part_code;
 	}	
 
-	/* search part in library*/	
-	/*
-	if(Hole_Part_Code == ""){
-		i = 0;
-		s = "dummy";
-		while(!ISINT(s)){
-			s = DM_GET_NEXT_PARTCODE(i);
-			part_id = DM_MATCH_PARTID(s,2,2,1.0);
-			if(ISSTRING(s)){
-				de = DM_PARTID_DATA(part_id,"DE");
-				if(de == Hole_Part_Cata){
-					Hole_Part_Code = s;
-					SET_STRING_DEFAULT("ElecEquiSeat_HA","Hole_Part_Code", s);
-					s = 0;
-				}
-			}
-		}
-	}
-	*/
-		
 	/* select part in library*/
 	if(Hole_Part_Code == ""){
 		U_CONFIRM("请选择开孔虚拟零件");
@@ -3416,7 +3274,7 @@ load_virtual_hole_part()
 				part_id = DM_MATCH_PARTID(part_code,10,1,999001);
 				if(ISSTRING(part_id)){
 					Hole_Part_Code = part_code;
-					SET_STRING_DEFAULT("ElecEquiSeat_HA","Hole_Part_Code", Hole_Part_Code);				
+					SET_STRING_DEFAULT("ElecEquiSeat_GB","Hole_Part_Code", Hole_Part_Code);				
 					loop_flag = 0;
 				}
 			}
@@ -3433,26 +3291,32 @@ load_beam_part()
 {
 	/* check default setting */
 	part_id = "";
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA","Beam_Part1_Pid", part_id);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB","Beam_Part1_Pid", part_id);
 	if(st == 0){
 		Beam_Part1_Pid = part_id;
 		Beam_Part_Code = STRINGTERM(part_id,"-");
 		beam_descr = Pid_To_Description(Beam_Part1_Pid);
 		W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, beam_descr);
 	}
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA","Beam_Part2_Pid", part_id);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB","Beam_Part2_Pid", part_id);
 	if(st == 0){
 		Beam_Part2_Pid = part_id;
 		beam_descr = Pid_To_Description(Beam_Part2_Pid);
 		W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, beam_descr);
 	}	
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA","Beam_Part3_Pid", part_id);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB","Beam_Part3_Pid", part_id);
 	if(st == 0){
 		Beam_Part3_Pid = part_id;
 		beam_descr = Pid_To_Description(Beam_Part3_Pid);
 		W_SET_PANELITEM_ARGS(Seat_Part3, W_PANEL_VALUE, beam_descr);
 	}	
-	st = GET_STRING_DEFAULT("ElecEquiSeat_HA","Pad_Plate_Pid", part_id);
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB","Steel_Plate_Pid", part_id);
+	if(st == 0){
+		Steel_Plate_Pid = part_id;
+		pad_descr = Pid_To_Description(Steel_Plate_Pid);
+		W_SET_PANELITEM_ARGS(Seat_Part4, W_PANEL_VALUE, pad_descr);
+	}
+	st = GET_STRING_DEFAULT("ElecEquiSeat_GB","Pad_Plate_Pid", part_id);
 	if(st == 0){
 		Pad_Plate_Pid = part_id;
 		pad_descr = Pid_To_Description(Pad_Plate_Pid);
@@ -3461,19 +3325,19 @@ load_beam_part()
     
 	/* select part in library*/
 	if(Beam_Part1_Pid == ""){
-		U_CONFIRM("请选择基座框架材料(角钢)");
+		U_CONFIRM("请选择基座框架材料(钢管)");
 		selectmask = DM_INIT_TAGREC();
 		DM_SET_TAGVAL(selectmask, "KW","*BEAM*");
 		loop_flag = 1;
 		while(loop_flag){
 			part_id = DM_BROWSE_PARTCODE("", 1, selectmask);
 			if(ISSTRING(part_id)){
-				if(is_equal_angle_bar(part_id)){
+				if(is_steel_pipe(part_id)){
 					Beam_Part1_Pid = part_id;
 					Beam_Part_Code = STRINGTERM(part_id,"-");
 					beam_descr = Pid_To_Description(part_id);
 					W_SET_PANELITEM_ARGS(Seat_Part1, W_PANEL_VALUE, beam_descr);
-					SET_STRING_DEFAULT("ElecEquiSeat_HA","Beam_Part1_Pid", part_id);
+					SET_STRING_DEFAULT("ElecEquiSeat_GB","Beam_Part1_Pid", part_id);
 					DM_FREE_TAGREC(selectmask);
 					loop_flag = 0;
 				}
@@ -3485,7 +3349,7 @@ load_beam_part()
 		}
 	}
 	if(Beam_Part2_Pid == ""){
-		U_CONFIRM("请选择基座框架材料(圆钢)");
+		U_CONFIRM("请选择基座斜撑材料(圆钢)");
 		selectmask = DM_INIT_TAGREC();
 		DM_SET_TAGVAL(selectmask, "KW","*BEAM*");
 		loop_flag = 1;
@@ -3496,7 +3360,7 @@ load_beam_part()
 					Beam_Part2_Pid = part_id;
 					beam_descr = Pid_To_Description(part_id);
 					W_SET_PANELITEM_ARGS(Seat_Part2, W_PANEL_VALUE, beam_descr);
-					SET_STRING_DEFAULT("ElecEquiSeat_HA","Beam_Part2_Pid", part_id);
+					SET_STRING_DEFAULT("ElecEquiSeat_GB","Beam_Part2_Pid", part_id);
 					DM_FREE_TAGREC(selectmask);
 					loop_flag = 0;
 				}
@@ -3508,18 +3372,41 @@ load_beam_part()
 		}
 	}
 	if(Beam_Part3_Pid == ""){
-		U_CONFIRM("请选择基座框架材料(扁钢)");
+		U_CONFIRM("请选择基座挂钩材料(圆钢)");
 		selectmask = DM_INIT_TAGREC();
 		DM_SET_TAGVAL(selectmask, "KW","*BEAM*");
 		loop_flag = 1;
 		while(loop_flag){
 			part_id = DM_BROWSE_PARTCODE("", 1, selectmask);
 			if(ISSTRING(part_id)){
-				if(is_flat_bar(part_id)){
+				if(is_steel_pipe(part_id)){
 					Beam_Part3_Pid = part_id;
 					beam_descr = Pid_To_Description(part_id);
 					W_SET_PANELITEM_ARGS(Seat_Part3, W_PANEL_VALUE, beam_descr);
-					SET_STRING_DEFAULT("ElecEquiSeat_HA","Beam_Part3_Pid", part_id);
+					SET_STRING_DEFAULT("ElecEquiSeat_GB","Beam_Part3_Pid", part_id);
+					DM_FREE_TAGREC(selectmask);
+					loop_flag = 0;
+				}
+			}
+			else if(part_id == 0){
+				U_CONFIRM("请先选择基座材料后再选择<创建>命令！");
+				loop_flag = 0;
+			}
+		}
+	}
+	if(Steel_Plate_Pid == ""){
+		U_CONFIRM("请选择基座腹板材料(钢板)");
+		selectmask = DM_INIT_TAGREC();
+		DM_SET_TAGVAL(selectmask, "KW","*PLATE*");
+		loop_flag = 1;
+		while(loop_flag){
+			part_id = DM_BROWSE_PARTCODE("", 1, selectmask);
+			if(ISSTRING(part_id)){
+				if(is_steel_plate(part_id)){
+					Steel_Plate_Pid = part_id;
+					beam_descr = Pid_To_Description(part_id);
+					W_SET_PANELITEM_ARGS(Seat_Part4, W_PANEL_VALUE, beam_descr);
+					SET_STRING_DEFAULT("ElecEquiSeat_GB","Steel_Plate_Pid", part_id);
 					DM_FREE_TAGREC(selectmask);
 					loop_flag = 0;
 				}
@@ -3619,7 +3506,7 @@ initialize()
 	W_SET_PANELITEM_ARGS(Select_Seat_Pad, W_PANEL_SENSITIVITY,0);   
 	W_SET_PANELITEM_ARGS(Modify_Seat, W_PANEL_SENSITIVITY,0);
 	Modify_flag = 0;
-	Part_Para = alloc_2darray(13,15);
+	Part_Para = alloc_2darray(9,15);
    
 	/* check user access right of shared setting*/
     permision = PM_PREPARE_TO_EDIT_SETTINGS();
@@ -3657,12 +3544,17 @@ create_by_equi(equi_h)
 	} 
 	frame = W_GET_PANELITEM_ARG(Seat_Part2, W_PANEL_VALUE);
 	if (frame == "Undefined"){
-		U_CONFIRM("请先选择框架材料");
+		U_CONFIRM("请先选择斜撑材料");
 		return(-1);
 	} 
 	frame = W_GET_PANELITEM_ARG(Seat_Part3, W_PANEL_VALUE);
 	if (frame == "Undefined"){
-		U_CONFIRM("请先选择框架材料");
+		U_CONFIRM("请先选择挂钩材料");
+		return(-1);
+	} 
+	frame = W_GET_PANELITEM_ARG(Seat_Part4, W_PANEL_VALUE);
+	if (frame == "Undefined"){
+		U_CONFIRM("请先选择腹板材料");
 		return(-1);
 	} 
     
@@ -4785,11 +4677,15 @@ read_seat_size()
 			para = TAIL(para,STRLEN(para) - STRLEN(parameter) - 2);        
 		}
 	}
+	if(Seat_Size_L1 == 0){
+		Seat_Size_L1 = (2*Seat_Size_D/3.0)/COS(30);
+		W_SET_NUMERIC_VALUE(Seat_Para_L1,Seat_Size_L1);
+	}
+    /*
 	if(Seat_Size_a == 0){
 		Seat_Size_a = (Seat_Size_W - Seat_Size_W1)/2;
 		W_SET_NUMERIC_VALUE(Seat_Para_a,Seat_Size_a);
 	}
-	/*
 	if(Seat_Size_b == 0){
 		Seat_Size_b = (Seat_Size_L - Seat_Size_L1)/2;
 		W_SET_NUMERIC_VALUE(Seat_Para_b,Seat_Size_b);
@@ -4802,45 +4698,9 @@ check_seat_para()
 {
 	message = "电气设备元件尺寸参数<";
 	check_flag = 0;
-	if(Seat_Size_W == 0.0){
-		message = message + "W";
-		check_flag = 1;
-	}
 	if(Seat_Size_W1 == 0.0){
-		if(check_flag){
-			message = message + ",W1";
-		}
-		else{
-			message = message + "W1";
-			check_flag = 1;
-		}
-	}
-	if(Seat_Size_L == 0.0){
-		if(check_flag){
-			message = message + ",L";
-		}
-		else{
-			message = message + "L";
-			check_flag = 1;
-		}
-	}
-	if(Seat_Size_L1 == 0.0){
-		if(check_flag){
-			message = message + ",L1";
-		}
-		else{
-			message = message + "L1";
-			check_flag = 1;
-		}
-	}
-	if(Seat_Size_d == 0.0){
-		if(check_flag){
-			message = message + ",d";
-		}
-		else{
-			message = message + "d";
-			check_flag = 1;
-		}
+		message = message + "W1";
+		check_flag = 1;
 	}
 	if(Earth_Type == ""){
 		if(check_flag){
