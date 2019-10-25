@@ -330,7 +330,7 @@ create_panel(mainform)
                                     W_PANEL_WIDTH, 11,
                                     W_PANEL_BUTTONVALUE, 71,
                                     W_PANEL_CALLBACK, 1,
-                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_SENSITIVITY,1,
                                     W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
 	W_SET_PANELITEM_HANDLER(Seat_GA, "create_seat_handler");
 
@@ -341,7 +341,7 @@ create_panel(mainform)
                                     W_PANEL_WIDTH, 11,
                                     W_PANEL_BUTTONVALUE, 72,
                                     W_PANEL_CALLBACK, 1,
-                                    W_PANEL_SENSITIVITY,0,
+                                    W_PANEL_SENSITIVITY,1,
                                     W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
 	W_SET_PANELITEM_HANDLER(Seat_GB, "create_seat_handler");	
 
