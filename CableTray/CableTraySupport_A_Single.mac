@@ -1393,7 +1393,7 @@ create_support_handler(item, event_type, button_value)
     /* check pad material inputed or not*/
     if(Pad_Switch == "on"){
         pad = W_GET_PANELITEM_ARG(Support_Pad, W_PANEL_VALUE);
-        if (leg == "Undefined"){
+        if (pad == "Undefined"){
             U_CONFIRM("«Îœ»—°‘ÒµÊ∞Â≤ƒ¡œ");
             return(-1);
         }
