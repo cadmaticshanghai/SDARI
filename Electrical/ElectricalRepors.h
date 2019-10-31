@@ -165,6 +165,7 @@ vector_index(vector,value)
         DM_MAP_INSERT(map_handle, string_val(DM_VECTOR_GET(vector,i)), i);
     }
     res = DM_MAP_FIND(map_handle, value, index); 
+    DM_MAP_DELETE(map_handle); 
     return(index);
 }
 
