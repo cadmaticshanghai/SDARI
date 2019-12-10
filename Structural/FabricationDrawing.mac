@@ -1723,7 +1723,6 @@ generate_drawing()
 }
 
 
-
 /* 设置标题栏中的相关信息 */
 set_header_field()
 { 

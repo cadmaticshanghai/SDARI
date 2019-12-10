@@ -49,12 +49,12 @@ global handle MainWindow;
 global int    Maximum_Object_Number = 1000;
 
 global handle W_Search_Object;
-global string Icon_My_Check_Out = "$Cadmatic_Toolkit/ICONS/mycheckout.ico";
-global string Icon_Other_Check_Out = "$Cadmatic_Toolkit/ICONS/checkout.ico";
-global string Icon_Local_Server = "$Cadmatic_Toolkit/ICONS/local_server.ico";
-global string Icon_Replica_Check_Out = "$Cadmatic_Toolkit/ICONS/replica_checkout.ico";
-global string Icon_Replica_Server = "$Cadmatic_Toolkit/ICONS/replica.ico";
-global string Icon_Error = "$Cadmatic_Toolkit/ICONS/error.ico";
+global string Icon_My_Check_Out = "$MarineToolkit/ICONS/mycheckout.ico";
+global string Icon_Other_Check_Out = "$MarineToolkit/ICONS/checkout.ico";
+global string Icon_Local_Server = "$MarineToolkit/ICONS/local_server.ico";
+global string Icon_Replica_Check_Out = "$MarineToolkit/ICONS/replica_checkout.ico";
+global string Icon_Replica_Server = "$MarineToolkit/ICONS/replica.ico";
+global string Icon_Error = "$MarineToolkit/ICONS/error.ico";
 global handle Access_List;
 
 /*

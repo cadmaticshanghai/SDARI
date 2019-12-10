@@ -69,12 +69,12 @@ global string  Proj_Description = "";
 global string  Proj_Number = "";
 global float   Bending_Radius = 0.0;
 
-global string Icon_My_Check_Out = "$Cadmatic_Toolkit/ICONS/mycheckout.ico";
-global string Icon_Other_Check_Out = "$Cadmatic_Toolkit/ICONS/checkout.ico";
-global string Icon_Local_Server = "$Cadmatic_Toolkit/ICONS/local_server.ico";
-global string Icon_Replica_Check_Out = "$Cadmatic_Toolkit/ICONS/replica_checkout.ico";
-global string Icon_Replica_Server = "$Cadmatic_Toolkit/ICONS/replica.ico";
-global string Icon_Error = "$Cadmatic_Toolkit/ICONS/error.ico";
+global string Icon_My_Check_Out = "$MarineToolkit/ICONS/mycheckout.ico";
+global string Icon_Other_Check_Out = "$MarineToolkit/ICONS/checkout.ico";
+global string Icon_Local_Server = "$MarineToolkit/ICONS/local_server.ico";
+global string Icon_Replica_Check_Out = "$MarineToolkit/ICONS/replica_checkout.ico";
+global string Icon_Replica_Server = "$MarineToolkit/ICONS/replica.ico";
+global string Icon_Error = "$MarineToolkit/ICONS/error.ico";
 global handle Access_List;
 
 /*
@@ -8852,29 +8852,37 @@ get_root_position(part_number,x0,y0,z0)
 /*type参数暂时不用，将来可能用于区分不同类型的零件需要不同的描述信息*/
 get_part_description(pipe,nth_part,type)
 {
-   part_id = PM_GET_OBJDATA(pipe,nth_part,MMT_TAG_PARTID);
-   chinese_description = DM_PARTID_DATA(part_id,"CHN");
-   default_description = DM_PARTID_DATA(part_id,"DE");
-   size_description = DM_PARTID_DATA(part_id,"DD");
-   description = "";
-   if(chinese_description != ""){
-      description = chinese_description + " " + size_description;
-   }
-   else{
-      description = default_description + " " + size_description;
-   }
-   description = TRANS(description,"\u00F8","D");
+	part_id = PM_GET_OBJDATA(pipe,nth_part,MMT_TAG_PARTID);
+	chinese_description = DM_PARTID_DATA(part_id,"CHN");
+	default_description = DM_PARTID_DATA(part_id,"DE");
+	size_description = DM_PARTID_DATA(part_id,"DD");
+	description = "";
+	if(chinese_description != ""){
+		description = chinese_description + " " + size_description;
+	}
+	else{
+		description = default_description + " " + size_description;
+	}
+	/*description = TRANS(description,"\u00F8","D");*/
 
-   /*添加预制弯头的角度*/
-   if(type == "ELBOW"){
-      degree = String_To_Float(PM_GET_OBJDATA(pipe,nth_part,MMT_TAG_CRVANGLE));
-      degree_s = "";
-      S_PRINTF(degree_s, "%.0f", degree);
-      description = description + " " + degree_s + "度";
-   }
-
-
-   return(description);
+	/*添加预制弯头的角度*/
+	if(type == "ELBOW"){
+		degree = String_To_Float(PM_GET_OBJDATA(pipe,nth_part,MMT_TAG_CRVANGLE));
+		degree_s = "";
+		S_PRINTF(degree_s, "%.0f", degree);
+		description = description + " " + degree_s + "度";
+	}
+   
+	/*党章辉要求添加标准号及材料 - 20191115*/
+	std = DM_PARTID_DATA(part_id,"ST");
+	if(ISSTRING(std)){
+		description = description + " " + std;
+	}
+	material = DM_PARTID_DATA(part_id,"MC");
+	if(ISSTRING(material)){
+		description = description + " " + material;
+	}
+	return(description);
 }
 
 draw_mto_table()

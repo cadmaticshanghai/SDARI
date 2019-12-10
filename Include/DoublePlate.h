@@ -186,31 +186,39 @@ Get_DoublePlate_Section(source,section)
 	flag = 1;
 	while(flag){	
 		curve_name = STRINGTERM(data,",");
+		curve_name = remove_incorrect_char(curve_name);
 		if(curve_name == data){
 			flag = 0;		
 		}
 		else{
 			data = TAIL(data,STRLEN(data) - STRLEN(curve_name) - 1);
-			u_s = STRINGTERM(data,",");			
-			u = String_To_Float(u_s);
-			if(u == 0){
-				u_s = remove_unuseful_char(u_s);
+			data = remove_incorrect_char(data);
+			if(data != ""){
+				u_s = STRINGTERM(data,",");			
 				u = String_To_Float(u_s);
-			}
-			data = TAIL(data,STRLEN(data) - STRLEN(u_s) - 1);
-			v_s = STRINGTERM(data,",");			
-			v = String_To_Float(v_s);
-			if(v == 0){
-				v_s = remove_unuseful_char(v_s);
+				if(u == 0){
+					u_s = remove_unuseful_char(u_s);
+					u = String_To_Float(u_s);
+				}
+				data = TAIL(data,STRLEN(data) - STRLEN(u_s) - 1);
+				v_s = STRINGTERM(data,",");			
 				v = String_To_Float(v_s);
+				if(v == 0){
+					v_s = remove_unuseful_char(v_s);
+					v = String_To_Float(v_s);
+				}
+				data = TAIL(data,STRLEN(data) - STRLEN(v_s) - 1);
+				DM_2D_ARRAY_PUSH_BACK_ROW(section,curve_name,u,v);
 			}
-			data = TAIL(data,STRLEN(data) - STRLEN(v_s) - 1);
-			DM_2D_ARRAY_PUSH_BACK_ROW(section,curve_name,u,v);
+			else{
+				flag = 0;
+			}
 		}				
 	}
 	return(section_name);
 }
 
+/* É¾³ý×Ö·û´®Ê×Î²·ÇÊý×ÖµÄ×Ö·û£¬×Ö·û´®¿ªÊ¼µÄ¡°-¡±×Ö·û±£Áô */
 remove_unuseful_char(str)
 {
 	/*¼ì²é×Ö·û´®Ê×²¿*/
@@ -224,7 +232,10 @@ remove_unuseful_char(str)
 			check = REGEX_MATCH(char,"^(?:0|[1-9]?|9)$");
 			if(!check){
 				str = TAIL(str,STRLEN(str) - 1);
-			}	
+			}
+			else{
+				check = 1;
+			}
 		}
 	}
 	/*¼ì²é×Ö·û´®Î²²¿*/
@@ -234,7 +245,45 @@ remove_unuseful_char(str)
 		check = REGEX_MATCH(char,"^(?:0|[1-9]?|9)$");
 		if(!check){
 			str = HEAD(str,STRLEN(str) - 1);
-		}	
+		}
+		else{
+			check = 1;
+		}
+	}		
+	return(str);
+}
+
+/* É¾³ý×Ö·û´®Ê×Î²·ÇÊý×Ö¼°×ÖÄ¸µÄ×Ö·û */
+remove_incorrect_char(str)
+{
+	/*¼ì²é×Ö·û´®Ê×²¿*/
+	check = 0;
+	while(!check){
+		char = HEAD(str,1);
+		if (char == "-") {
+			check = 1;
+		}
+		else{
+			check = REGEX_MATCH(char,"^[0-9a-zA-Z]*$");
+			if(!check){
+				str = TAIL(str,STRLEN(str) - 1);
+			}
+			else{
+				check = 1;
+			}
+		}
+	}
+	/*¼ì²é×Ö·û´®Î²²¿*/
+	check = 0;
+	while(!check){
+		char = TAIL(str,1);
+		check = REGEX_MATCH(char,"^[0-9a-zA-Z]*$");
+		if(!check){
+			str = HEAD(str,STRLEN(str) - 1);
+		}
+		else{
+			check = 1;
+		}
 	}		
 	return(str);
 }
@@ -825,7 +874,7 @@ Get_Dimension_List(penetration,dimension_list)
 						x0 = DM_2D_ARRAY_GET(section,j,1);
 						y0 = DM_2D_ARRAY_GET(section,j,2);
 					}
-				}
+				}				
 				DM_2D_ARRAY_PUSH_BACK_ROW(holes);
 				row = DM_2D_ARRAY_SIZE_ROWS(holes) - 1;		
 				DM_2D_ARRAY_SET(holes,row,0,x0);
@@ -971,13 +1020,13 @@ Get_Dimension_List(penetration,dimension_list)
 		/*±ê×¢¿×¼ä¾à*/
 		for(i=0;i<hole_number-1;i=i+1;){
 			x1 = DM_2D_ARRAY_GET(holes,i,0);
-			y1 = DM_2D_ARRAY_GET(holes,i,1);
+			y1 = 0;
 			z1 = 0;
 			x2 = DM_2D_ARRAY_GET(holes,i+1,0);
-			y2 = y1;
+			y2 = 0;
 			z2 = 0;
 			x3 = x1;
-			y3 = y1 + p_height / 2.0;
+			y3 = p_height / 2.0;
 			z3 = 0;
 			TRF_POINT(tmat_h, x1, y1, z1);
 			TRF_POINT(tmat_h, x2, y2, z2);	

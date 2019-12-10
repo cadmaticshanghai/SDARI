@@ -1,6 +1,6 @@
 Set_Column_Title(handle wobj, column_titles, int column_number)
 {
-
+	W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMNS,column_number); 
 	for (i = 0; i < column_number; i = i + 1;)
 	{
 		title = A_GET(column_titles,i);
