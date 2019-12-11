@@ -29,7 +29,6 @@
 global int     Debug = 1; 
 
 #include "$MarineToolkit/Hvac/HspoolProdInfo.h"
-#include "$MarineToolkit/Hvac/RainbowHvacSketchGenerator.h"
 #include "$MarineToolkit/Include/String_Utility.h"
 #include "$MarineToolkit/Include/Common_Utility.h"
 #include "$MarineToolkit/Include/Grid_Utility.h"
@@ -40,7 +39,7 @@ global int     Debug = 1;
 **define size of array
 */
 
-#define  Report_Column_Number   8      /*风管*/
+#define  Report_Column_Number   9      /*风管*/
 #define  Report2_Column_Number  8      /*附件*/
 
 /*
@@ -50,9 +49,9 @@ global int     Debug = 1;
 global handle  Block_Name,PlanningUnit,OutfitArea;
 global handle  DisplayGrid;
 global handle  NULL_HANDLE = 0;
-global int     Grid_SelectedItem = 0;
-global int     Grid_SortColumn = -1;
-global int     Grid_SortDirection = 1;
+global int      Grid_SelectedItem = 0;
+global int      Grid_SortColumn = -1;
+global int      Grid_SortDirection = 1;
 global handle  Spool_List;          	/*管段handle列表*/
 global int      Spool_Number=0;          /*管段数量*/
 global handle  Valve_List;				/*阀件handle列表*/
@@ -65,19 +64,19 @@ global int      Report_Row_Number = 0;	/*报表行数*/
 global int	   Report2_Row_Number = 0;  /*报表行数*/
 global handle  High_Light_List;         /*模型加亮列表*/
 global handle  Selected_Objects;
-global int     Selected_Objects_Number = 0;
-global int     AutoScale = 0;
-global int     AutoHighLight = 0;
+global int      Selected_Objects_Number = 0;
+global int      AutoScale = 0;
+global int      AutoHighLight = 0;
 global handle  MainWindow;
 global handle  Grid_Title,Grid_Title2;
-global int     Maximum_Report_Row_Number = 1000;
+global int      Maximum_Report_Row_Number = 1000;
 global handle  Report_Path,Report_Template;
-global string  DataFileName = "C:\\TEMP\\hvac_installation_report.txt";
+global string   DataFileName = "C:\\TEMP\\hvac_installation_report.txt";
 global handle  Summary;
 global handle  wobj;
-global int     Total_Number = 0;
-global int	  Report_Type = 0;
-global int 	Grid_Column_Number = 9;
+global int      Total_Number = 0;
+global int	   Report_Type = 0;
+global int 	   Grid_Column_Number = 9;
 /*
 **初始化相关对象
 */
@@ -115,7 +114,8 @@ init0()
 	A_PUT(Grid_Title,4,"表面处理");
 	A_PUT(Grid_Title,5,"数量");
     A_PUT(Grid_Title,6,"单位");
-	A_PUT(Grid_Title,7,"重量");
+	A_PUT(Grid_Title,7,"面积");
+    A_PUT(Grid_Title,8,"重量");
     
 	Grid_Title2 = A_ALLOC(Report2_Column_Number, "STRING");
 	A_PUT(Grid_Title2,0,"区域");
@@ -302,26 +302,46 @@ get_spool_info(spool,report,row_number,spools,parts)
 {
     spool_parts = PM_GET_OBJECTS_IN_GROUP(spool);
     part_number = PM_NR_MEMBERS_IN_SET(spool_parts);
-    hspool_parts = alloc_2darray(part_number,3);
+    
+    spool_info_size = 4;
+    hspool_parts = alloc_2darray(part_number,spool_info_size);
     /*
     --0.  handle   part handle of part
     --1.  string   part id 
     --2.  string   part description
+    --3.  string   part area
     */ 
     for(i=0;i<part_number;i=i+1;){
         part = PM_GET_MEMBER_IN_SET(spool_parts,i);
         part_id = PM_GET_OBJDATA(part,0,MMT_TAG_PARTID);
         part_type = PM_GET_OBJDATA(part,0,MMT_TAG_OBJTYPE);
+        /* U_MESSAGE("part_type="+part_type); */
+        
+        if (part_type=="6") {
+            /*风管展开面积 平方米*/
+            part_area = PM_GET_OBJDATA(part,0,Part_Area);
+            area = 0.000001 * String_To_Float(part_area);
+            part_area = FTOASCII(area);
+        }
+        else if (part_type=="5") {
+            /*角钢表面积 平方米*/
+            partArea = Get_Part_Surface_Area(part);
+            part_area = FTOASCII(partArea);
+        }
+        else{
+            part_area = "0.0";
+        }
 
         put_2darray(hspool_parts,i,0,part);
         put_2darray(hspool_parts,i,1,part_id);
         description = get_part_description(part);
-        put_2darray(hspool_parts,i,2,description);   
+        put_2darray(hspool_parts,i,2,description);  
+        put_2darray(hspool_parts,i,3,part_area); 
     }  
 
     /*summary materail*/
     mto_no = 0;
-    mto_info = alloc_2darray(part_number,3);
+    mto_info = alloc_2darray(part_number,spool_info_size);
     for(i=0;i<part_number;i=i+1;){
         part_id = get_2darray(hspool_parts,i,1);
         if(mto_no == 0){
@@ -340,7 +360,7 @@ get_spool_info(spool,report,row_number,spools,parts)
                 }
             }
             if(!find){
-                for(j=0;j<3;j=j+1;){
+                for(j=0;j<spool_info_size;j=j+1;){
                     value = get_2darray(hspool_parts,i,j);
                     put_2darray(mto_info,mto_no,j,value);
                 }
@@ -369,7 +389,14 @@ get_spool_info(spool,report,row_number,spools,parts)
         mass = String_To_Float(res);
         S_PRINTF(spool_weight,"%.2f",mass);
     }
-    
+    /*面积*/
+    spool_area= ""; temp = 0.0;
+    for(i=0;i<mto_no;i=i+1;){
+        part_area = get_2darray(mto_info,i,3); 
+        temp = temp + String_To_Float(part_area);
+    } 
+    S_PRINTF(spool_area,"%.3f",temp);
+
     for(i=0;i<mto_no;i=i+1;){
         A_PUT(spools,row_number,spool);      
         part_id = get_2darray(mto_info,i,1);
@@ -388,7 +415,8 @@ get_spool_info(spool,report,row_number,spools,parts)
             put_2darray(report,row_number,4,surf_treat);   
             put_2darray(report,row_number,5,"1");
             put_2darray(report,row_number,6,"pcs");
-            put_2darray(report,row_number,7,spool_weight);                         
+            put_2darray(report,row_number,7,spool_area);
+            put_2darray(report,row_number,8,spool_weight);                         
             row_number = row_number + 1;  
         }
     }  
@@ -639,7 +667,7 @@ sort_grid(column,window)
 		Grid_SortDirection = 1;
 	}
 	Grid_SortColumn = column;
-	if(Grid_SortColumn == 2){
+	if(Grid_SortColumn == 3){
 	   W_SET_WINDOW_ARGS(window, W_LISTW_COLUMN, column, W_LISTW_SORT, Grid_SortDirection);
 	}
 }
@@ -771,34 +799,69 @@ search_model(item, event_type, button_value)
 filter_valve(valves)
 {
 	/* 获取过滤条件 Get filter conditions*/
-	block_name    =	W_GET_PANELITEM_ARG(Block_Name,		W_PANEL_VALUE);
-	planning_unit = W_GET_PANELITEM_ARG(PlanningUnit,	W_PANEL_VALUE);	
-	
+	block_name = W_GET_PANELITEM_ARG(Block_Name, W_PANEL_VALUE);
+	planning_unit = W_GET_PANELITEM_ARG(PlanningUnit, W_PANEL_VALUE);
+	outfit_area = W_GET_PANELITEM_ARG(OutfitArea, W_PANEL_VALUE);
 	temp = PM_INIT_SET();
 	
-	/* 过滤掉不符合条件的阀件 */
+	/* 过滤掉不符合条件的模型 */
+
 	valve_number = PM_NR_MEMBERS_IN_SET(valves);
-    
-    nth = 0;
+
 	for (i = 0; i < valve_number; i = i + 1;){
         model_block_name = "Unset";
+        model_planning_unit = "Unset";
+        model_outfit_area = "Unset";
+        
 		valve = PM_GET_MEMBER_IN_SET(valves, i);			
-		res = PM_GET_OBJDATA(valve,nth,MMT_TAG_OBJECT_IN_BLOCK);
+		res = PM_GET_OBJDATA(valve,0, MMT_TAG_OBJECT_IN_BLOCK);
 		if(ISSTRING(res)){
             model_block_name = res;
 		}	
 
         model_planning_unit = get_valve_planing_unit(valve);
-		check_block =  PATTERN_MATCH(model_block_name, block_name);
-        check_planning = PATTERN_MATCH(model_planning_unit, planning_unit);
-		if(check_block & check_planning){		
-            PM_ADD_OBJECT_TO_SET(valve,temp);
-		}							
+        model_outfit_area = get_valve_outfit_area(valve);
+
+        check_area = PATTERN_MATCH(model_outfit_area,outfit_area);         
+        check_block = PATTERN_MATCH(model_block_name,block_name);
+		check_planning_unit = PATTERN_MATCH(model_planning_unit,planning_unit);
+		if(check_block & check_planning_unit & check_area){		
+		   PM_ADD_OBJECT_TO_SET(valve,temp);
+        }							
 	}
 	PM_SETOP_SUB(valves,valves);
 	PM_SETOP_OR(valves,temp);
 	PM_FREE_SET(temp);
 	return(0);
+}
+
+/*阀件的区域*/
+get_valve_outfit_area(valve)
+{
+    find = 0;
+    max = 10;
+    node_id = 1;
+    connected_node_id = 0;
+    nth = 0;
+    while(!find){
+        obj = PM_GET_CONNECTED_OBJECT(valve,node_id,connected_node_id);
+        if(!ISINT(obj)){
+            outfit_area = PM_GET_OBJDATA(obj,nth,Outfit_Area);
+            if(ISSTRING(outfit_area)){
+                return(outfit_area);
+            }
+            else{
+                node_id = node_id + 1;           
+            }            
+        }
+        else{
+            node_id = node_id + 1;        
+        }
+        if(node_id > max){
+            find = 1;
+        }
+    }
+    return("Unset");
 }
 
 /*阀件的托盘*/
@@ -835,39 +898,35 @@ filter_model(models)
 	/* 获取过滤条件 Get filter conditions*/
 	block_name = W_GET_PANELITEM_ARG(Block_Name, W_PANEL_VALUE);
 	planning_unit = W_GET_PANELITEM_ARG(PlanningUnit, W_PANEL_VALUE);
-	area = W_GET_PANELITEM_ARG(OutfitArea, W_PANEL_VALUE);
+	outfit_area = W_GET_PANELITEM_ARG(OutfitArea, W_PANEL_VALUE);
 	temp = PM_INIT_SET();
 	
 	/* 过滤掉不符合条件的模型 */
-	model_block_name = "Unset";
-	model_planning_unit = "Unset";
-	model_area = "Unset";
 	spool_number = PM_NR_MEMBERS_IN_SET(models);	
 	for (i = 0; i < spool_number; i = i + 1;){
+        model_block_name = "Unset";
+        model_planning_unit = "Unset";
+        model_outfit_area = "Unset";
+        
 		spool_handle = PM_GET_MEMBER_IN_SET(models, i);	
         value = PM_GET_OBJDATA(spool_handle,0,MMT_TAG_OBJECT_IN_BLOCK);
         if(ISSTRING(value)){
             model_block_name = value;
-        }
-        else{
-            model_block_name = "Unset";
         }
       
         value = PM_GET_OBJDATA(spool_handle,0,Planning_Unit);
         if(ISSTRING(value)){
             model_planning_unit = value;
         }	
-        else{
-            model_planning_unit = "Unset";
-        }
       
-        model_area = get_spool_outfit_area(spool_handle);   
-        check_area =  PATTERN_MATCH(model_area,area);         
-        check_block =  PATTERN_MATCH(model_block_name,block_name);
+        model_outfit_area = get_spool_outfit_area(spool_handle);   
+        
+        check_area = PATTERN_MATCH(model_outfit_area,outfit_area);         
+        check_block = PATTERN_MATCH(model_block_name,block_name);
 		check_planning_unit = PATTERN_MATCH(model_planning_unit,planning_unit);
 		if(check_block & check_planning_unit & check_area){		
 		   PM_ADD_OBJECT_TO_SET(spool_handle,temp);
-	   }				
+        }				
 	}
 	PM_SETOP_SUB(models,models);
 	PM_SETOP_OR(models,temp);
@@ -1001,8 +1060,7 @@ report_type_handler(item, event_type, selection)
 		Grid_Column_Number = Report2_Column_Number;
 		W_SET_WINDOW_ARGS(wobj,	W_LISTW_COLUMNS, Grid_Column_Number);
 		Set_Column_Title(wobj, Grid_Title2, Grid_Column_Number);
-        U_MESSAGE("Report2_Row_Number = "+ITOASCII(Report2_Row_Number));
-        
+
 		if(Report2_Row_Number != 0){
 			publish_model_info();
 		}

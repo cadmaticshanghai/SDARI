@@ -20,8 +20,7 @@
 
 main()
 { 
-    if(!license())
-    {
+    if(!license()){
         return(0);
     } 
     flag = 1;
@@ -40,7 +39,7 @@ main()
             type = PM_GET_OBJDATA(group_handle, 0, SeatType);
             if(ISINT(type)){
                 U_CONFIRM("此零件不属于任何电气设备基座");	
-                return(0);	      
+                return(0);
             }	
             else{
                 check = STRINGTERM(type,"_");
@@ -59,14 +58,12 @@ main()
             
             /* delete cable tray support group */   
             res = PM_DELETE_OBJECT(group_handle);
-         
             /* if fail, trace back */
             if (res == -1){
                 PM_UM_CLOSE_CHANGE();
                 PM_UM_UNDO_LAST_CHANGE();
                 return(0);
             }
-         
             st = PM_UM_CLOSE_CHANGE();  	      	      						
    	    } 
    	    else{

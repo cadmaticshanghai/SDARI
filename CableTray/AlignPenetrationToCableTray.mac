@@ -20,6 +20,7 @@
 #include "$MarineToolkit/Include/Common_Utility.h"
 #include "$MarineToolkit/Include/Structural_Utility.h"
 #include "$MarineToolkit/Include/Math_Utility.h"
+#include "$MarineToolkit/CableTray/CableTraySupport_A.h"
 
 
 /*贯通内径与托架基准点相对高差 20mm*/
@@ -54,7 +55,7 @@ pick_penetration_handle(prompt)
             /* U_MESSAGE("obj_type="+obj_type); */
             equi_type = PM_GET_OBJDATA(picked_handle, tmp, "eTy");
 			if (!ISINT(equi_type)){
-                if (equi_type=="Penetration") {
+                if (equi_type=="电缆贯通件") {
                     Highlight_Object(picked_handle,TRUE);
                     return (picked_handle);
                 }
@@ -102,37 +103,69 @@ get_position(part_handle,x0,y0,z0)
     z0 = String_To_Float(loz);
 }
 
+/*获取坐标*/
+get_node_position(part_handle,node,x0,y0,z0)
+{
+    /*node position of part*/
+    x = PM_GET_CONPNT_DATA(part_handle,node,"x");
+    y = PM_GET_CONPNT_DATA(part_handle,node,"y");
+    z = PM_GET_CONPNT_DATA(part_handle,node,"z");
+    x0 = String_To_Float(x);
+    y0 = String_To_Float(y);
+    z0 = String_To_Float(z);
+}
+
 /*移动贯通件*/
 move_penetration(pen_handle,tray_handle,openingH)
 {
-    /*position of penetration*/
-    x1=0.0; y1=0.0; z1=0.0;
-    get_position(pen_handle,x1,y1,z1);
+    /*u normal direction of CableTray*/
+    u2_x = 0.0; u2_y = 0.0; u2_z = 0.0;
+    axs = PM_GET_OBJDATA(tray_handle,0,"axs");
+    axr = PM_GET_OBJDATA(tray_handle,0,"axr");
+    angle_to_direction(axs,axr, u2_x,u2_y,u2_z);
 
-    /*position of cabletray*/
-    x2=0.0; y2=0.0; z2=0.0;
-    get_position(tray_handle,x2,y2,z2);
+    /*v axis direction of CableTray*/
+    v2_x = 0.0; v2_y = 0.0; v2_z = 0.0;
+    sxs = PM_GET_OBJDATA(tray_handle,0,"sxs");
+    sxr = PM_GET_OBJDATA(tray_handle,0,"sxr");
+    angle_to_direction(sxs,sxr, v2_x,v2_y,v2_z);
+
+    /*w axis direction of CableTray*/
+    w2_x = 0.0; w2_y = 0.0; w2_z = 0.0;
+    Vector3d_CrossProduct(u2_x,u2_y,u2_z, v2_x,v2_y,v2_z, w2_x,w2_y,w2_z);
     
-    dx = x2 - x1;
-    dy = y2 - y1;
-    dz = z2 - z1;
-
-    /*normal direction of penetration*/
+    /*u normal direction of Penetration*/
     u1_x = 0.0; u1_y = 0.0; u1_z = 0.0;
     axs = PM_GET_OBJDATA(pen_handle,0,"axs");
     axr = PM_GET_OBJDATA(pen_handle,0,"axr");
     angle_to_direction(axs,axr, u1_x,u1_y,u1_z);
 
-    /*axis direction of penetration*/
+    /*v axis direction of Penetration*/
     v1_x = 0.0; v1_y = 0.0; v1_z = 0.0;
     sxs = PM_GET_OBJDATA(pen_handle,0,"sxs");
     sxr = PM_GET_OBJDATA(pen_handle,0,"sxr");
     angle_to_direction(sxs,sxr, v1_x,v1_y,v1_z);
 
+    /*position of Penetration*/
+    x1=0.0; y1=0.0; z1=0.0;
+    get_position(pen_handle,x1,y1,z1);
+
+    /*position of cabletray*/
+    x01=0.0; y01=0.0; z01=0.0;
+    x02=0.0; y02=0.0; z02=0.0;
+    get_node_position(tray_handle,1,x01,y01,z01);
+    get_node_position(tray_handle,2,x02,y02,z02);
+    
+    /*new position of penetration*/
+    x2=0.0; y2=0.0; z2=0.0;
+    /* Point_ProjectOnPlane(x1,y1,z1, x2,y2,z2, x01,y01,z01, v2_x,v2_y,v2_z); */
+    Point_ProjectOnLine(x1,y1,z1, x2,y2,z2,  x01,y01,z01, x02,y02,z02);
+    Point_Move(x2,y2,z2, x2,y2,z2, w2_x,w2_y,w2_z, 0.5*openingH+Distance);
+
     set = PM_INIT_SET();
 	PM_ADD_OBJECT_TO_SET(pen_handle, set);
-    move_set_to_direction(u1_x,u1_y,u1_z, v1_x,v1_y,v1_z,
-                          dx,dy,dz, openingH, set);
+    move_set_to_direction(x1,y1,z1, u1_x,u1_y,u1_z, v1_x,v1_y,v1_z,
+                          x2,y2,z2, u2_x,u2_y,u2_z, v2_x,v2_y,v2_z, set);
     PM_FREE_SET(set);
 }
 
@@ -150,9 +183,9 @@ angle_to_direction(ang_s,ang_r, dx,dy,dz)
 }
 
 /*
-**延某方向dx dy dz移动一定距离distance
+**方向旋转&坐标平移
 */
-move_set_to_direction(ux1,uy1,uz1, vx1,vy1,vz1, dx,dy,dz, openingH,set)
+move_set_to_direction(x1,y1,z1, ux1,uy1,uz1, vx1,vy1,vz1, x2,y2,z2, ux2,uy2,uz2, vx2,vy2,vz2, set)
 {
     nr = PM_NR_MEMBERS_IN_SET(set);
     if (nr == 0) {
@@ -163,8 +196,17 @@ move_set_to_direction(ux1,uy1,uz1, vx1,vy1,vz1, dx,dy,dz, openingH,set)
         return(-1);
     }
 
-    /* 移动变换 */
-    cur_tm = PM_CREATE_TMAT(1, dx*0, dy, dz+0.5*openingH+Distance, ux1,uy1,uz1, vx1,vy1,vz1);
+    /* 旋转对象的转换矩阵 */
+	trans_1 = PM_CREATE_TMAT(1, x1,y1,z1, ux1,uy1,uz1, vx1,vy1,vz1);
+	trans_1 = PM_INVERSE_TMAT(trans_1);
+
+    /* 变换到原点 */
+    trans_0 = TRF_TMAT_CREATE();
+    trans_2 = PM_JOIN_TMATS(trans_0, trans_1);
+    
+    /* 变换到参考对象 */
+    trans_3 = PM_CREATE_TMAT(1, x2,y2,z2, ux2,uy2,uz2, vx2,vy2,vz2);
+    trans_2 = PM_JOIN_TMATS(trans_2, trans_3);
     /* print_matrix(cur_tm); */
 
 	/* open undo task */
@@ -178,54 +220,11 @@ move_set_to_direction(ux1,uy1,uz1, vx1,vy1,vz1, dx,dy,dz, openingH,set)
 	}
 
 	PM_DELETE_OBJECTS_IN_SET(set, 0);
-	PM_READ_MDL_INTO_SET("move.mdl", 1, "", cur_tm, set);
+	PM_READ_MDL_INTO_SET("move.mdl", 1, "", trans_2, set);
 	PM_RELOCATION_ACCEPTED();
 	PM_UM_CLOSE_CHANGE();
 	F_DELETE_FILE("move.mdl");
 	return(0);
-}
-
-/*打印转换矩阵*/
-print_matrix(mat)
-{
-    U_MESSAGE("");
-    elem_00=0.0;
-    elem_01=0.0;
-    elem_02=0.0;
-    elem_03=0.0;
-    TRF_TMAT_GET(mat, 0, 0, elem_00);
-    TRF_TMAT_GET(mat, 0, 1, elem_01);
-    TRF_TMAT_GET(mat, 0, 2, elem_02);
-    TRF_TMAT_GET(mat, 0, 3, elem_03);
-    U_MESSAGE(FTOASCII(elem_00)+" "+FTOASCII(elem_01)+" "+FTOASCII(elem_02)+" "+FTOASCII(elem_03));
-    elem_10=0.0;
-    elem_11=0.0;
-    elem_12=0.0;
-    elem_13=0.0;
-    TRF_TMAT_GET(mat, 1, 0, elem_10);
-    TRF_TMAT_GET(mat, 1, 1, elem_11);
-    TRF_TMAT_GET(mat, 1, 2, elem_12);
-    TRF_TMAT_GET(mat, 1, 3, elem_13);
-    U_MESSAGE(FTOASCII(elem_10)+" "+FTOASCII(elem_11)+" "+FTOASCII(elem_12)+" "+FTOASCII(elem_13));
-    elem_20=0.0;
-    elem_21=0.0;
-    elem_22=0.0;
-    elem_23=0.0;
-    TRF_TMAT_GET(mat, 2, 0, elem_20);
-    TRF_TMAT_GET(mat, 2, 1, elem_21);
-    TRF_TMAT_GET(mat, 2, 2, elem_22);
-    TRF_TMAT_GET(mat, 2, 3, elem_23);
-    U_MESSAGE(FTOASCII(elem_20)+" "+FTOASCII(elem_21)+" "+FTOASCII(elem_22)+" "+FTOASCII(elem_23));
-    elem_30=0.0;
-    elem_31=0.0;
-    elem_32=0.0;
-    elem_33=0.0;
-    TRF_TMAT_GET(mat, 3, 0, elem_30);
-    TRF_TMAT_GET(mat, 3, 1, elem_31);
-    TRF_TMAT_GET(mat, 3, 2, elem_32);
-    TRF_TMAT_GET(mat, 3, 3, elem_33);
-    U_MESSAGE(FTOASCII(elem_30)+" "+FTOASCII(elem_31)+" "+FTOASCII(elem_32)+" "+FTOASCII(elem_33));    
-    U_MESSAGE("");
 }
 
 /*获取贯通件内径高度*/

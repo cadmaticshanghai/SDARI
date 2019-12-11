@@ -29,7 +29,6 @@
 global int     Debug = 1; 
 
 #include "$MarineToolkit/Hvac/HspoolProdInfo.h"
-#include "$MarineToolkit/Hvac/RainbowHvacSketchGenerator.h"
 #include "$MarineToolkit/Include/String_Utility.h"
 #include "$MarineToolkit/Include/Common_Utility.h"
 #include "$MarineToolkit/Include/Grid_Utility.h"
@@ -629,7 +628,7 @@ sort_grid(column,window)
 		Grid_SortDirection = 1;
 	}
 	Grid_SortColumn = column;
-	if(Grid_SortColumn == 2){
+	if(Grid_SortColumn == 3){
 	   W_SET_WINDOW_ARGS(window, W_LISTW_COLUMN, column, W_LISTW_SORT, Grid_SortDirection);
 	}
 }

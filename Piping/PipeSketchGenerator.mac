@@ -1687,12 +1687,12 @@ set_header_field()
     if(ISSTRING(page_number)){
         DM_SET_TAGVAL(page_header_rec,Tag_Drawing_PageNumber,page_number);
     }
-    /*
+    
     total_page = Get_Attribute_Value(Current_Spool_Handle,Tag_Spool_TotalPage);
     if(ISSTRING(total_page)){
         DM_SET_TAGVAL(page_header_rec,Tag_Drawing_TotalPage,total_page);
     }
-	*/
+
     /*图号信息*/
     drawing_number = get_drawing_number();
 	if(ISSTRING(drawing_number)){
@@ -5021,7 +5021,7 @@ get_number_in_spool_parts(pipe,nth_part)
    return(0);
 }
 
-get_turning_angle_origin(pipe,first_bend,second_bend)
+get_turning_angle(pipe,first_bend,second_bend)
 {
    /*正弯*/
    x0=0.0;x1=0.0;x2=0.0;x3=0.0;
@@ -5108,49 +5108,6 @@ get_turning_angle_origin(pipe,first_bend,second_bend)
    }
    angle = calculate_rotation(x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3);
    return(angle);
-}
-
-get_turning_angle(pipe,first_bend,second_bend)
-{ 
-	/*正弯*/
-	x0=0.0;x1=0.0;x2=0.0;x3=0.0;
-	y0=0.0;y1=0.0;y2=0.0;y3=0.0;
-	z0=0.0;z1=0.0;z2=0.0;z3=0.0;
-	if(second_bend>first_bend){
-		/*第一个弯头的拐点坐标*/
-		objgeom = PM_CREATE_PNTSET(10);
-		PM_GET_OBJECT_GEOM(pipe, first_bend, objgeom);
-		PM_GET_PNT(objgeom, 1, x1, y1, z1);
-		/*第一个弯头入口坐标*/
-		PM_GET_PNT(objgeom, 0, x0, y0, z0);		
-		PM_FREE_PNTSET(objgeom); 
-		/*第二个弯头的拐点坐标*/
-		objgeom = PM_CREATE_PNTSET(10);
-		PM_GET_OBJECT_GEOM(pipe, second_bend, objgeom);
-		PM_GET_PNT(objgeom, 1, x2, y2, z2);
-		/*第二个弯头出口坐标*/
-		PM_GET_PNT(objgeom, 2, x3, y3, z3);
-		PM_FREE_PNTSET(objgeom);
-	}
-	/*反弯*/
-	else{
-		/*第一个弯头的拐点坐标*/
-		objgeom = PM_CREATE_PNTSET(10);
-		PM_GET_OBJECT_GEOM(pipe, first_bend, objgeom);
-		PM_GET_PNT(objgeom, 1, x1, y1, z1);
-		/*第一个弯头入口坐标*/ 
-		PM_GET_PNT(objgeom, 2, x0, y0, z0);		
-		PM_FREE_PNTSET(objgeom); 
-		/*第二个弯头的拐点坐标*/
-		objgeom = PM_CREATE_PNTSET(10);
-		PM_GET_OBJECT_GEOM(pipe, second_bend, objgeom);
-		PM_GET_PNT(objgeom, 1, x2, y2, z2);
-		/*第二个弯头出口坐标*/ 
-		PM_GET_PNT(objgeom, 0, x3, y3, z3);
-		PM_FREE_PNTSET(objgeom);
-	}
-	angle = calculate_rotation(x0, y0, z0, x1, y1, z1, x2, y2, z2, x3, y3, z3);
-	return(angle);
 }
 
 /*获取直管段的长度*/

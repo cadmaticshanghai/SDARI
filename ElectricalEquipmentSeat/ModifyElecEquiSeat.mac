@@ -17,6 +17,7 @@
 #include "include/PmDirectionUtils.h"
 #include "include/quants.h"
 
+global string Script_Suffix = ".bs";
 #include "$MarineToolkit/ElectricalEquipmentSeat/ElecEquiSeat.h"
 
 main()
@@ -44,9 +45,11 @@ main()
                 return(0);		         
             }
         }   	
-        type = SEARCH(type,"_");      		
-		/*call the corresponding script*/	
-        path = SYS_GETENV("MarineToolkit") + "/ElectricalEquipmentSeat/ElecEquiSeat" + type + ".mac";	
+        type = SEARCH(type,"_");
+        type = "_"+TAIL(type,2);
+        
+		/*call the corresponding script*/
+        path = SYS_GETENV("MarineToolkit") + "/ElectricalEquipmentSeat/ElecEquiSeat" + type + Script_Suffix;	
         PM_CALL_SCRIPT(path,"main",group_name);			
     } 
     else{

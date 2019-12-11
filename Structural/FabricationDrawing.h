@@ -1,160 +1,95 @@
-/* define drawing tag name */ 
-#define	Tag_Drawing_ShipNumber      "Ua4"      /* èˆ¹å· */
-#define	Tag_Drawing_DrawingNumber   "Dno"      /* å›¾å· */
-#define	Tag_Drawing_Scale			"U35"      /* æ¯”ä¾‹ */
-#define	Tag_Drawing_PageNumber      "Ub9"      /* é¡µç  */
-#define	Tag_Drawing_TotalPage       "Uba"      /* æ€»é¡µæ•° */
-#define	Tag_Drawing_ModuleName      "Dsc"      /* èˆ¾è£…ä»¶åç§° */
-#define	Tag_Drawing_UnitName        "dwt"      /* èˆ¾è£…ä»¶æè¿° */
-#define	Tag_Drawing_TotalWeight		"Ud5"      /* èˆ¾è£…ä»¶é‡é‡ */
+/*¶¨ÒåÉú²úĞÅÏ¢ºêÃû³Æ*/
+#define  Surface_Treatment       "SIT"
+#define  Structural_Unit_Name    "nam"
+#define  DrawingName             "U3a"
+#define	PDM_PS_DrawingNo        "U2f"
 
-/* é¡¹ç›®å±æ€§ */
-#define	Tag_Pro_ShipNumber			"U32"		/* é¡¹ç›®å· */
+/*¶¨ÒåÖ÷´°¿ÚµÄÁĞÊı*/
+#define  Column_Number 6
 
-/*å°ºå¯¸æ ‡æ³¨è®¾ç½®*/
-global int		DimLinePen = 1;
-global string		DimLineWidthName = "0.25";
-global int		DimLineColor = 1;
-global string		DimLineColorName = "red";
-global int		DimLineLayer = 104;
-global string		DimLineLayerName = "PM_dim_layer";
-global float		DimTextHeight = 2.5;
-global float		DimTextWidth = 1.5;
-global float		DimTextSpc = 0.5;
-global float		DimSymHeight = 2.0;
+/*ô¸×°¼şĞÅÏ¢¶ÔÓ¦µÄTAG¶¨Òå*/
+#define  DrawingStatus   "U39"
+#define  CreationTime   ".c6"
 
-/*define tag of drawing*/
-#define  Tag_DrawingStatus   "U39"
-#define  Tag_CreationTime    ".c6"
+global   handle	Structural_Unit_Handle, Structural_Unit_Model_Set;
+global   float		Support_Weight = 0.0;
+global   string	PS_DrawingNo = "";
 
-/* define view position*/
-global int	View1_X = 85, View1_Y = 200;
-global int 	View2_X = 200,View2_Y = 200;
-global int 	View3_X = 85, View3_Y = 77;
-global int 	View4_X = 320,View4_Y = 200;
+/*¶¨Òå¹Ü¶ÎÊÓÍ¼Î»ÖÃ*/
+global int		View1_X = 70, 	View1_Y = 150;
+global int 	View2_X = 160,	View2_Y = 150;
+global int 	View3_X = 70, 	View3_Y = 70;
+global int 	View4_X = 160,	View4_Y = 70;
 
-/*define view size*/
-global float	View_Size  = 150;
+/*¶¨Òå¹Ü¶ÎÊÓÍ¼´óĞ¡*/
+global int 	View_Size = 80;
+global handle	View_Info,View_Handles,View_Names,View_Positions;
 global float	View_Scale = 50;
-global handle View_Info,View_Handles,View_Names,View_Positions;
 
-
-/*define ISO view direction*/
+/*ÈıÎ¬ÊÓÍ¼µÄ·½Ïò*/
 global float AxoRotAngle=-120.0;
 global float AxoSlopeAngle=30.0;
 
+/*¶¨Òå±£´æ³ß´ç±ê×¢ĞÅÏ¢µÄÈ«¾ÖÊı×é*/
+global handle Dim_Table;
+global int Dim_Number = 0;
 
-global int Text_Colour = 1;
-global int Text_Height = 3;
-
-global   int      Group_Type_I = 7;
-
-/* é›¶ä»¶æ ‡æ³¨ç›¸å…³ç³»ç»Ÿå˜é‡ */
-#define	Lbl_Name_Part_No	"Part_no_ref"
-
-/*ä¿å­˜ç®¡æ®µé›¶ä»¶è¡¨å†…å®¹çš„å…¨å±€æ•°ç»„*/
+/*±£´æ¹Ü¶ÎÁã¼ş±íÄÚÈİµÄÈ«¾ÖÊı×é*/
 global handle Mto_Table;
 global handle Mto_Label_Table;
-global int Mto_Number = 0;
 
-
-/*é›¶ä»¶è¡¨ç›¸å…³è®¾ç½®*/
-global int Mto_Column_Number = 8;
-global float Mto_Table_Orign_X = 272;
-global float Mto_Table_Orign_Y = 35;
-global float Mto_Table_W = 143;
-global float Mto_Table_H = 6;
-global float Mto_Table_Column1_W = 8;
-global float Mto_Table_Column2_W = 30;
-global float Mto_Table_Column3_W = 34.05;
-global float Mto_Table_Column4_W = 16.21;
-global float Mto_Table_Column5_W = 12.54;
-global float Mto_Table_Column6_W = 12.21;
-global float Mto_Table_Column7_W = 10.37;
-global float Mto_Table_Column8_W = 19.63;
-
+/*Áã¼ş±íÏà¹ØÉèÖÃ*/
+global int Mto_Table_Orign_X = 205;
+global int Mto_Table_Orign_Y = 187;
+global int Mto_Table_W = 87;
+global int Mto_Table_H = 4;
+global int Mto_Table_Column1_W = 13;
+global int Mto_Table_Column2_W = 61.5;
+global int Mto_Table_Column3_W = 14;
+global string Mto_Table_Direction = "Down"; /* Down - ´ÓÉÏÏòÏÂ Up - ´ÓÏÂÏòÉÏ*/
 global int Mto_Table_Line_Type = 0;
 global int Mto_Table_Line_Colour = 1;
 global int Mto_Table_Pattern_Length = 0;
 global int Mto_Table_Text_Colour = 2;
 global int Mto_Table_Text_Height = 2.5;
 
-global int Max_Parts_Number = 500;
+/*Áã¼şºÅ±ê×¢ÉèÖÃ*/
+global int Mto_Label_Text_Colour = 1;
+global int Mto_Label_Text_Height = 2.5;
+global int Mto_Label_Leader_Line_Colour = 2;
+global int Mto_Label_Leader_Line_Type = 0;
+global int Mto_Label_Leader_Line_PattenLength = 0;
+global int Mto_Label_Circle_Radius = 2;
+
+/*Áã¼şºÅ±ê×¢ÉèÖÃ*/
+global int Reference_Point_Label_Text_Colour = 1;
+global int Reference_Point_Label_Text_Height = 2.5;
+global int Reference_Point_Label_Leader_Line_Colour = 2;
+global int Reference_Point_Label_Leader_Line_Type = 0;
+global int Reference_Point_Label_Leader_Line_PattenLength = 0;
+global int Reference_Point_Label_Circle_Radius = 2;
+
+/*±£´æËùÓĞ±ê×¢ĞÅÏ¢µÄÈ«¾ÖÊı×é*/
+global handle Label_Table;
+global int Label_Number = 0;
+
+/*×ÖÌåÉèÖÃ*/
+global string General_Font = "Arial Unicode MS";
 
 
-set_column_title(handle wobj, column_titles, column_number)
-{
-	for (i = 0; i < column_number; i = i + 1;)
-	{
-		title = A_GET(column_titles,i);
-		if (ISSTRING(title))
-		{
-			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_HEADER, title);
-			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_COLUMNWIDTH,-1);
-			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_ITEMTYPE, W_LISTW_STRING_COLUMN); 
-		}
-		else 
-		{
-			return(0);
-		}
-	}
-	return(0);
-}
+/*³ß´ç±ê×¢ÉèÖÃ*/
+global int		DimLinePen = 1;
+global string	DimLineWidthName = "0.25";
+global int		DimLineColor = 1;
+global string	DimLineColorName = "red";
+global int		DimLineLayer = 104;
+global string	DimLineLayerName = "PM_dim_layer";
+global float	DimTextHeight = 2.5;
+global float	DimTextWidth = 1.5;
+global float	DimTextSpc = 0.5;
+global float	DimSymHeight = 2.0;
 
-Get_Drawing_View_Scale(view_scale)
-{
-	scale_number = 35;
-	view_scales = A_ALLOC(scale_number);
-	A_PUT(view_scales,0,0.02);
-	A_PUT(view_scales,1,0.025);
-	A_PUT(view_scales,2,0.04);
-	A_PUT(view_scales,3,0.05);
-	A_PUT(view_scales,4,0.067);
-	A_PUT(view_scales,5,0.1);
-	A_PUT(view_scales,6,0.2);
-	A_PUT(view_scales,7,0.4);
-	A_PUT(view_scales,8,0.5);
-	A_PUT(view_scales,9,0.67);
-	A_PUT(view_scales,10,1);
-	A_PUT(view_scales,11,1.5);
-	A_PUT(view_scales,12,2);
-	A_PUT(view_scales,13,2.5);
-	A_PUT(view_scales,14,3);
-	A_PUT(view_scales,15,4);
-	A_PUT(view_scales,16,5);
-	A_PUT(view_scales,17,6);
-	A_PUT(view_scales,18,7.5);
-	A_PUT(view_scales,19,10);
-	A_PUT(view_scales,20,15);
-	A_PUT(view_scales,21,20);
-	A_PUT(view_scales,22,25);
-	A_PUT(view_scales,23,30);
-	A_PUT(view_scales,24,40);
-	A_PUT(view_scales,25,50);
-	A_PUT(view_scales,26,60);
-	A_PUT(view_scales,27,75);
-	A_PUT(view_scales,28,100);
-	A_PUT(view_scales,29,125);
-	A_PUT(view_scales,30,150);
-	A_PUT(view_scales,31,200);
-	A_PUT(view_scales,32,250);
-	A_PUT(view_scales,33,300);
-	A_PUT(view_scales,34,400);
-	for(i=0;i<scale_number;i=i+1;){
-		value = A_GET(view_scales,i);
-		if(view_scale <= value){
-			value1 = A_GET(view_scales,i-1);
-			if(view_scale - value1 < value - view_scale){
-				view_scale = value1;
-			}
-			else{
-				view_scale = value;
-			}
-			A_FREE(view_scales);
-			return(0);
-		}
-	}
-	view_scale = 400;
-	A_FREE(view_scales);
-	return(0);
-}
+
+
+
+

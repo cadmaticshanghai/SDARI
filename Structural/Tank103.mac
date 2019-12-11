@@ -1,0 +1,5176 @@
+/* $Id: Tank103.mac,v1.0.0 2016/05/17 Wallis.liu $ */
+
+/*
+**	这个程序用于参数化生成箱柜.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/geoutils.h"
+#include "include/cos.h"
+#include "include/quants.h"
+#include "include/dm_cos_schema.h"
+
+#include "$MarineToolkit/Structural/Tank103.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Structural_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+
+global handle   Tank_Handle;
+global handle   MainWindow;
+global string    Tank_Type  = "103";
+global string    Icon_Path  = "$MarineToolkit/ICONS/Tank/";
+
+/* 面板 */
+global handle Template, Information, Material, Command, Parameters, Position, Orientation;
+
+/* 控件 */
+global handle System_Name, Select_System, Tank_Name, Pick_Tank, Tank_Description, Planning_Unit;
+global handle Tank_Part1, Tank_Part2, Tank_Part3, Tank_Part4, Tank_Part5, Tank_Part6;
+global handle Select_Tank_Part1, Select_Tank_Part2, Select_Tank_Part3, Select_Tank_Part4, Select_Tank_Part5, Select_Tank_Part6;
+global handle Tank_Para_A, Tank_Para_B, Tank_Para_C, Tank_Para_H;
+global handle Tank_Para_a, Tank_Para_b1, Tank_Para_b2, Tank_Para_c1, Tank_Para_c2;
+global handle Tank_Para_ha, Tank_Para_hc, Tank_Para_pa, Tank_Para_pb, Tank_Para_e, Tank_Para_g;
+global handle Tank_Para_m, Tank_Para_n, Tank_Para_r;
+global handle Tank_Para_ea, Tank_Para_eb;
+global handle Tank_Position_X,Tank_Position_Xref,Tank_Position_Xoff;
+global handle Tank_Position_Y,Tank_Position_Yref,Tank_Position_Yoff;
+global handle Tank_Position_Z,Tank_Position_Zref,Tank_Position_Zoff;
+global handle Rotate_By_X_L,Rotate_By_X_R,Rotate_By_Y_L,Rotate_By_Y_R,Rotate_By_Z_L,Rotate_By_Z_R;
+global handle Tank_Rotate_Angle_X,Tank_Rotate_Angle_Y,Tank_Rotate_Angle_Z;
+global handle Move_By_X_P,Move_By_X_N,Move_By_Y_P,Move_By_Y_N,Move_By_Z_P,Move_By_Z_N;
+global handle Tank_Move_Distance_X,Tank_Move_Distance_Y,Tank_Move_Distance_Z;
+global handle Create_Tank, Modify_Tank;
+
+/* 箱柜信息 */
+global string SystemName = "";
+global int    SystemId = 0;
+global string TankName = "";
+global string ModelDescription = "Undefined";
+global string PlanningUnit_ = "999";
+
+/* part id of tank material */
+global string Tank_Part1_Pid = "";
+global string Tank_Part2_Pid = "";
+global string Tank_Part3_Pid = ""; 
+global string Tank_Part4_Pid = ""; 
+global string Tank_Part5_Pid = ""; 
+global string Tank_Part6_Pid = ""; 
+
+/* tank size */
+global float Tank_Size_A  = 0;
+global float Tank_Size_B  = 0;
+global float Tank_Size_C  = 0;
+global float Tank_Size_H  = 0;
+global float Tank_Size_a  = 0;
+global float Tank_Size_b1 = 0;
+global float Tank_Size_b2 = 0;
+global float Tank_Size_c1 = 0;
+global float Tank_Size_c2 = 0;
+
+global float Tank_Size_ha = 0;
+global float Tank_Size_hc = 0;
+global float Tank_Size_pa = 0;
+global float Tank_Size_pb = 0;
+global float Tank_Size_e  = 0;
+global float Tank_Size_g  = 0;
+global float Tank_Size_m  = 0;
+global float Tank_Size_n  = 0;
+global float Tank_Size_r  = 0;
+global float Tank_Size_ea = 0;
+global float Tank_Size_eb = 0;
+
+/* part data */
+global handle Part11,Part12,Part13,Part14;
+global handle Part21,Part22,Part23;
+global handle Part31,Part32,Part33,Part34;
+global handle Part41,Part42,Part43,Part44,Part45;
+global handle Part51,Part52;
+global handle Part61,Part62,Part63,Part64;
+
+/*tank position*/
+global float Tank_X0 = 0; 
+global float Tank_Y0 = 0;
+global float Tank_Z0 = 0;
+
+/*tank direction*/
+global float Tank_X_Dx = 1;
+global float Tank_X_Dy = 0;
+global float Tank_X_Dz = 0;
+global float Tank_Y_Dx = 0;
+global float Tank_Y_Dy = 1;
+global float Tank_Y_Dz = 0;
+global int Modify_flag = 0;
+
+/*
+**创建顶层窗体
+**Create Top frame
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+	W_REALIZE_WINDOW(mainform, W_FRAME_TITLE, "箱柜");	
+	return(mainform);	
+}
+
+/*
+**创建用于显示箱柜模板的面板
+**
+*/
+create_template_panel(mainform)
+{  
+   /* 获取图标保存路径 */
+   icon_path = Icon_Path;
+   /* 图标完整文件名（包含路径） */
+   pic = icon_path + "Tank103.bmp";
+   
+   /* 向主窗体添加一个面板，用于显示参数化模型样板 */
+	Template = W_ADD_WINDOW(mainform, W_PANEL, "Template");
+	W_REALIZE_WINDOW(Template, 	W_FRAME_X, 		0,
+							    W_FRAME_Y, 		0,
+							    W_FRAME_WIDTH,  460,
+							    W_FRAME_HEIGHT,	550);	
+								
+	LblImage_h = W_ADD_PANELITEM(Template, W_PANEL_MESSAGE, "LblImage_h");	
+	W_REALIZE_PANELITEM(LblImage_h, 	W_PANEL_X, 			0,
+										W_PANEL_Y, 			0,
+										W_PANEL_WIDTH,		460,
+										W_PANEL_HEIGHT,		550);	
+	W_SET_PANELITEM_ARGS(LblImage_h,	W_PANEL_LABELIMAGE,	pic,
+										W_PANEL_SHOW, 		1);
+	return(Template);
+}
+
+/*
+**创建用于处理箱柜基本信息的面板
+**
+*/
+create_info_panel(mainform)
+{
+   /* 创建用于显示箱柜主要信息的面板 */
+   Information = W_ADD_WINDOW(mainform, W_PANEL, "Information");
+   
+   /* 设置面板参数 */
+	W_REALIZE_WINDOW(Information,	W_FRAME_X, 		465,
+							        W_FRAME_Y, 		0,
+							        W_FRAME_WIDTH, 	410,
+							        W_FRAME_HEIGHT,	100);
+							            
+	title = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "title");
+	
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"箱柜信息");
+
+    seperate_line = W_ADD_PANELITEM(Information, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);
+									       
+   /* 箱柜所属系统 */
+	System_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "System_Name");
+	W_REALIZE_PANELITEM(System_Name,	W_PANEL_ROW, 		1, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"所属系统:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK,	1);
+	W_SET_PANELITEM_HANDLER(System_Name, "system_name_handler");   
+	
+	Select_System = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Select_System");
+	W_REALIZE_PANELITEM(Select_System,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			34,
+                  						W_PANEL_BUTTONIMAGE, 	"选择系统", 
+                  						W_PANEL_WIDTH, 			10,
+                  						W_PANEL_BUTTONVALUE,	100,
+                  						W_PANEL_CALLBACK, 		1,
+                  						W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_System, "select_system_handler"); 			
+
+   /* 箱柜编号 */
+	Tank_Name = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Tank_Name");
+	W_REALIZE_PANELITEM(Tank_Name,	W_PANEL_ROW, 		2, 
+									W_PANEL_COL, 		0,
+							        W_PANEL_LABEL, 		"箱柜编号:   ",
+							        W_PANEL_LENGTH, 	25,
+							        W_PANEL_VALUE, 		"Undefined",
+							        W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Tank_Name, "tank_name_handler"); 
+	
+	Pick_Tank = W_ADD_PANELITEM(Information, W_PANEL_BUTTON, "Pick_Tank");
+	W_REALIZE_PANELITEM(Pick_Tank,	W_PANEL_ROW, 			2, 
+	                                W_PANEL_COL, 			34,
+                  					W_PANEL_BUTTONIMAGE, 	"选择箱柜", 
+                  					W_PANEL_WIDTH, 			10,
+                  					W_PANEL_BUTTONVALUE,	101,
+                  					W_PANEL_CALLBACK, 		1,
+                  					W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Pick_Tank, "pick_tank_handler"); 	
+	
+    /* 箱柜名称 */
+	Tank_Description = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Tank_Description");
+	W_REALIZE_PANELITEM(Tank_Description, 	W_PANEL_ROW, 		3, 
+											W_PANEL_COL, 		0,
+											W_PANEL_LABEL, 		"箱柜名称:   ",
+											W_PANEL_LENGTH, 	25,
+											W_PANEL_VALUE, 		"Undefined",
+											W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Tank_Description, "tank_description_handler"); 
+
+	/* 箱柜托盘 */
+	Planning_Unit = W_ADD_PANELITEM(Information, W_PANEL_FILL, "Planning_Unit");
+	W_REALIZE_PANELITEM(Planning_Unit,	W_PANEL_ROW, 		4, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"托盘名称:   ",
+							            W_PANEL_LENGTH, 	25,
+							            W_PANEL_VALUE, 		"Undefined",
+							            W_PANEL_CALLBACK, 	1);
+	W_SET_PANELITEM_HANDLER(Planning_Unit, "tank_planning_unit_handler");
+							       
+    return(Information);
+}
+
+system_name_handler(item, event_type, dummy)
+{
+  return(0); 
+}
+
+tank_name_handler(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		tank_name = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		tank_handle = PM_FIND_BY_NAME(tank_name);
+      
+		/* 如果指定的模型已经存在，则做如下处理 */
+		if (tank_handle != 0){
+			group_type = PM_GET_OBJDATA(tank_handle, 0, MMT_TAG_GROUPTYPE);
+			/* 指定的模型不是箱柜模型 */
+			if (group_type != Group_Type){
+				U_CONFIRM("模型已经存在，但不是箱柜模型");
+				W_SET_PANELITEM_ARGS(Tank_Name, W_PANEL_VALUE, "Undefined");	
+				return(0);
+			} 
+			/* 指定的模型是箱柜模型 */
+			else{
+				type = PM_GET_OBJDATA(tank_handle, 0, TankType);
+				if(type != Tank_Type){
+					info = "箱柜已经存在且类型为" + type + ",这个程序只能处理类型为" + Tank_Type + "的箱柜。";
+					U_CONFIRM(info);
+					return(0);
+				}   	             
+				res = U_YESNO("模型已经存在，是否修改？",1);
+				if (res == 1){
+					reload_tank_data(tank_name);
+					W_SET_PANELITEM_ARGS(Modify_Tank, W_PANEL_SENSITIVITY,1);
+					W_SET_PANELITEM_ARGS(Create_Tank, W_PANEL_SENSITIVITY,0);
+					Modify_flag = 1;
+					return(0);
+				}
+				else{
+					W_SET_PANELITEM_ARGS(item, W_PANEL_VALUE, "Undefined");
+					return(0);
+				}
+			}        
+		}
+		else{
+			W_SET_PANELITEM_ARGS(Modify_Tank, W_PANEL_SENSITIVITY,0);
+			W_SET_PANELITEM_ARGS(Create_Tank, W_PANEL_SENSITIVITY,1); 
+			Modify_flag = 0;        
+		}
+	}
+	return(0); 
+}
+
+/*矩形板*/
+create_rect_curve(float size1,float size2)
+{	
+	p1x = size1/2;
+	p1y = size2/2;				
+	p2x = p1x;
+	p2y = -p1y;			
+	p3x = -p1x;
+	p3y = -p1y;				
+	p4x = -p1x;
+	p4y = p1y;		
+	 	
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".");	
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;     
+	return(curve);   
+}
+
+/*凹槽板*/
+create_aocao_curve(float size11,float size12,float size21,float size22,float offset)
+{	
+	p1x = size11/2;
+	p1y = size12/2;				
+	p2x = p1x;
+	p2y = -p1y;			
+	p3x = -p1x;
+	p3y = -p1y;				
+	p4x = -p1x;
+	p4y = p1y;		
+	p5x = offset-0.5*size21;
+	p5y = p1y;	
+	p6x = offset-0.5*size21;
+	p6y = p1y-size22;	
+	p7x = offset+0.5*size21;
+	p7y = p1y-size22;	
+	p8x = offset+0.5*size21;
+	p8y = p1y;
+    
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".")+",";	
+	p5xs = STRINGTERM(FTOASCII(p5x),".")+",";
+	p5ys = STRINGTERM(FTOASCII(p5y),".")+",";
+	p6xs = STRINGTERM(FTOASCII(p6x),".")+",";
+	p6ys = STRINGTERM(FTOASCII(p6y),".")+",";	
+	p7xs = STRINGTERM(FTOASCII(p7x),".")+",";
+	p7ys = STRINGTERM(FTOASCII(p7y),".")+",";	
+	p8xs = STRINGTERM(FTOASCII(p8x),".")+",";
+	p8ys = STRINGTERM(FTOASCII(p8y),".");	
+    
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys+p5xs+p5ys+p6xs+p6ys+p7xs+p7ys+p8xs+p8ys;     
+	return(curve);   
+}
+
+create_subplate_curve(float L1, float W1, float c, float d)
+{	
+	p1x = d;
+	p1y = c;				
+	p2x = - L1 + d;
+	p2y = c;			
+	p3x = - L1 + d;
+	p3y = - W1 + c;				
+	p4x = d;
+	p4y = - W1 + c;		
+	 	
+	p1xs = STRINGTERM(FTOASCII(p1x),".")+",";
+	p1ys = STRINGTERM(FTOASCII(p1y),".")+",";
+	p2xs = STRINGTERM(FTOASCII(p2x),".")+",";
+	p2ys = STRINGTERM(FTOASCII(p2y),".")+",";
+	p3xs = STRINGTERM(FTOASCII(p3x),".")+",";
+	p3ys = STRINGTERM(FTOASCII(p3y),".")+",";	
+	p4xs = STRINGTERM(FTOASCII(p4x),".")+",";
+	p4ys = STRINGTERM(FTOASCII(p4y),".");	
+		
+	curve = "";
+	curve = curve+p1xs+p1ys+p2xs+p2ys+p3xs+p3ys+p4xs+p4ys;     
+	return(curve);   
+}
+
+tank_description_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		ModelDescription = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("Tank103", "ModelDescription", ModelDescription);
+		if(Modify_flag){
+			set_tank_para(Tank_Handle);
+		}
+	}
+	return(0); 
+}
+
+tank_planning_unit_handler(item, event_type, dummy)
+{   
+	if (event_type == W_EVENT_ITEM_LEFT){
+		PlanningUnit_ = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+		SET_STRING_DEFAULT("Tank103", "Planning_Unit", PlanningUnit_);
+	}
+	return(0); 
+}
+
+select_system_handler(item, event_type, button_value)
+{
+	system_name = PM_SELECT_SYSTEM();
+	if(ISINT(system_name)){
+		U_MESSAGE("系统选择取消");
+		return(0);
+	}
+	else {
+		U_MESSAGE("选择系统<" + system_name + ">");
+		SystemName = system_name;
+		SystemId = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+		SET_STRING_DEFAULT("Tank103", "System_Name", system_name);
+	}			
+	return(0);   
+}
+
+pick_tank_handler(item, event_type, button_value)
+{
+	tmp = 0;
+	picked_object_handle = PM_PICK_OBJECT("请选择箱柜", tmp, "STRUCTCMP","BEAM");
+	if (!ISINT(picked_object_handle)){	   
+		/*获取箱柜的名称*/
+		group_handle = PM_GET_OBJECT_GROUP(picked_object_handle, Group_Type_I);
+		if (ISINT(group_handle)){
+			U_CONFIRM("此零件不属于任何箱柜");
+			W_SET_PANELITEM_ARGS(Tank_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);
+		}		
+	  
+		group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);	
+		/* 判断箱柜类型是否匹配 */
+		type = PM_GET_OBJDATA(group_handle, 0, TankType);
+		if(ISINT(type)){
+			U_CONFIRM("此零件不属于任何箱柜");
+			W_SET_PANELITEM_ARGS(Tank_Name, W_PANEL_VALUE, "Undefined");	
+			return(0);	      
+		}
+		if(type != Tank_Type){
+			info = "选择的箱柜类型为" + type + ",这个程序只能处理类型为" + Tank_Type + "的箱柜。";
+			U_CONFIRM(info);
+			return(0);
+		}	   	      		
+		/*获取箱柜的尺寸参数及其它相关信息*/
+		reload_tank_data(group_name);	
+		W_SET_PANELITEM_ARGS(Modify_Tank, W_PANEL_SENSITIVITY,1);
+		W_SET_PANELITEM_ARGS(Create_Tank, W_PANEL_SENSITIVITY,0);
+		Modify_flag = 1;					
+	} 
+	else{
+		return(0);
+	} 
+	return(0); 
+}
+
+reload_tank_data(string tank_name)
+{
+   W_SET_PANELITEM_ARGS(Tank_Name, W_PANEL_VALUE, tank_name);	
+   group_handle = PM_FIND_BY_NAME(tank_name);
+   Tank_Handle = group_handle;
+   read_model_size();
+   
+   /*获取并设置箱柜的零件信息*/
+   parts = PM_GET_OBJECTS_IN_GROUP(Tank_Handle);
+   p_number = PM_NR_MEMBERS_IN_SET(parts);
+   part1_1 = "";
+   part1_2 = "";
+   part1_3 = "";
+   part1_4 = "";
+   part2_1 = "";
+   part2_2 = "";
+   part2_3 = "";
+   part3_1 = "";
+   part3_2 = "";
+   part3_3 = "";
+   part3_4 = "";
+   part4_1 = "";
+   part5_1 = "";
+   part5_2 = "";
+   part6_1 = "";
+   part6_2= "";
+   part6_3 = "";
+   part6_4 = "";
+   for (i = 0; i < p_number; i = i + 1;){
+      part = PM_GET_MEMBER_IN_SET(parts, i);
+      part_number = Get_Attribute_Value(part,PartNumber);
+      if (part_number == "1-1"){
+         part1_1 = part;
+      }
+      else if (part_number == "1-2"){
+         part1_2 = part;
+      } 
+      else if (part_number == "1-3"){
+         part1_3 = part;
+      }  
+      else if (part_number == "1-4"){
+         part1_4 = part;
+      }                    
+      else if (part_number == "2-1"){
+         part2_1 = part;
+      } 
+      else if (part_number == "2-2"){
+         part2_2 = part;
+      }  
+      else if (part_number == "2-3"){
+         part2_3 = part;
+      }        
+      else if (part_number == "3-1"){
+         part3_1 = part;
+      } 
+      else if (part_number == "3-2"){
+         part3_2 = part;
+      }           
+      else if (part_number == "3-3"){
+         part3_3 = part;
+      }  
+      else if (part_number == "3-4"){
+         part3_4 = part;
+      }   
+      else if (part_number == "4-1"){
+         part4_1 = part;
+      }     
+      else if (part_number == "5-1"){
+         part5_1 = part;
+      } 
+      else if (part_number == "5-2"){
+         part5_2 = part;
+      } 
+      else if (part_number == "6-1"){
+         part6_1 = part;
+      } 
+      else if (part_number == "6-2"){
+         part6_12= part;
+      } 
+      else if (part_number == "6-3"){
+         part6_3 = part;
+      }  
+      else if (part_number == "6-4"){
+         part6_4 = part;
+      }       
+   }     
+   
+   /*获取并设置箱柜零件的零件材料*/
+    part_id = PM_GET_OBJDATA(part1_1, 0, MMT_TAG_PARTID);
+	Tank_Part1_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Tank_Part1, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Tank103", "Tank_Part1_Pid", part_id);   
+   
+    part_id = PM_GET_OBJDATA(part2_1, 0, MMT_TAG_PARTID);
+	Tank_Part2_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Tank_Part2, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Tank103", "Tank_Part2_Pid", part_id);  
+
+    part_id = PM_GET_OBJDATA(part3_1, 0, MMT_TAG_PARTID);
+	Tank_Part3_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Tank_Part3, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Tank103", "Tank_Part3_Pid", part_id);
+
+    part_id = PM_GET_OBJDATA(part4_1, 0, MMT_TAG_PARTID);
+	Tank_Part4_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Tank_Part4, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Tank103", "Tank_Part4_Pid", part_id);
+
+    part_id = PM_GET_OBJDATA(part5_1, 0, MMT_TAG_PARTID);
+	Tank_Part5_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Tank_Part5, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Tank103", "Tank_Part5_Pid", part_id);
+ 
+    part_id = PM_GET_OBJDATA(part6_1, 0, MMT_TAG_PARTID);
+	Tank_Part6_Pid = part_id;
+	descr = Pid_To_Description(part_id);
+	W_SET_PANELITEM_ARGS(Tank_Part6, W_PANEL_VALUE, descr);
+	SET_STRING_DEFAULT("Tank103", "Tank_Part6_Pid", part_id);
+    
+	/*获取箱柜所属系统 */
+	part0 = PM_GET_MEMBER_IN_SET(parts, 0);
+	sys = PM_GET_OBJDATA(part0,0,"sys");
+	if (!ISINT(sys)){
+        SystemName = sys;
+	    SystemId = PM_GET_SYSTEM_ID(SystemName);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, SystemName);
+		SET_STRING_DEFAULT("Tank103", "System_Name", SystemName);	   
+    } 
+    
+	/*获取箱柜的描述 */
+	des = PM_GET_OBJDATA(part0,0,TankDes);
+	if(!ISINT(des)){
+        ModelDescription = des;
+		W_SET_PANELITEM_ARGS(Tank_Description, W_PANEL_VALUE, des);
+		SET_STRING_DEFAULT("Tank103", "ModelDescription", des);
+    }
+    
+	/*获取箱柜的托盘 */
+	pla = PM_GET_OBJDATA(part0,0,PlanningUnit);
+	if(!ISINT(pla)){
+        planningunit = pla;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, pla);
+		SET_STRING_DEFAULT("Tank103", "Planning_Unit", pla);
+    }
+
+	/*获取箱柜的坐标 */
+	x1 = 0.0;	y1 = 0.0;	z1 = 0.0;	x2 = 0.0;	y2 = 0.0;	z2 = 0.0;
+	x_dx = 0.0;	x_dy = 0.0;	x_dz = 0.0;
+	end1x = 0.0;	end1y = 0.0;	end1z = 0.0;
+	end2x = 0.0;	end2y = 0.0;	end2z = 0.0;	
+	Get_Beam_Para(part1_1,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+	x01 = x1; y01 = y1; z01 = z1;
+	Get_Beam_Para(part1_3,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,end1x,end1y,end1z,end2x,end2y,end2z);
+	x02 = x1; y02 = y1; z02 = z1;
+	
+	Tank_X0 = (x01 + x02)/2.0;
+	Tank_Y0 = (y01 + y02)/2.0;
+	Tank_Z0 = (z01 + z02)/2.0;
+    
+    W_SET_NUMERIC_VALUE(Tank_Position_X, Tank_X0);
+    W_SET_NUMERIC_VALUE(Tank_Position_Y, Tank_Y0);
+    W_SET_NUMERIC_VALUE(Tank_Position_Z, Tank_Z0);
+
+    /* 将绝对坐标转换成相对坐标并显示到面板中 */
+    /* convert abstract coordinate value into reference and display on panel */
+    x_ref = "";
+    y_ref = "";
+    z_ref = "";
+    x_offset = 0;
+    y_offset = 0;
+    z_offset = 0;
+   
+    res = GetReferenceCoords(Tank_X0, Tank_Y0, Tank_Z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+    if (res == 0){
+        W_SET_PANELITEM_ARGS(Tank_Position_Xref, W_PANEL_VALUE, x_ref);
+        W_SET_PANELITEM_ARGS(Tank_Position_Yref, W_PANEL_VALUE, y_ref);
+        W_SET_PANELITEM_ARGS(Tank_Position_Zref, W_PANEL_VALUE, z_ref);
+
+        W_SET_NUMERIC_VALUE(Tank_Position_Xoff, x_offset);
+        W_SET_NUMERIC_VALUE(Tank_Position_Yoff, y_offset);
+        W_SET_NUMERIC_VALUE(Tank_Position_Zoff, z_offset);
+    }
+    else if (res == -1){
+        W_SET_PANELITEM_ARGS(Tank_Position_Xref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Tank_Position_Yref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Tank_Position_Zref, W_PANEL_VALUE, "Unset");
+
+        W_SET_NUMERIC_VALUE(Tank_Position_Xoff, 0);
+        W_SET_NUMERIC_VALUE(Tank_Position_Yoff, 0);
+        W_SET_NUMERIC_VALUE(Tank_Position_Zoff, 0); 
+
+        U_CONFIRM("参考坐标系定义不正确");
+    }   
+	
+    return(0);
+}
+
+create_material_panel(mainform)
+{
+    /* 创建用于显示箱柜材料信息的面板 */
+    Material = W_ADD_WINDOW(mainform, W_PANEL, "Material");
+   
+    /* 设置面板参数 */
+	W_REALIZE_WINDOW(Material, 	W_FRAME_X, 		465,
+							    W_FRAME_Y, 		135,
+							    W_FRAME_WIDTH, 	410,
+							    W_FRAME_HEIGHT,	50);
+							            
+    title = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "title");
+	
+    W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"箱柜材料");
+    seperate_line = W_ADD_PANELITEM(Material, W_PANEL_MESSAGE, "seperate_line");
+   
+    W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+									       
+    /* 支撑腿材料 */
+	Tank_Part1 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Tank_Part1");	
+	W_REALIZE_PANELITEM(Tank_Part1,  W_PANEL_ROW, 1, 
+	                                 W_PANEL_COL, 0,
+							         W_PANEL_LABEL, "型材:   ",
+							         W_PANEL_LENGTH, 100,
+							         W_PANEL_DISPLEN, 26,
+							         W_PANEL_VALUE, "Undefined");  
+							               	
+	Select_Tank_Part1 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Tank_Part1");	
+	W_REALIZE_PANELITEM(Select_Tank_Part1,  W_PANEL_ROW, 1, 
+	                                        W_PANEL_COL, 34,
+                  							W_PANEL_BUTTONIMAGE, "选择角钢", 
+                  							W_PANEL_WIDTH, 10,
+                  							W_PANEL_BUTTONVALUE, 201,
+                  							W_PANEL_CALLBACK, 1,
+                  							W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	                  							
+    W_SET_PANELITEM_HANDLER(Select_Tank_Part1, "select_tank_part1_handler"); 			
+
+    /* 底板材料 */
+	Tank_Part2 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Tank_Part2");	
+	W_REALIZE_PANELITEM(Tank_Part2, W_PANEL_ROW, 2, 
+	                                W_PANEL_COL, 0,
+							        W_PANEL_LABEL, "底板:   ",
+							        W_PANEL_LENGTH, 100,
+							        W_PANEL_DISPLEN, 26,
+							        W_PANEL_VALUE, "Undefined"); 
+	
+	Select_Tank_Part2 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Tank_Part2");	
+	W_REALIZE_PANELITEM(Select_Tank_Part2, W_PANEL_ROW, 2, 
+	                                       W_PANEL_COL, 34,
+                  						   W_PANEL_BUTTONIMAGE, "选择钢板", 
+                     					   W_PANEL_WIDTH, 10,
+                                           W_PANEL_BUTTONVALUE, 202,
+                                           W_PANEL_CALLBACK, 1,
+                     					   W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Tank_Part2, "select_tank_part2_handler"); 	
+   
+    /* 侧板材料 */  
+	Tank_Part3 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Tank_Part3");	
+	W_REALIZE_PANELITEM(Tank_Part3,  W_PANEL_ROW, 3, 
+	                                 W_PANEL_COL, 0,
+							         W_PANEL_LABEL, "侧板:   ",
+							         W_PANEL_LENGTH, 26,
+							         W_PANEL_VALUE, "Undefined",
+							         W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Tank_Part3, "tank_part3_handler"); 
+	
+	Select_Tank_Part3 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Tank_Part3");	
+	W_REALIZE_PANELITEM(Select_Tank_Part3,  W_PANEL_ROW, 3, 
+	                                        W_PANEL_COL, 34,
+                  						    W_PANEL_BUTTONIMAGE, "选择钢板", 
+                  						    W_PANEL_WIDTH, 10,
+                  						    W_PANEL_BUTTONVALUE, 203,
+                  						    W_PANEL_CALLBACK, 0,
+                  						    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Tank_Part3, "select_tank_part3_handler");
+
+    /* 把手材料 */  
+	Tank_Part4 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Tank_Part4");	
+	W_REALIZE_PANELITEM(Tank_Part4,  W_PANEL_ROW, 4, 
+	                                 W_PANEL_COL, 0,
+							         W_PANEL_LABEL, "拉手:   ",
+							         W_PANEL_LENGTH, 26,
+							         W_PANEL_VALUE, "Undefined",
+							         W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Tank_Part4, "tank_part4_handler"); 
+	
+	Select_Tank_Part4 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Tank_Part4");	
+	W_REALIZE_PANELITEM(Select_Tank_Part4,  W_PANEL_ROW, 4, 
+	                                        W_PANEL_COL, 34,
+                  						    W_PANEL_BUTTONIMAGE, "选择圆钢", 
+                  						    W_PANEL_WIDTH, 10,
+                  						    W_PANEL_BUTTONVALUE, 203,
+                  						    W_PANEL_CALLBACK, 0,
+                  						    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Tank_Part4, "select_tank_part4_handler");
+
+    /* 合叶材料 */  
+	Tank_Part5 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Tank_Part5");	
+	W_REALIZE_PANELITEM(Tank_Part5,  W_PANEL_ROW, 5, 
+	                                 W_PANEL_COL, 0,
+							         W_PANEL_LABEL, "合页：   ",
+							         W_PANEL_LENGTH, 26,
+							         W_PANEL_VALUE, "Undefined",
+							         W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Tank_Part5, "tank_part5_handler"); 
+	
+	Select_Tank_Part5 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Tank_Part5");	
+	W_REALIZE_PANELITEM(Select_Tank_Part5,  W_PANEL_ROW, 5, 
+	                                        W_PANEL_COL, 34,
+                  						    W_PANEL_BUTTONIMAGE, "选择部件", 
+                  						    W_PANEL_WIDTH, 10,
+                  						    W_PANEL_BUTTONVALUE, 203,
+                  						    W_PANEL_CALLBACK, 0,
+                  						    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Tank_Part5, "select_tank_part5_handler");
+
+    /* 吊耳材料 */  
+	Tank_Part6 = W_ADD_PANELITEM(Material, W_PANEL_FILL, "Tank_Part6");	
+	W_REALIZE_PANELITEM(Tank_Part6,  W_PANEL_ROW, 6, 
+	                                 W_PANEL_COL, 0,
+							         W_PANEL_LABEL, "吊耳：   ",
+							         W_PANEL_LENGTH, 26,
+							         W_PANEL_VALUE, "Undefined",
+							         W_PANEL_CALLBACK, 1);							             
+	W_SET_PANELITEM_HANDLER(Tank_Part6, "tank_part6_handler"); 
+	
+	Select_Tank_Part6 = W_ADD_PANELITEM(Material, W_PANEL_BUTTON, "Select_Tank_Part6");	
+	W_REALIZE_PANELITEM(Select_Tank_Part6,  W_PANEL_ROW, 6, 
+	                                        W_PANEL_COL, 34,
+                  						    W_PANEL_BUTTONIMAGE, "选择部件", 
+                  						    W_PANEL_WIDTH, 10,
+                  						    W_PANEL_BUTTONVALUE, 203,
+                  						    W_PANEL_CALLBACK, 0,
+                  						    W_PANEL_LAYOUT, W_LAYOUT_HORIZONTAL);	
+    W_SET_PANELITEM_HANDLER(Select_Tank_Part6, "select_tank_part6_handler");
+    
+    return(Material);
+}
+
+tank_part1_handler(item, event_type, dummy)
+{	
+	pid = Tank_Part1_Pid;
+	if(ISSTRING(pid)){
+		if(!Is_Equal_Angle_Bar(pid)){
+			beam_descr = Pid_To_Description(pid);
+			W_SET_PANELITEM_ARGS(Tank_Part1, W_PANEL_VALUE, beam_descr);
+			SET_STRING_DEFAULT("Tank103", "Tank_Part1", pid);
+		}
+	}	
+	return(0);
+}
+
+tank_part2_handler(item, event_type, dummy)
+{
+	pid = Tank_Part2_Pid;
+	if(ISSTRING(pid)){
+        
+		if(Is_Equal_Angle_Bar(pid)){
+			beam_descr = Pid_To_Description(pid);
+			W_SET_PANELITEM_ARGS(Tank_Part1, W_PANEL_VALUE, beam_descr);
+			SET_STRING_DEFAULT("Tank103", "Tank_Part2", pid);
+		}
+	}	
+	return(0); 
+}
+
+tank_part3_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+tank_part4_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+tank_part5_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+tank_part6_handler(item, event_type, dummy)
+{
+   return(0);
+}
+
+select_tank_part1_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择支撑腿的材料(角钢)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "BEAM*");	
+	pid = DM_BROWSE_PARTCODE(Tank_Part1_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Tank_Part1_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Tank_Part1, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("Tank103", "Tank_Part1", pid);
+	}	
+	if(Modify_flag){
+      /* 定义UNDO缓存 */
+      st = PM_UM_OPEN_CHANGE("重新选择角钢");
+      delete_tank_members();
+      calculate_tank_para();
+      create_tank();             
+      st = PM_UM_CLOSE_CHANGE(); 	   
+	}
+	return(0); 
+}
+
+select_tank_part2_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择底(顶)板(钢板)");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "PLATE");
+	pid = DM_BROWSE_PARTCODE(Tank_Part2_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+		Tank_Part2_Pid = pid;
+		descr = Pid_To_Description(pid);
+		W_SET_PANELITEM_ARGS(Tank_Part2, W_PANEL_VALUE, descr);
+		SET_STRING_DEFAULT("Tank103", "Tank_Part2", pid);
+	}	
+	if(Modify_flag){
+      /* 定义UNDO缓存 */
+      st = PM_UM_OPEN_CHANGE("重新选择底(顶)板材料");
+      delete_tank_members();
+      calculate_tank_para();
+      create_tank();             
+      st = PM_UM_CLOSE_CHANGE(); 	   
+	}	
+	return(0);  
+}
+
+select_tank_part3_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择侧板");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "PLATE");
+	pid = DM_BROWSE_PARTCODE(Tank_Part3_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+      Tank_Part3_Pid = pid;
+      pad_descr = Pid_To_Description(pid);
+      W_SET_PANELITEM_ARGS(Tank_Part3, W_PANEL_VALUE, pad_descr);
+      SET_STRING_DEFAULT("Tank103", "Tank_Part3", pid);
+	}	
+	if(Modify_flag){
+      st = PM_UM_OPEN_CHANGE("修改侧板材料");
+      delete_tank_members();  
+      calculate_tank_para();            
+      res = create_tank();
+      
+      /* 如果修改不成功，回滚到原来状态 */
+      if (res == -1){
+         PM_UM_CLOSE_CHANGE();
+         PM_UM_UNDO_LAST_CHANGE();
+         return(0);
+      }   
+      st = PM_UM_CLOSE_CHANGE(); 	   	   
+	}
+	return(0);
+}
+
+select_tank_part4_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择拉手");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "BEAM*");
+	pid = DM_BROWSE_PARTCODE(Tank_Part4_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+      Tank_Part4_Pid = pid;
+      pad_descr = Pid_To_Description(pid);
+      W_SET_PANELITEM_ARGS(Tank_Part4, W_PANEL_VALUE, pad_descr);
+      SET_STRING_DEFAULT("Tank103", "Tank_Part4", pid);
+	}	
+	if(Modify_flag){
+      st = PM_UM_OPEN_CHANGE("修改拉手材料");
+      delete_tank_members();  
+      calculate_tank_para();            
+      res = create_tank();
+      
+      /* 如果修改不成功，回滚到原来状态 */
+      if (res == -1){
+         PM_UM_CLOSE_CHANGE();
+         PM_UM_UNDO_LAST_CHANGE();
+         return(0);
+      }   
+      st = PM_UM_CLOSE_CHANGE(); 	   	   
+	}
+	return(0);
+}
+
+select_tank_part5_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择合页");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "*");
+	pid = DM_BROWSE_PARTCODE(Tank_Part5_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+      Tank_Part5_Pid = pid;
+      pad_descr = Pid_To_Description(pid);
+      W_SET_PANELITEM_ARGS(Tank_Part5, W_PANEL_VALUE, pad_descr);
+      SET_STRING_DEFAULT("Tank103", "Tank_Part5", pid);
+	}	
+	if(Modify_flag){
+      st = PM_UM_OPEN_CHANGE("修改合页材料");
+      delete_tank_members();  
+      calculate_tank_para();            
+      res = create_tank();
+      
+      /* 如果修改不成功，回滚到原来状态 */
+      if (res == -1){
+         PM_UM_CLOSE_CHANGE();
+         PM_UM_UNDO_LAST_CHANGE();
+         return(0);
+      }   
+      st = PM_UM_CLOSE_CHANGE(); 	   	   
+	}
+	return(0);
+}
+
+select_tank_part6_handler(item, event_type, button_value)
+{
+	U_MESSAGE("选择吊耳");
+	selectmask = DM_INIT_TAGREC();
+	DM_SET_TAGVAL(selectmask, "KW", "*");
+	pid = DM_BROWSE_PARTCODE(Tank_Part6_Pid, 1, selectmask);
+	if(ISSTRING(pid)){
+      Tank_Part6_Pid = pid;
+      pad_descr = Pid_To_Description(pid);
+      W_SET_PANELITEM_ARGS(Tank_Part6, W_PANEL_VALUE, pad_descr);
+      SET_STRING_DEFAULT("Tank103", "Tank_Part6", pid);
+	}	
+	if(Modify_flag){
+      st = PM_UM_OPEN_CHANGE("修改吊耳材料");
+      delete_tank_members();  
+      calculate_tank_para();            
+      res = create_tank();
+      
+      /* 如果修改不成功，回滚到原来状态 */
+      if (res == -1){
+         PM_UM_CLOSE_CHANGE();
+         PM_UM_UNDO_LAST_CHANGE();
+         return(0);
+      }   
+      st = PM_UM_CLOSE_CHANGE(); 	   	   
+	}
+	return(0);
+}
+
+create_tank_handler(item, event_type, button_value)
+{
+   /* 获取箱柜名称 */
+   TankName = W_GET_PANELITEM_ARG(Tank_Name, W_PANEL_VALUE);     
+   if (TankName == "Undefined"){
+      U_CONFIRM("请先输入箱柜编号");
+      return(0);
+   }
+   
+   /* 定义UNDO缓存 */
+   st = PM_UM_OPEN_CHANGE("创建箱柜" + TankName);
+   
+   /* 定义箱柜组 */  
+   group_h = Create_Group(Group_Type, TankName);
+ 
+   if(ISINT(group_h)){
+      U_CONFIRM("无法创建箱柜模型组，请检查是否已经定义了这种类型的模型组？");
+      st = PM_UM_CLOSE_CHANGE();
+      PM_UM_UNDO_LAST_CHANGE();
+      return(0);
+   } 
+   
+   Tank_Handle = group_h; 
+   
+   res = calculate_tank_para(); 
+    
+   if(res == -1){
+      U_CONFIRM("无法创建箱柜模型组，请检查箱柜参数是否正确？");
+      st = PM_UM_CLOSE_CHANGE();
+      PM_UM_UNDO_LAST_CHANGE();      
+      return(0);
+   }
+   
+   res = create_tank();
+   
+   /* 箱柜创建不成功，删除相关定义 */
+   if (res == -1){
+      PM_UM_CLOSE_CHANGE();
+      PM_UM_UNDO_LAST_CHANGE();
+      return(0);
+   }
+   
+   st = PM_UM_CLOSE_CHANGE();
+   
+   /*箱柜创建成功，进入修改状态*/
+    W_SET_PANELITEM_ARGS(Modify_Tank, W_PANEL_SENSITIVITY,1);
+	W_SET_PANELITEM_ARGS(Create_Tank, W_PANEL_SENSITIVITY,0);
+	Modify_flag = 1;
+}
+
+calculate_tank_para()
+{  
+   /* 检查是否已经选择了所需的零件 */
+   frame = W_GET_PANELITEM_ARG(Tank_Part1, W_PANEL_VALUE);
+   if (frame == "Undefined"){
+      U_CONFIRM("请先选择支撑腿材料");
+      return(-1);
+   }
+
+   material = W_GET_PANELITEM_ARG(Tank_Part2, W_PANEL_VALUE);
+   if (material == "Undefined"){
+      U_CONFIRM("请先选择底(顶)板材料");
+      return(-1);
+   }
+   
+   side_plane = W_GET_PANELITEM_ARG(Tank_Part3, W_PANEL_VALUE);
+   if (side_plane == "Undefined"){
+      U_CONFIRM("请先选择侧板材料");
+      return(-1);
+   }      
+
+   handle_rail = W_GET_PANELITEM_ARG(Tank_Part4, W_PANEL_VALUE);
+   if (handle_rail == "Undefined"){
+      U_CONFIRM("请先选择拉手材料");
+      return(-1);
+   }   
+
+   gemel = W_GET_PANELITEM_ARG(Tank_Part5, W_PANEL_VALUE);
+   if (gemel == "Undefined"){
+      U_CONFIRM("请先选择合页材料");
+      return(-1);
+   }   
+
+   eye_plate = W_GET_PANELITEM_ARG(Tank_Part6, W_PANEL_VALUE);
+   if (gemel == "Undefined"){
+      U_CONFIRM("请先选择吊耳材料");
+      return(-1);
+   }   
+   
+   /* 获取箱柜位置坐标 */
+   st = 0;
+   x0 = W_GET_NUMERIC_VALUE(Tank_Position_X, st);
+   if (st == -1){
+      U_CONFIRM("X坐标未定义");
+      return(-1);
+   }
+   Tank_X0 = x0;
+   
+   st = 0;
+   y0 = W_GET_NUMERIC_VALUE(Tank_Position_Y, st);
+   if (st == -1){
+      U_CONFIRM("Y坐标未定义");
+      return(-1);
+   }
+   Tank_Y0 = y0;
+   
+   st = 0;
+   z0 = W_GET_NUMERIC_VALUE(Tank_Position_Z, st); 
+   if (st == -1){
+      U_CONFIRM("Y坐标未定义");
+      return(-1);
+   }
+   Tank_Z0 = z0;   
+      
+   /* 获取箱柜尺寸 */
+   st = 0;
+   Tank_Size_A = W_GET_NUMERIC_VALUE(Tank_Para_A, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数A的值或者A的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_B = W_GET_NUMERIC_VALUE(Tank_Para_B, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数B的值或者B的值有错误");
+      return(-1);
+   }   
+   
+   st = 0;
+   Tank_Size_C = W_GET_NUMERIC_VALUE(Tank_Para_C, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数C的值或者C的值有错误");
+      return(-1);
+   }   
+
+   st = 0;
+   Tank_Size_H = W_GET_NUMERIC_VALUE(Tank_Para_H, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数H的值或者H的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_a = W_GET_NUMERIC_VALUE(Tank_Para_a, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数a的值或者a的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_b1 = W_GET_NUMERIC_VALUE(Tank_Para_b1, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数b1的值或者b1的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_b2 = W_GET_NUMERIC_VALUE(Tank_Para_b2, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数b2的值或者b2的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_c1 = W_GET_NUMERIC_VALUE(Tank_Para_c1, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数c1的值或者c1的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_c2 = W_GET_NUMERIC_VALUE(Tank_Para_c2, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数c2的值或者c2的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_ha = W_GET_NUMERIC_VALUE(Tank_Para_ha, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数ha的值或者ha的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_hc = W_GET_NUMERIC_VALUE(Tank_Para_hc, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数hc的值或者hc的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_pa = W_GET_NUMERIC_VALUE(Tank_Para_pa, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数pa的值或者pa的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_pb = W_GET_NUMERIC_VALUE(Tank_Para_pb, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数pb的值或者pb的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_e = W_GET_NUMERIC_VALUE(Tank_Para_e, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数e的值或者e的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_g = W_GET_NUMERIC_VALUE(Tank_Para_g, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数g的值或者g的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_m = W_GET_NUMERIC_VALUE(Tank_Para_m, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数m的值或者m的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_n = W_GET_NUMERIC_VALUE(Tank_Para_n, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数n的值或者n的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_r = W_GET_NUMERIC_VALUE(Tank_Para_r, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数r的值或者r的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_ea = W_GET_NUMERIC_VALUE(Tank_Para_ea, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数ea的值或者ea的值有错误");
+      return(-1);
+   }
+
+   st = 0;
+   Tank_Size_eb = W_GET_NUMERIC_VALUE(Tank_Para_eb, st);
+   if (st == -1){
+      U_MESSAGE("无法获取参数eb的值或者eb的值有错误");
+      return(-1);
+   }
+   
+   /* 获取零件1及零件2的边长 */
+   beam_width = 1.0*DM_PARTID_DATA(Tank_Part1_Pid, "D31");
+   beam_hight = 1.0*DM_PARTID_DATA(Tank_Part1_Pid, "D32");
+   bot_plate_thickness = 1.0*DM_PARTID_DATA(Tank_Part2_Pid, "D31");
+   side_plane_thickness = 1.0*DM_PARTID_DATA(Tank_Part3_Pid, "D31");
+   
+   zdx = 0;zdy = 0;zdz = 0;
+   VEC_CROSS_PRODUCT(Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,zdx,zdy,zdz);
+   VEC_UNITV(zdx,zdy,zdz);
+   
+    /*计算零件1-1相关参数calculate parameter of part1-1*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = Tank_Size_c1 - Tank_Size_A/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = Tank_Size_c2 - Tank_Size_B/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        x1=x;y1=y;z1=z;
+
+        distance = Tank_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Tank_Y_Dx;
+        x_dy = Tank_Y_Dy;
+        x_dz = Tank_Y_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part11,0,x1);
+        A_PUT(Part11,1,y1);
+        A_PUT(Part11,2,z1);
+        A_PUT(Part11,3,x2);
+        A_PUT(Part11,4,y2);
+        A_PUT(Part11,5,z2);
+        A_PUT(Part11,6,x_dx);
+        A_PUT(Part11,7,x_dy);
+        A_PUT(Part11,8,x_dz);
+        A_PUT(Part11,9,end1x);
+        A_PUT(Part11,10,end1y);
+        A_PUT(Part11,11,end1z);
+        A_PUT(Part11,12,end2x);
+        A_PUT(Part11,13,end2y);
+        A_PUT(Part11,14,end2z);	
+    }
+   
+    /*计算零件1-2相关参数 calculate parameter of part1-2*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = -Tank_Size_c1 + Tank_Size_A/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = Tank_Size_c2 - Tank_Size_B/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        x1=x;y1=y;z1=z;
+
+        distance = Tank_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = -Tank_X_Dx;
+        x_dy = -Tank_X_Dy;
+        x_dz = -Tank_X_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part12,0,x1);
+        A_PUT(Part12,1,y1);
+        A_PUT(Part12,2,z1);
+        A_PUT(Part12,3,x2);
+        A_PUT(Part12,4,y2);
+        A_PUT(Part12,5,z2);
+        A_PUT(Part12,6,x_dx);
+        A_PUT(Part12,7,x_dy);
+        A_PUT(Part12,8,x_dz);
+        A_PUT(Part12,9,end1x);
+        A_PUT(Part12,10,end1y);
+        A_PUT(Part12,11,end1z);
+        A_PUT(Part12,12,end2x);
+        A_PUT(Part12,13,end2y);
+        A_PUT(Part12,14,end2z);	
+    } 
+   
+   /*计算零件1-3相关参数 calculate parameter of part1-3*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = -Tank_Size_c1 + Tank_Size_A/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = -Tank_Size_c2 + Tank_Size_B/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        x1=x;y1=y;z1=z;
+
+        distance = Tank_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = -Tank_Y_Dx;
+        x_dy = -Tank_Y_Dy;
+        x_dz = -Tank_Y_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part13,0,x1);
+        A_PUT(Part13,1,y1);
+        A_PUT(Part13,2,z1);
+        A_PUT(Part13,3,x2);
+        A_PUT(Part13,4,y2);
+        A_PUT(Part13,5,z2);
+        A_PUT(Part13,6,x_dx);
+        A_PUT(Part13,7,x_dy);
+        A_PUT(Part13,8,x_dz);
+        A_PUT(Part13,9,end1x);
+        A_PUT(Part13,10,end1y);
+        A_PUT(Part13,11,end1z);
+        A_PUT(Part13,12,end2x);
+        A_PUT(Part13,13,end2y);
+        A_PUT(Part13,14,end2z);	
+    }   
+
+    /*计算零件1-4相关参数calculate parameter of part1-4*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = Tank_Size_c1 - Tank_Size_A/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = -Tank_Size_c1 + Tank_Size_B/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        x1=x;y1=y;z1=z;
+
+        distance = Tank_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Tank_X_Dx;
+        x_dy = Tank_X_Dy;
+        x_dz = Tank_X_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part14,0,x1);
+        A_PUT(Part14,1,y1);
+        A_PUT(Part14,2,z1);
+        A_PUT(Part14,3,x2);
+        A_PUT(Part14,4,y2);
+        A_PUT(Part14,5,z2);
+        A_PUT(Part14,6,x_dx);
+        A_PUT(Part14,7,x_dy);
+        A_PUT(Part14,8,x_dz);
+        A_PUT(Part14,9,end1x);
+        A_PUT(Part14,10,end1y);
+        A_PUT(Part14,11,end1z);
+        A_PUT(Part14,12,end2x);
+        A_PUT(Part14,13,end2y);
+        A_PUT(Part14,14,end2z);	
+    }   
+   
+   /*计算零件2-1相关参数 calculate parameter of part2-1*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+
+        distance = Tank_Size_H;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);   	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = Tank_X_Dx;
+        udy = Tank_X_Dy;
+        udz = Tank_X_Dz;
+        vdx = Tank_Y_Dx;
+        vdy = Tank_Y_Dy;
+        vdz = Tank_Y_Dz;
+        A_PUT(Part21,0,lox);
+        A_PUT(Part21,1,loy);
+        A_PUT(Part21,2,loz); 
+        A_PUT(Part21,3,udx);
+        A_PUT(Part21,4,udy);
+        A_PUT(Part21,5,udz);  
+        A_PUT(Part21,6,vdx);
+        A_PUT(Part21,7,vdy);
+        A_PUT(Part21,8,vdz);	
+    }  
+   
+    /*计算零件2-2相关参数 calculate parameter of part2-2*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = Tank_Size_H + Tank_Size_C - bot_plate_thickness;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);   	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = Tank_X_Dx;
+        udy = Tank_X_Dy;
+        udz = Tank_X_Dz;
+        vdx = Tank_Y_Dx;
+        vdy = Tank_Y_Dy;
+        vdz = Tank_Y_Dz;      	
+        A_PUT(Part22,0,lox);
+        A_PUT(Part22,1,loy);
+        A_PUT(Part22,2,loz); 
+        A_PUT(Part22,3,udx);
+        A_PUT(Part22,4,udy);
+        A_PUT(Part22,5,udz);  
+        A_PUT(Part22,6,vdx);
+        A_PUT(Part22,7,vdy);
+        A_PUT(Part22,8,vdz);	
+    }   
+
+    /*计算零件2-3相关参数 calculate parameter of part2-3*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = Tank_Size_ha;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B - 0.5*Tank_Size_pb;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        distance = Tank_Size_H + Tank_Size_C - bot_plate_thickness;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);   	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = Tank_X_Dx;
+        udy = Tank_X_Dy;
+        udz = Tank_X_Dz;
+        vdx = Tank_Y_Dx;
+        vdy = Tank_Y_Dy;
+        vdz = Tank_Y_Dz;
+        A_PUT(Part23,0,lox);
+        A_PUT(Part23,1,loy);
+        A_PUT(Part23,2,loz); 
+        A_PUT(Part23,3,udx);
+        A_PUT(Part23,4,udy);
+        A_PUT(Part23,5,udz);  
+        A_PUT(Part23,6,vdx);
+        A_PUT(Part23,7,vdy);
+        A_PUT(Part23,8,vdz);	
+    }  
+    
+   /*计算零件3-1相关参数 calculate parameter of part3-1*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0; 
+        distance = Tank_Size_b2 - Tank_Size_B/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);
+        distance = Tank_Size_H + Tank_Size_C/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);        	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = zdx;
+        udy = zdy;
+        udz = zdz;
+        vdx = Tank_X_Dx;
+        vdy = Tank_X_Dy;
+        vdz = Tank_X_Dz;
+        A_PUT(Part31,0,lox);
+        A_PUT(Part31,1,loy);
+        A_PUT(Part31,2,loz); 
+        A_PUT(Part31,3,udx);
+        A_PUT(Part31,4,udy);
+        A_PUT(Part31,5,udz);  
+        A_PUT(Part31,6,vdx);
+        A_PUT(Part31,7,vdy);
+        A_PUT(Part31,8,vdz);	
+    } 
+   
+    /*计算零件3-2相关参数 calculate parameter of part3-2*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = -Tank_Size_b2 + Tank_Size_B/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);
+        distance = Tank_Size_H + Tank_Size_C/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);         	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = Tank_X_Dx;
+        udy = Tank_X_Dy;
+        udz = Tank_X_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;      	
+        A_PUT(Part32,0,lox);
+        A_PUT(Part32,1,loy);
+        A_PUT(Part32,2,loz); 
+        A_PUT(Part32,3,udx);
+        A_PUT(Part32,4,udy);
+        A_PUT(Part32,5,udz);  
+        A_PUT(Part32,6,vdx);
+        A_PUT(Part32,7,vdy);
+        A_PUT(Part32,8,vdz);	
+    }
+
+    /*计算零件3-3相关参数 calculate parameter of part3-3*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = Tank_Size_a - Tank_Size_A/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = Tank_Size_H + Tank_Size_C/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);          	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = Tank_Y_Dx;
+        udy = Tank_Y_Dy;
+        udz = Tank_Y_Dz;
+        vdx = zdx;
+        vdy = zdy;
+        vdz = zdz;      	
+        A_PUT(Part33,0,lox);
+        A_PUT(Part33,1,loy);
+        A_PUT(Part33,2,loz); 
+        A_PUT(Part33,3,udx);
+        A_PUT(Part33,4,udy);
+        A_PUT(Part33,5,udz);  
+        A_PUT(Part33,6,vdx);
+        A_PUT(Part33,7,vdy);
+        A_PUT(Part33,8,vdz);	
+    }    
+
+    /*计算零件3-4相关参数 calculate parameter of part3-4*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;    
+        distance = -Tank_Size_a + Tank_Size_A/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = Tank_Size_H + Tank_Size_C/2;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);      	
+        lox = x;
+        loy = y;
+        loz = z;
+        udx = zdx;
+        udy = zdy;
+        udz = zdz;
+        vdx = Tank_Y_Dx;
+        vdy = Tank_Y_Dy;
+        vdz = Tank_Y_Dz;      	
+        A_PUT(Part34,0,lox);
+        A_PUT(Part34,1,loy);
+        A_PUT(Part34,2,loz); 
+        A_PUT(Part34,3,udx);
+        A_PUT(Part34,4,udy);
+        A_PUT(Part34,5,udz);  
+        A_PUT(Part34,6,vdx);
+        A_PUT(Part34,7,vdy);
+        A_PUT(Part34,8,vdz);	
+    }  
+
+    /*计算零件4-1相关参数 calculate parameter of part4-1*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = Tank_Size_ha - 0.5*Tank_Size_m;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B - Tank_Size_e;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance); 
+        distance = Tank_Size_H + Tank_Size_C;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+        
+        distance = Tank_Size_n - Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Tank_Y_Dx;
+        x_dy = Tank_Y_Dy;
+        x_dz = Tank_Y_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part41,0,x1);
+        A_PUT(Part41,1,y1);
+        A_PUT(Part41,2,z1);
+        A_PUT(Part41,3,x2);
+        A_PUT(Part41,4,y2);
+        A_PUT(Part41,5,z2);
+        A_PUT(Part41,6,x_dx);
+        A_PUT(Part41,7,x_dy);
+        A_PUT(Part41,8,x_dz);
+        A_PUT(Part41,9,end1x);
+        A_PUT(Part41,10,end1y);
+        A_PUT(Part41,11,end1z);
+        A_PUT(Part41,12,end2x);
+        A_PUT(Part41,13,end2y);
+        A_PUT(Part41,14,end2z);	
+    }  
+
+    /*计算零件4-2相关参数 calculate parameter of part4-2*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = Tank_Size_ha - 0.5*Tank_Size_m;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B -Tank_Size_e;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance); 
+        distance = Tank_Size_H + Tank_Size_C + Tank_Size_n - Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+        
+        distance = Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Tank_Y_Dx;
+        x_dy = Tank_Y_Dy;
+        x_dz = Tank_Y_Dz;
+        end1x = -zdx;
+        end1y = -zdy;
+        end1z = -zdz;
+        end2x = zdx;
+        end2y = zdy;
+        end2z = zdz;
+
+        A_PUT(Part42,0,x1);
+        A_PUT(Part42,1,y1);
+        A_PUT(Part42,2,z1);
+        A_PUT(Part42,3,x2);
+        A_PUT(Part42,4,y2);
+        A_PUT(Part42,5,z2);
+        A_PUT(Part42,6,x_dx);
+        A_PUT(Part42,7,x_dy);
+        A_PUT(Part42,8,x_dz);
+        A_PUT(Part42,9,end1x);
+        A_PUT(Part42,10,end1y);
+        A_PUT(Part42,11,end1z);
+        A_PUT(Part42,12,end2x);
+        A_PUT(Part42,13,end2y);
+        A_PUT(Part42,14,end2z);	
+    }  
+
+    /*计算零件4-3相关参数 calculate parameter of part4-3*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = Tank_Size_ha - 0.5*Tank_Size_m + Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B -Tank_Size_e;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance); 
+        distance = Tank_Size_H + Tank_Size_C + Tank_Size_n;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+        
+        distance = Tank_Size_m - 2*Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Tank_Y_Dx;
+        x_dy = Tank_Y_Dy;
+        x_dz = Tank_Y_Dz;
+        end1x = -Tank_X_Dx;
+        end1y = -Tank_X_Dy;
+        end1z = -Tank_X_Dz;
+        end2x = Tank_X_Dx;
+        end2y = Tank_X_Dy;
+        end2z = Tank_X_Dz;
+
+        A_PUT(Part43,0,x1);
+        A_PUT(Part43,1,y1);
+        A_PUT(Part43,2,z1);
+        A_PUT(Part43,3,x2);
+        A_PUT(Part43,4,y2);
+        A_PUT(Part43,5,z2);
+        A_PUT(Part43,6,x_dx);
+        A_PUT(Part43,7,x_dy);
+        A_PUT(Part43,8,x_dz);
+        A_PUT(Part43,9,end1x);
+        A_PUT(Part43,10,end1y);
+        A_PUT(Part43,11,end1z);
+        A_PUT(Part43,12,end2x);
+        A_PUT(Part43,13,end2y);
+        A_PUT(Part43,14,end2z);	
+    }  
+    
+    /*计算零件4-4相关参数 calculate parameter of part4-4*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = Tank_Size_ha + 0.5*Tank_Size_m - Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B - Tank_Size_e;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance); 
+        distance = Tank_Size_H + Tank_Size_C + Tank_Size_n;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+        
+        distance = Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,-distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Tank_Y_Dx;
+        x_dy = Tank_Y_Dy;
+        x_dz = Tank_Y_Dz;
+        end1x = zdx;
+        end1y = zdy;
+        end1z = zdz;
+        end2x = -zdx;
+        end2y = -zdy;
+        end2z = -zdz;
+
+        A_PUT(Part44,0,x1);
+        A_PUT(Part44,1,y1);
+        A_PUT(Part44,2,z1);
+        A_PUT(Part44,3,x2);
+        A_PUT(Part44,4,y2);
+        A_PUT(Part44,5,z2);
+        A_PUT(Part44,6,x_dx);
+        A_PUT(Part44,7,x_dy);
+        A_PUT(Part44,8,x_dz);
+        A_PUT(Part44,9,end1x);
+        A_PUT(Part44,10,end1y);
+        A_PUT(Part44,11,end1z);
+        A_PUT(Part44,12,end2x);
+        A_PUT(Part44,13,end2y);
+        A_PUT(Part44,14,end2z);	
+    }  
+
+    /*计算零件4-5相关参数 calculate parameter of part4-5*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = Tank_Size_ha + 0.5*Tank_Size_m;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B - Tank_Size_e;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance); 
+        distance = Tank_Size_H + Tank_Size_C + Tank_Size_n - Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);
+        x1=x;y1=y;z1=z;
+        
+        distance = Tank_Size_n - Tank_Size_r;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,-distance);
+        x2=x;y2=y;z2=z; 
+        
+        x_dx = Tank_Y_Dx;
+        x_dy = Tank_Y_Dy;
+        x_dz = Tank_Y_Dz;
+        end1x = zdx;
+        end1y = zdy;
+        end1z = zdz;
+        end2x = -zdx;
+        end2y = -zdy;
+        end2z = -zdz;
+
+        A_PUT(Part45,0,x1);
+        A_PUT(Part45,1,y1);
+        A_PUT(Part45,2,z1);
+        A_PUT(Part45,3,x2);
+        A_PUT(Part45,4,y2);
+        A_PUT(Part45,5,z2);
+        A_PUT(Part45,6,x_dx);
+        A_PUT(Part45,7,x_dy);
+        A_PUT(Part45,8,x_dz);
+        A_PUT(Part45,9,end1x);
+        A_PUT(Part45,10,end1y);
+        A_PUT(Part45,11,end1z);
+        A_PUT(Part45,12,end2x);
+        A_PUT(Part45,13,end2y);
+        A_PUT(Part45,14,end2z);	
+    }  
+    
+    /*计算零件5-1相关参数 calculate parameter of part5-1*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = Tank_Size_ha - Tank_Size_g;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B - Tank_Size_pb;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        distance = Tank_Size_H + Tank_Size_C;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);      	
+        
+        x_dx = -Tank_Y_Dx;
+        x_dy = -Tank_Y_Dy;
+        x_dz = -Tank_Y_Dz;
+        y_dx = Tank_X_Dx;
+        y_dy = Tank_X_Dy;
+        y_dz = Tank_X_Dz;
+
+        A_PUT(Part51,0,x);
+        A_PUT(Part51,1,y);
+        A_PUT(Part51,2,z);
+        A_PUT(Part51,3,x_dx);
+        A_PUT(Part51,4,x_dy);
+        A_PUT(Part51,5,x_dz);
+        A_PUT(Part51,6,y_dx);
+        A_PUT(Part51,7,y_dy);
+        A_PUT(Part51,8,y_dz);
+    }  
+
+    /*计算零件5-2相关参数 calculate parameter of part5-2*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = Tank_Size_ha + Tank_Size_g;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_B - Tank_Size_pb;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        distance = Tank_Size_H + Tank_Size_C;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);     
+
+        x_dx = -Tank_Y_Dx;
+        x_dy = -Tank_Y_Dy;
+        x_dz = -Tank_Y_Dz;
+        y_dx = Tank_X_Dx;
+        y_dy = Tank_X_Dy;
+        y_dz = Tank_X_Dz;
+
+        A_PUT(Part52,0,x);
+        A_PUT(Part52,1,y);
+        A_PUT(Part52,2,z);
+        A_PUT(Part52,3,x_dx);
+        A_PUT(Part52,4,x_dy);
+        A_PUT(Part52,5,x_dz);
+        A_PUT(Part52,6,y_dx);
+        A_PUT(Part52,7,y_dy);
+        A_PUT(Part52,8,y_dz);
+    }  
+
+    /*计算零件6-1相关参数 calculate parameter of part6-1*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = 0.5*Tank_Size_ea;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_eb;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        distance = Tank_Size_H + Tank_Size_C;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);     
+
+        x_dx = -Tank_Y_Dx;
+        x_dy = -Tank_Y_Dy;
+        x_dz = -Tank_Y_Dz;
+        y_dx = Tank_X_Dx;
+        y_dy = Tank_X_Dy;
+        y_dz = Tank_X_Dz;
+
+        A_PUT(Part61,0,x);
+        A_PUT(Part61,1,y);
+        A_PUT(Part61,2,z);
+        A_PUT(Part61,3,x_dx);
+        A_PUT(Part61,4,x_dy);
+        A_PUT(Part61,5,x_dz);
+        A_PUT(Part61,6,y_dx);
+        A_PUT(Part61,7,y_dy);
+        A_PUT(Part61,8,y_dz);
+    }  
+    
+    /*计算零件6-2相关参数 calculate parameter of part6-2*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = 0.5*Tank_Size_ea;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = -0.5*Tank_Size_eb;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        distance = Tank_Size_H + Tank_Size_C;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);     
+
+        x_dx = -Tank_Y_Dx;
+        x_dy = -Tank_Y_Dy;
+        x_dz = -Tank_Y_Dz;
+        y_dx = Tank_X_Dx;
+        y_dy = Tank_X_Dy;
+        y_dz = Tank_X_Dz;
+
+        A_PUT(Part62,0,x);
+        A_PUT(Part62,1,y);
+        A_PUT(Part62,2,z);
+        A_PUT(Part62,3,x_dx);
+        A_PUT(Part62,4,x_dy);
+        A_PUT(Part62,5,x_dz);
+        A_PUT(Part62,6,y_dx);
+        A_PUT(Part62,7,y_dy);
+        A_PUT(Part62,8,y_dz);
+    } 
+    
+    /*计算零件6-3相关参数 calculate parameter of part6-3*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = -0.5*Tank_Size_ea;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = -0.5*Tank_Size_eb;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        distance = Tank_Size_H + Tank_Size_C;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);     
+
+        x_dx = -Tank_Y_Dx;
+        x_dy = -Tank_Y_Dy;
+        x_dz = -Tank_Y_Dz;
+        y_dx = Tank_X_Dx;
+        y_dy = Tank_X_Dy;
+        y_dz = Tank_X_Dz;
+
+        A_PUT(Part63,0,x);
+        A_PUT(Part63,1,y);
+        A_PUT(Part63,2,z);
+        A_PUT(Part63,3,x_dx);
+        A_PUT(Part63,4,x_dy);
+        A_PUT(Part63,5,x_dz);
+        A_PUT(Part63,6,y_dx);
+        A_PUT(Part63,7,y_dy);
+        A_PUT(Part63,8,y_dz);
+    } 
+
+    /*计算零件6-4相关参数 calculate parameter of part6-4*/
+    if(1){
+        x = Tank_X0;
+        y = Tank_Y0;
+        z = Tank_Z0;
+        distance = -0.5*Tank_Size_ea;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_X_Dx,Tank_X_Dy,Tank_X_Dz,distance);
+        distance = 0.5*Tank_Size_eb;
+        Point_3D_Move_With_DirAndDis(x,y,z,Tank_Y_Dx,Tank_Y_Dy,Tank_Y_Dz,distance);  
+        distance = Tank_Size_H + Tank_Size_C;
+        Point_3D_Move_With_DirAndDis(x,y,z,zdx,zdy,zdz,distance);     
+
+        x_dx = -Tank_Y_Dx;
+        x_dy = -Tank_Y_Dy;
+        x_dz = -Tank_Y_Dz;
+        y_dx = Tank_X_Dx;
+        y_dy = Tank_X_Dy;
+        y_dz = Tank_X_Dz;
+
+        A_PUT(Part64,0,x);
+        A_PUT(Part64,1,y);
+        A_PUT(Part64,2,z);
+        A_PUT(Part64,3,x_dx);
+        A_PUT(Part64,4,x_dy);
+        A_PUT(Part64,5,x_dz);
+        A_PUT(Part64,6,y_dx);
+        A_PUT(Part64,7,y_dy);
+        A_PUT(Part64,8,y_dz);
+    } 
+    
+    return(0);
+}
+
+create_tank()
+{                            
+    /* 获取零件1及零件2的边长 */
+    beam_width = 1.0*DM_PARTID_DATA(Tank_Part1_Pid, "D31");
+    beam_hight = 1.0*DM_PARTID_DATA(Tank_Part1_Pid, "D32");
+    bot_plate_thickness = 1.0*DM_PARTID_DATA(Tank_Part2_Pid, "D31");
+    side_plate_thickness = 1.0*DM_PARTID_DATA(Tank_Part3_Pid, "D31"); 
+     
+    /* 定义箱柜零件集合 */   
+    tank = PM_INIT_SET();   
+    /* 生成零件1-1 create part 1-1*/
+    if(1){
+        x1 =    A_GET(Part11,0);
+        y1 =    A_GET(Part11,1);
+        z1 =    A_GET(Part11,2);
+        x2 =    A_GET(Part11,3);
+        y2 =    A_GET(Part11,4);
+        z2 =    A_GET(Part11,5);   
+        x_dx =  A_GET(Part11,6);
+        x_dy =  A_GET(Part11,7);
+        x_dz =  A_GET(Part11,8);   
+        end1x = A_GET(Part11,9);
+        end1y = A_GET(Part11,10);
+        end1z = A_GET(Part11,11);	
+        end2x = A_GET(Part11,12);
+        end2y = A_GET(Part11,13);
+        end2z = A_GET(Part11,14);	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件1-2 create part 1-2*/
+    if(1){
+        x1 =    A_GET(Part12,0);
+        y1 =    A_GET(Part12,1);
+        z1 =    A_GET(Part12,2);
+        x2 =    A_GET(Part12,3);
+        y2 =    A_GET(Part12,4);
+        z2 =    A_GET(Part12,5);   
+        x_dx =  A_GET(Part12,6);
+        x_dy =  A_GET(Part12,7);
+        x_dz =  A_GET(Part12,8);   
+        end1x = A_GET(Part12,9);
+        end1y = A_GET(Part12,10);
+        end1z = A_GET(Part12,11);	
+        end2x = A_GET(Part12,12);
+        end2y = A_GET(Part12,13);
+        end2z = A_GET(Part12,14);	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-2");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    }   
+     
+    /* 生成零件1-3 create part 1-3*/
+    if(1){
+        x1 =    A_GET(Part13,0);
+        y1 =    A_GET(Part13,1);
+        z1 =    A_GET(Part13,2);
+        x2 =    A_GET(Part13,3);
+        y2 =    A_GET(Part13,4);
+        z2 =    A_GET(Part13,5);   
+        x_dx =  A_GET(Part13,6);
+        x_dy =  A_GET(Part13,7);
+        x_dz =  A_GET(Part13,8);   
+        end1x = A_GET(Part13,9);
+        end1y = A_GET(Part13,10);
+        end1z = A_GET(Part13,11);	
+        end2x = A_GET(Part13,12);
+        end2y = A_GET(Part13,13);
+        end2z = A_GET(Part13,14);	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-3");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    }  
+   
+    /* 生成零件1-4 create part 1-4*/
+    if(1){
+        x1 =    A_GET(Part14,0);
+        y1 =    A_GET(Part14,1);
+        z1 =    A_GET(Part14,2);
+        x2 =    A_GET(Part14,3);
+        y2 =    A_GET(Part14,4);
+        z2 =    A_GET(Part14,5);   
+        x_dx =  A_GET(Part14,6);
+        x_dy =  A_GET(Part14,7);
+        x_dz =  A_GET(Part14,8);   
+        end1x = A_GET(Part14,9);
+        end1y = A_GET(Part14,10);
+        end1z = A_GET(Part14,11);	
+        end2x = A_GET(Part14,12);
+        end2y = A_GET(Part14,13);
+        end2z = A_GET(Part14,14);	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part1_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "1-4");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件2-1 create part 2-1*/
+    if(1){      
+        size1 = Tank_Size_A; 
+        size2 = Tank_Size_B; 
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/
+        curve = create_rect_curve(size1,size2);      
+
+        /* 生成零件*/                        
+        lox = A_GET(Part21,0);
+        loy = A_GET(Part21,1);
+        loz = A_GET(Part21,2);	
+        udx = A_GET(Part21,3);
+        udy = A_GET(Part21,4);
+        udz = A_GET(Part21,5);
+        vdx = A_GET(Part21,6);
+        vdy = A_GET(Part21,7);
+        vdz = A_GET(Part21,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Tank_Part2_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+        
+        Set_Attribute_Value(plate_handle, PartNumber,  "2-1");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, tank); 		      
+        free_2darray(hole_list);  
+    }      
+
+    /* 生成零件2-2 create part 2-2*/
+    if(1){      
+        size11 = Tank_Size_A; 
+        size12 = Tank_Size_B; 
+        size21 = Tank_Size_pa+2*Tank_Size_hc; 
+        size22 = Tank_Size_pb+Tank_Size_hc; 
+        offset = Tank_Size_ha; 
+
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/
+        /* curve = create_rect_curve(size1,size2);   */
+        curve = create_aocao_curve(size11,size12,size21,size22,offset);  
+
+        /* 生成零件*/                        
+        lox = A_GET(Part22,0);
+        loy = A_GET(Part22,1);
+        loz = A_GET(Part22,2);	
+        udx = A_GET(Part22,3);
+        udy = A_GET(Part22,4);
+        udz = A_GET(Part22,5);
+        vdx = A_GET(Part22,6);
+        vdy = A_GET(Part22,7);
+        vdz = A_GET(Part22,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Tank_Part2_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+                    
+        Set_Attribute_Value(plate_handle, PartNumber,  "2-2");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, tank); 
+        free_2darray(hole_list);  
+    } 
+
+    /* 生成零件2-3 create part 2-3*/
+    if(1){      
+        size1 = Tank_Size_pa; 
+        size2 = Tank_Size_pb; 
+        /* 定义一个空的开孔数组 */
+        hole_list = alloc_2darray(0, 0);   	
+        /*定义板轮廓*/
+        curve = create_rect_curve(size1,size2);  
+
+        /* 生成零件*/                        
+        lox = A_GET(Part23,0);
+        loy = A_GET(Part23,1);
+        loz = A_GET(Part23,2);	
+        udx = A_GET(Part23,3);
+        udy = A_GET(Part23,4);
+        udz = A_GET(Part23,5);
+        vdx = A_GET(Part23,6);
+        vdy = A_GET(Part23,7);
+        vdz = A_GET(Part23,8);  	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        plate_handle = Create_Plate(Tank_Part2_Pid, SystemId, curve, tmat_h, hole_list);          
+        if(ISINT(plate_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+                    
+        Set_Attribute_Value(plate_handle, PartNumber,  "2-3");	
+        PM_ADD_OBJECT_TO_SET(plate_handle, tank); 
+        free_2darray(hole_list);  
+    } 
+    
+    /* 生成零件3-1 create part 3-1*/
+    if(1){
+        size1 = Tank_Size_C-2*(bot_plate_thickness); 
+        size2 = Tank_Size_A-2*(Tank_Size_a+side_plate_thickness); 
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Tank_Size_A);*/
+        curve = create_rect_curve(size1,size2);
+        
+        lox = A_GET(Part31,0);
+        loy = A_GET(Part31,1);
+        loz = A_GET(Part31,2);	
+        udx = A_GET(Part31,3);
+        udy = A_GET(Part31,4);
+        udz = A_GET(Part31,5);
+        vdx = A_GET(Part31,6);
+        vdy = A_GET(Part31,7);
+        vdz = A_GET(Part31,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Tank_Part2_Pid, SystemId, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+                
+        Set_Attribute_Value(part_handle, PartNumber,  "3-1");	
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 		  
+        free_2darray(hole_list);  
+    } 
+
+    /* 生成零件3-2 create part 3-2*/
+    if(1){       
+        size1 = Tank_Size_A-2*(Tank_Size_a+side_plate_thickness);    
+        size2 = Tank_Size_C-2*(bot_plate_thickness);        
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Tank_Size_A);*/
+        curve = create_rect_curve(size1,size2);
+                                  
+        lox = A_GET(Part32,0);
+        loy = A_GET(Part32,1);
+        loz = A_GET(Part32,2);	
+        udx = A_GET(Part32,3);
+        udy = A_GET(Part32,4);
+        udz = A_GET(Part32,5);
+        vdx = A_GET(Part32,6);
+        vdy = A_GET(Part32,7);
+        vdz = A_GET(Part32,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Tank_Part3_Pid, SystemId, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+                    
+        Set_Attribute_Value(part_handle, PartNumber,  "3-2");	
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 		  
+        free_2darray(hole_list);  
+    }	
+	
+    /* 生成零件3-3 create part 3-3*/
+    if(1){      
+        size1 = Tank_Size_B-2*(Tank_Size_b1); 
+        size2 = Tank_Size_C-2*(bot_plate_thickness); 
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Tank_Size_A);*/
+        curve = create_rect_curve(size1,size2);
+                                  
+        lox = A_GET(Part33,0);
+        loy = A_GET(Part33,1);
+        loz = A_GET(Part33,2);	
+        udx = A_GET(Part33,3);
+        udy = A_GET(Part33,4);
+        udz = A_GET(Part33,5);
+        vdx = A_GET(Part33,6);
+        vdy = A_GET(Part33,7);
+        vdz = A_GET(Part33,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Tank_Part3_Pid, SystemId, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+                    
+        Set_Attribute_Value(part_handle, PartNumber,  "3-3");	
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 		      
+        free_2darray(hole_list);  
+    }
+
+    /* 生成零件3-4 create part 3-4*/
+    if(1){       
+        size1 = Tank_Size_C-2*(bot_plate_thickness); 
+        size2 = Tank_Size_B-2*(Tank_Size_b1);        
+        hole_list = alloc_2darray(0, 0);  
+        /*calculate_hole_list(hole_list,Tank_Size_A);*/
+        curve = create_rect_curve(size1,size2);
+                                  
+        lox = A_GET(Part34,0);
+        loy = A_GET(Part34,1);
+        loz = A_GET(Part34,2);	
+        udx = A_GET(Part34,3);
+        udy = A_GET(Part34,4);
+        udz = A_GET(Part34,5);
+        vdx = A_GET(Part34,6);
+        vdy = A_GET(Part34,7);
+        vdz = A_GET(Part34,8); 
+
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,udx,udy,udz,vdx,vdy,vdz);	    	 
+        part_handle = Create_Plate(Tank_Part3_Pid, SystemId, curve, tmat_h, hole_list);         
+        if(ISINT(part_handle)){
+            free_2darray(hole_list);
+            st = PM_UM_CLOSE_CHANGE();
+            return(-1);
+        }   
+             
+        Set_Attribute_Value(part_handle, PartNumber,  "3-4");	
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 		      
+        free_2darray(hole_list);  
+    }				
+
+    /* 生成零件4-1 create part 4-1*/
+    if(1){
+        x1 =    A_GET(Part41,0);
+        y1 =    A_GET(Part41,1);
+        z1 =    A_GET(Part41,2);
+        x2 =    A_GET(Part41,3);
+        y2 =    A_GET(Part41,4);
+        z2 =    A_GET(Part41,5);   
+        x_dx =  A_GET(Part41,6);
+        x_dy =  A_GET(Part41,7);
+        x_dz =  A_GET(Part41,8);   
+        end1x = A_GET(Part41,9);
+        end1y = A_GET(Part41,10);
+        end1z = A_GET(Part41,11);	
+        end2x = A_GET(Part41,12);
+        end2y = A_GET(Part41,13);
+        end2z = A_GET(Part41,14);	
+
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part4_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);             
+        Set_Attribute_Value(part_handle, PartNumber,  "4-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件4-2 create part 4-2*/
+    if(1){
+        x1 =    A_GET(Part42,0);
+        y1 =    A_GET(Part42,1);
+        z1 =    A_GET(Part42,2);
+        x2 =    A_GET(Part42,3);
+        y2 =    A_GET(Part42,4);
+        z2 =    A_GET(Part42,5);   
+        x_dx =  A_GET(Part42,6);
+        x_dy =  A_GET(Part42,7);
+        x_dz =  A_GET(Part42,8);   
+        end1x = A_GET(Part42,9);
+        end1y = A_GET(Part42,10);
+        end1z = A_GET(Part42,11);	
+        end2x = A_GET(Part42,12);
+        end2y = A_GET(Part42,13);
+        end2z = A_GET(Part42,14);	
+
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part4_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h); 
+        dh = Tank_Size_r * (1-COS(45));
+        res = PM_SET_BENDING_INFO_OF_BEAM(part_handle, 2, dh);            
+        Set_Attribute_Value(part_handle, PartNumber,  "4-2");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+    
+    /* 生成零件4-3 create part 4-3*/
+    if(1){
+        x1 =    A_GET(Part43,0);
+        y1 =    A_GET(Part43,1);
+        z1 =    A_GET(Part43,2);
+        x2 =    A_GET(Part43,3);
+        y2 =    A_GET(Part43,4);
+        z2 =    A_GET(Part43,5);   
+        x_dx =  A_GET(Part43,6);
+        x_dy =  A_GET(Part43,7);
+        x_dz =  A_GET(Part43,8);   
+        end1x = A_GET(Part43,9);
+        end1y = A_GET(Part43,10);
+        end1z = A_GET(Part43,11);	
+        end2x = A_GET(Part43,12);
+        end2y = A_GET(Part43,13);
+        end2z = A_GET(Part43,14);	
+
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part4_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);       
+        Set_Attribute_Value(part_handle, PartNumber,  "4-3");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件4-4 create part 4-4*/
+    if(1){
+        x1 =    A_GET(Part44,0);
+        y1 =    A_GET(Part44,1);
+        z1 =    A_GET(Part44,2);
+        x2 =    A_GET(Part44,3);
+        y2 =    A_GET(Part44,4);
+        z2 =    A_GET(Part44,5);   
+        x_dx =  A_GET(Part44,6);
+        x_dy =  A_GET(Part44,7);
+        x_dz =  A_GET(Part44,8);   
+        end1x = A_GET(Part44,9);
+        end1y = A_GET(Part44,10);
+        end1z = A_GET(Part44,11);	
+        end2x = A_GET(Part44,12);
+        end2y = A_GET(Part44,13);
+        end2z = A_GET(Part44,14);	
+
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part4_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h); 
+        dh = Tank_Size_r * (1-COS(45));
+        res = PM_SET_BENDING_INFO_OF_BEAM(part_handle, 2, dh);            
+        Set_Attribute_Value(part_handle, PartNumber,  "4-4");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件4-5 create part 4-5*/
+    if(1){
+        x1 =    A_GET(Part45,0);
+        y1 =    A_GET(Part45,1);
+        z1 =    A_GET(Part45,2);
+        x2 =    A_GET(Part45,3);
+        y2 =    A_GET(Part45,4);
+        z2 =    A_GET(Part45,5);   
+        x_dx =  A_GET(Part45,6);
+        x_dy =  A_GET(Part45,7);
+        x_dz =  A_GET(Part45,8);   
+        end1x = A_GET(Part45,9);
+        end1y = A_GET(Part45,10);
+        end1z = A_GET(Part45,11);	
+        end2x = A_GET(Part45,12);
+        end2y = A_GET(Part45,13);
+        end2z = A_GET(Part45,14);	
+
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Beam(Tank_Part4_Pid,SystemId,x1,y1,z1,x2,y2,z2,x_dx,x_dy,x_dz,
+                                  end1x,end1y,end1z,end2x,end2y,end2z,tmat_h);             
+        Set_Attribute_Value(part_handle, PartNumber,  "4-5");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+    
+    /* 生成零件5-1 create part 5-1*/
+    if(1){
+        x =     A_GET(Part51,0);
+        y =     A_GET(Part51,1);
+        z =     A_GET(Part51,2);
+        x_dx =  A_GET(Part51,3);
+        x_dy =  A_GET(Part51,4);
+        x_dz =  A_GET(Part51,5);   
+        y_dx =  A_GET(Part51,6);
+        y_dy =  A_GET(Part51,7);
+        y_dz =  A_GET(Part51,8); 
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Standcomp(Tank_Part5_Pid,SystemId,x,y,z,
+                                       x_dx,x_dy,x_dz,y_dx,y_dy,y_dz,tmat_h); 
+        Set_Attribute_Value(part_handle, PartNumber,  "5-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+        
+    } 
+
+    /* 生成零件5-2 create part 5-2*/
+    if(1){
+        x =     A_GET(Part52,0);
+        y =     A_GET(Part52,1);
+        z =     A_GET(Part52,2);
+        x_dx =  A_GET(Part52,3);
+        x_dy =  A_GET(Part52,4);
+        x_dz =  A_GET(Part52,5);   
+        y_dx =  A_GET(Part52,6);
+        y_dy =  A_GET(Part52,7);
+        y_dz =  A_GET(Part52,8);   
+	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Standcomp(Tank_Part5_Pid,SystemId,x,y,z,
+                                       x_dx,x_dy,x_dz,y_dx,y_dy,y_dz,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "5-2");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件6-1 create part 6-1*/
+    if(1){
+        x =     A_GET(Part61,0);
+        y =     A_GET(Part61,1);
+        z =     A_GET(Part61,2);
+        x_dx =  A_GET(Part61,3);
+        x_dy =  A_GET(Part61,4);
+        x_dz =  A_GET(Part61,5);   
+        y_dx =  A_GET(Part61,6);
+        y_dy =  A_GET(Part61,7);
+        y_dz =  A_GET(Part61,8);   
+	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Standcomp(Tank_Part6_Pid,SystemId,x,y,z,
+                                       x_dx,x_dy,x_dz,y_dx,y_dy,y_dz,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "6-1");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+    
+    /* 生成零件6-2 create part 6-2*/
+    if(1){
+        x =     A_GET(Part62,0);
+        y =     A_GET(Part62,1);
+        z =     A_GET(Part62,2);
+        x_dx =  A_GET(Part62,3);
+        x_dy =  A_GET(Part62,4);
+        x_dz =  A_GET(Part62,5);   
+        y_dx =  A_GET(Part62,6);
+        y_dy =  A_GET(Part62,7);
+        y_dz =  A_GET(Part62,8);   
+	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Standcomp(Tank_Part6_Pid,SystemId,x,y,z,
+                                       x_dx,x_dy,x_dz,y_dx,y_dy,y_dz,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "6-2");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件6-3 create part 6-3*/
+    if(1){
+        x =     A_GET(Part63,0);
+        y =     A_GET(Part63,1);
+        z =     A_GET(Part63,2);
+        x_dx =  A_GET(Part63,3);
+        x_dy =  A_GET(Part63,4);
+        x_dz =  A_GET(Part63,5);   
+        y_dx =  A_GET(Part63,6);
+        y_dy =  A_GET(Part63,7);
+        y_dz =  A_GET(Part63,8);   
+	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Standcomp(Tank_Part6_Pid,SystemId,x,y,z,
+                                       x_dx,x_dy,x_dz,y_dx,y_dy,y_dz,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "6-3");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+
+    /* 生成零件6-4 create part 6-4*/
+    if(1){
+        x =     A_GET(Part64,0);
+        y =     A_GET(Part64,1);
+        z =     A_GET(Part64,2);
+        x_dx =  A_GET(Part64,3);
+        x_dy =  A_GET(Part64,4);
+        x_dz =  A_GET(Part64,5);   
+        y_dx =  A_GET(Part64,6);
+        y_dy =  A_GET(Part64,7);
+        y_dz =  A_GET(Part64,8);   
+	
+        lox = 0;
+        loy = 0;
+        loz = 0;	
+        tmat_h = PM_CREATE_TMAT(1,lox,loy,loz,1,0,0,0,1,0);   
+        part_handle = Create_Standcomp(Tank_Part6_Pid,SystemId,x,y,z,
+                                       x_dx,x_dy,x_dz,y_dx,y_dy,y_dz,tmat_h);                       
+        Set_Attribute_Value(part_handle, PartNumber,  "6-4");   
+        PM_ADD_OBJECT_TO_SET(part_handle, tank); 
+    } 
+    
+    PM_ADD_SET_TO_GROUP(tank, Tank_Handle);
+    set_tank_para(Tank_Handle);
+    save_model_size();
+    PM_FREE_SET(tank);   
+	return(0);
+}
+
+calculate_hole_list(hole_list,hole_dia)
+{
+	hole1_size = "circle1 = CURVE(" + STRINGTERM(FTOASCII(hole_dia),".") + "\/ 2,0,ARC,0,0,360)\;";
+	hole1_pos  = ",circle1,0,0";		
+	
+	/* 将开孔信息存入数组 */
+	put_2darray(hole_list,0,0,hole1_size);
+	put_2darray(hole_list,0,1,hole1_pos);	
+	return(0);  
+}
+
+set_tank_para(group_h)
+{
+    Set_Attribute_Value(group_h, PlanningUnit,  PlanningUnit_);
+    Set_Attribute_Value(group_h, TankDes,  ModelDescription);
+    Set_Attribute_Value(group_h, TankType, Tank_Type);
+    W_SET_NUMERIC_VALUE(Tank_Para_A, Tank_Size_A);
+    W_SET_NUMERIC_VALUE(Tank_Para_B, Tank_Size_B);
+    W_SET_NUMERIC_VALUE(Tank_Para_C, Tank_Size_C);
+    W_SET_NUMERIC_VALUE(Tank_Para_H, Tank_Size_H); 
+    W_SET_NUMERIC_VALUE(Tank_Para_a, Tank_Size_a);   
+    W_SET_NUMERIC_VALUE(Tank_Para_b1, Tank_Size_b1);   
+    W_SET_NUMERIC_VALUE(Tank_Para_b2, Tank_Size_b2);   
+    W_SET_NUMERIC_VALUE(Tank_Para_c1, Tank_Size_c1);   
+    W_SET_NUMERIC_VALUE(Tank_Para_c2, Tank_Size_c2); 
+    
+    W_SET_NUMERIC_VALUE(Tank_Para_ha, Tank_Size_ha); 
+    W_SET_NUMERIC_VALUE(Tank_Para_hc, Tank_Size_hc); 
+    W_SET_NUMERIC_VALUE(Tank_Para_pa, Tank_Size_pa); 
+    W_SET_NUMERIC_VALUE(Tank_Para_pb, Tank_Size_pb); 
+    W_SET_NUMERIC_VALUE(Tank_Para_e, Tank_Size_e); 
+    W_SET_NUMERIC_VALUE(Tank_Para_g, Tank_Size_g); 
+    W_SET_NUMERIC_VALUE(Tank_Para_m, Tank_Size_m); 
+    W_SET_NUMERIC_VALUE(Tank_Para_n, Tank_Size_n);  
+    W_SET_NUMERIC_VALUE(Tank_Para_r, Tank_Size_r);  
+    W_SET_NUMERIC_VALUE(Tank_Para_ea, Tank_Size_ea);  
+    W_SET_NUMERIC_VALUE(Tank_Para_eb, Tank_Size_eb);      
+    return(0);
+}
+
+quit_handler(item, event_type, button_value)
+{ 
+    A_FREE(Part11);
+    A_FREE(Part12);
+    A_FREE(Part13);
+    A_FREE(Part14);  
+    A_FREE(Part21);
+    A_FREE(Part22);
+    A_FREE(Part23);
+    A_FREE(Part31);
+    A_FREE(Part32);
+    A_FREE(Part33);
+    A_FREE(Part34);
+    A_FREE(Part41);
+    A_FREE(Part42);
+    A_FREE(Part43);
+    A_FREE(Part44);
+    A_FREE(Part45);
+    A_FREE(Part51);
+    A_FREE(Part52);
+    A_FREE(Part61);
+    A_FREE(Part62);
+    A_FREE(Part63);
+    A_FREE(Part64);
+	U_MESSAGE("箱柜参数化建模窗口");
+	return(99);
+}
+
+/*
+**创建用于输入及编辑箱柜参数的面板
+*/
+create_parameter_panel(mainform)
+{
+	Parameters = W_ADD_WINDOW(mainform, W_PANEL, "Parameters");
+	W_REALIZE_WINDOW(Parameters,  W_FRAME_X, 465,
+	                              W_FRAME_Y, 320,
+							      W_FRAME_WIDTH, 100,
+							      W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"箱柜尺寸");
+
+   seperate_line = W_ADD_PANELITEM(Parameters, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+		                                 							         
+   /* 箱柜参数 A */
+	Tank_Para_A = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_A");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_A, W_NUMERIC_FLOAT,
+                                           1, 10000,
+                                           "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_A, W_PANEL_ROW, 1, 
+	                                 W_PANEL_COL, 1,
+							         W_PANEL_LABEL, " A: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);      							               
+	W_SET_PANELITEM_HANDLER(Tank_Para_A, "tank_para_handler"); 
+	
+   /* 箱柜参数 B */
+	Tank_Para_B = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_B");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_B, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_B, W_PANEL_ROW, 1, 
+	                                 W_PANEL_COL, 12,
+							         W_PANEL_LABEL, " B: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);
+	W_SET_PANELITEM_HANDLER(Tank_Para_B, "tank_para_handler");
+
+   /* 箱柜参数 C */
+	Tank_Para_C = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_C");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_C, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_C, W_PANEL_ROW, 2, 
+	                                 W_PANEL_COL, 1,
+							         W_PANEL_LABEL, " C: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);          							               
+	W_SET_PANELITEM_HANDLER(Tank_Para_C, "tank_para_handler");
+
+   /* 箱柜参数 H */
+	Tank_Para_H = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_H");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_H, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_H, W_PANEL_ROW, 2, 
+	                                 W_PANEL_COL, 12,
+							         W_PANEL_LABEL, " H: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_H, "tank_para_handler");	
+
+   /* 箱柜参数 a */
+	Tank_Para_a = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_a");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_a, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_a, W_PANEL_ROW, 3, 
+	                                 W_PANEL_COL, 1,
+							         W_PANEL_LABEL, " a: ",
+							         W_PANEL_LENGTH, 6,
+							         W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_a, "tank_para_handler");	
+
+   /* 箱柜参数 b1 */
+	Tank_Para_b1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_b1");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_b1, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_b1, W_PANEL_ROW, 3, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, "b1: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_b1, "tank_para_handler");
+
+   /* 箱柜参数 b2 */
+	Tank_Para_b2 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_b2");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_b2, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_b2, W_PANEL_ROW, 4, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, "b2: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_b2, "tank_para_handler");  
+
+   /* 箱柜参数 c1*/
+	Tank_Para_c1 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_c1");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_c1, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_c1, W_PANEL_ROW, 4, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, "c1: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_c1, "tank_para_handler");  
+
+   /* 箱柜参数 c2*/
+	Tank_Para_c2 = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_c2");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_c2, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_c2, W_PANEL_ROW, 5, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, "c2: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_c2, "tank_para_handler");  
+
+   /* 箱柜参数 r*/
+	Tank_Para_r = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_r");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_r, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_r, W_PANEL_ROW, 5, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, " r: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_r, "tank_para_handler");  
+
+   /* 箱柜参数 m*/
+	Tank_Para_m = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_m");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_m, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_m, W_PANEL_ROW, 6, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, " m: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_m, "tank_para_handler");  
+
+   /* 箱柜参数 n*/
+	Tank_Para_n = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_n");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_n, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_n, W_PANEL_ROW, 6, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, " n: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_n, "tank_para_handler");  
+
+   /* 箱柜参数 e*/
+	Tank_Para_e = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_e");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_e, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_e, W_PANEL_ROW, 7, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, " e: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_e, "tank_para_handler");  
+
+   /* 箱柜参数 g*/
+	Tank_Para_g = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_g");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_g, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_g, W_PANEL_ROW, 7, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, " g: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_g, "tank_para_handler");  
+
+   /* 箱柜参数 pa*/
+	Tank_Para_pa = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_pa");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_pa, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_pa, W_PANEL_ROW, 8, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, "pa: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_pa, "tank_para_handler");  
+
+   /* 箱柜参数 pb*/
+	Tank_Para_pb = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_pb");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_pb, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_pb, W_PANEL_ROW, 8, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, "pb: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_pb, "tank_para_handler");  
+    
+   /* 箱柜参数 ha*/
+	Tank_Para_ha = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_ha");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_ha, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_ha, W_PANEL_ROW, 9, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, "ha: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_ha, "tank_para_handler");  
+
+   /* 箱柜参数 hc*/
+	Tank_Para_hc = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_hc");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_hc, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_hc, W_PANEL_ROW, 9, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, "hc: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_hc, "tank_para_handler");  
+
+   /* 箱柜参数 ea*/
+	Tank_Para_ea = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_ea");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_ea, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_ea, W_PANEL_ROW, 10, 
+	                                  W_PANEL_COL, 1,
+							          W_PANEL_LABEL, "ea: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_ea, "tank_para_handler");  
+
+   /* 箱柜参数 eb*/
+	Tank_Para_eb = W_ADD_PANELITEM(Parameters, W_PANEL_FILL, "Tank_Para_eb");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Para_eb, W_NUMERIC_FLOAT,
+                                            1, 10000,
+                                            "%.0f");
+	W_REALIZE_PANELITEM(Tank_Para_eb, W_PANEL_ROW, 10, 
+	                                  W_PANEL_COL, 12,
+							          W_PANEL_LABEL, "eb: ",
+							          W_PANEL_LENGTH, 6,
+							          W_PANEL_CALLBACK, 1);					               
+	W_SET_PANELITEM_HANDLER(Tank_Para_eb, "tank_para_handler");  
+    
+	return(Parameters);
+}
+
+/*
+**处理箱柜参数发生更改的事件
+*/
+tank_para_handler(item, event_type, dummy)
+{  
+   /* 处理输入新数值后 */
+   if (event_type == W_EVENT_ITEM_LEFT){
+      /* 检查参数是否正确 */
+      if (item == Tank_Para_A){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_A", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_A = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_A", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:A");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      }
+      else if (item == Tank_Para_B){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_B", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_B = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_B", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:B");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      }   
+      else if (item == Tank_Para_C){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_C", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_C = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_C", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:C");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      }
+      else if (item == Tank_Para_H){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_H", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_H = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_H", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:H");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+
+      } 
+      else if (item == Tank_Para_a){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_a", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_a = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_a", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:a");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+
+      } 
+      else if (item == Tank_Para_b1){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_b1", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_b1 = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_b1", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:b1");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         } 
+      } 
+      else if (item == Tank_Para_b2){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_b2", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_b2 = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_b2", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:b2");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_c1){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_c1", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_c1 = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_c1", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:c1");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_c2){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_c2", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_c2 = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_c2", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:c2");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_pa){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_pa", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_pa = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_pa", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:pa");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_pb){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_pb", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_pb = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_pb", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:pb");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_ha){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_ha", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_ha = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_ha", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:ha");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_hc){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_hc", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_hc = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_hc", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:hc");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_e){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_e", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_e = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_e", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:e");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_g){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_g", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_g = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_g", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:g");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_m){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_m", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_m = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_m", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:m");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_n){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_n", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_n = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_n", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:n");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_r){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_r", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_r = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_r", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:r");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_ea){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_ea", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_ea = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_ea", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:ea");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      else if (item == Tank_Para_eb){
+         st = 0;
+         value = W_GET_NUMERIC_VALUE(item, st);
+         if (st != 0){
+            orgin = 0;
+	         st1 = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_eb", orgin);
+	         if(st1 == 0){
+		         W_SET_NUMERIC_VALUE(item, orgin);
+		         value = orgin;
+		      }
+		      else{
+		         W_SET_NUMERIC_VALUE(item, 0);
+		         return(-1);
+		      }
+         }
+         
+         Tank_Size_eb = value;
+         st = SET_FLOAT_DEFAULT("Tank103", "Tank_Para_eb", value);
+         
+         if(Modify_flag){
+            /* 定义UNDO缓存 define cache for undo */
+            st = PM_UM_OPEN_CHANGE("修改箱柜参数:eb");
+            calculate_tank_para();
+            delete_tank_members();
+            create_tank();             
+            st = PM_UM_CLOSE_CHANGE();           
+         }                 
+      } 
+      
+   }
+   return(0); 
+}
+
+/*
+**创建用于输入及编辑箱柜位置的面板
+*/
+create_position_panel(mainform)
+{
+	Position = W_ADD_WINDOW(mainform, W_PANEL, "Position");
+	
+	W_REALIZE_WINDOW(Position,  W_FRAME_X, 465,
+	                            W_FRAME_Y, 600,
+							    W_FRAME_WIDTH, 100,
+							    W_FRAME_HEIGHT, 180);
+
+	title = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "title");
+	
+	W_REALIZE_PANELITEM(title, W_PANEL_ROW,	0,
+		                       W_PANEL_COL,	0,
+		                       W_PANEL_LABEL,	"箱柜位置");
+
+    seperate_line = W_ADD_PANELITEM(Position, W_PANEL_MESSAGE, "seperate_line");
+   
+	W_REALIZE_PANELITEM(seperate_line,  W_PANEL_ROW, 0,
+	                                    W_PANEL_COL, 7,
+		                                W_PANEL_LABEL,	"",
+		                                W_PANEL_SEPARATOR, 1);
+   
+	/* 箱柜位置信息-绝对坐标 */
+	Tank_Position_X = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_X");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Position_X, W_NUMERIC_INT,
+                                               -1000000, 1000000);                                          	
+	W_REALIZE_PANELITEM(Tank_Position_X,   W_PANEL_ROW, 1, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "X: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);	
+	W_SET_NUMERIC_VALUE(Tank_Position_X, 10000);						                     	
+	W_SET_PANELITEM_HANDLER(Tank_Position_X, "tank_position_handler"); 
+
+	Tank_Position_Y = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_Y");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Position_Y, W_NUMERIC_INT,
+                                               -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Tank_Position_Y,   W_PANEL_ROW, 2, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Y: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Tank_Position_Y, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Tank_Position_Y, "tank_position_handler");
+
+	Tank_Position_Z = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_Z");
+    W_CONFIG_NUMERIC_PANELITEM(Tank_Position_Z, W_NUMERIC_INT,
+                                               -1000000, 1000000);	
+	W_REALIZE_PANELITEM(Tank_Position_Z,   W_PANEL_ROW, 3, 
+	                                       W_PANEL_COL, 0,
+							               W_PANEL_LABEL, "Z: ",
+							               W_PANEL_LENGTH, 7,
+							               W_PANEL_VALUE, "0",
+							               W_PANEL_CALLBACK, 1);							                     
+	W_SET_NUMERIC_VALUE(Tank_Position_Z, 10000);							                     							                     
+	W_SET_PANELITEM_HANDLER(Tank_Position_Z, "tank_position_handler");	
+
+	/* 箱柜位置信息-参考面 */
+	Tank_Position_Xref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_Xref");
+	W_REALIZE_PANELITEM(Tank_Position_Xref,	W_PANEL_ROW, 			1, 
+	                                        W_PANEL_COL, 			11,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                     
+	W_SET_PANELITEM_HANDLER(Tank_Position_Xref, "tank_position_handler"); 
+
+	Tank_Position_Yref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_Yref");	
+	W_REALIZE_PANELITEM(Tank_Position_Yref,	W_PANEL_ROW, 			2, 
+	                                        W_PANEL_COL, 			11,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);
+	W_SET_PANELITEM_HANDLER(Tank_Position_Yref, "tank_position_handler");
+    
+	Tank_Position_Zref = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_Zref");	
+	W_REALIZE_PANELITEM(Tank_Position_Zref,	W_PANEL_ROW, 			3, 
+	                                        W_PANEL_COL, 			11,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_PANELITEM_HANDLER(Tank_Position_Zref, "tank_position_handler");	
+
+	/* 箱柜位置信息-偏移量 */	
+	Tank_Position_Xoff = W_ADD_PANELITEM(Position,	W_PANEL_FILL, "Tank_Position_Xoff");
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Position_Xoff,	W_NUMERIC_INT,
+													-10000, 10000);	
+	W_REALIZE_PANELITEM(Tank_Position_Xoff,	W_PANEL_ROW, 			1, 
+	                                        W_PANEL_COL, 			18,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                     	
+	W_SET_NUMERIC_VALUE(Tank_Position_Xoff, 0);	
+	W_SET_PANELITEM_HANDLER(Tank_Position_Xoff, "tank_position_handler"); 
+
+	Tank_Position_Yoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_Yoff");
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Position_Yoff,	W_NUMERIC_INT,
+													-10000, 10000);	
+	W_REALIZE_PANELITEM(Tank_Position_Yoff,	W_PANEL_ROW, 			2, 
+	                                        W_PANEL_COL, 			18,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);							                        
+	W_SET_NUMERIC_VALUE(Tank_Position_Yoff, 0);							                        
+	W_SET_PANELITEM_HANDLER(Tank_Position_Yoff, "tank_position_handler");
+
+	Tank_Position_Zoff = W_ADD_PANELITEM(Position, W_PANEL_FILL, "Tank_Position_Zoff");
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Position_Zoff,	W_NUMERIC_INT,
+													-10000, 10000);
+	W_REALIZE_PANELITEM(Tank_Position_Zoff,	W_PANEL_ROW, 			3, 
+											W_PANEL_COL, 			18,
+							                W_PANEL_LABEL, 			"",
+							                W_PANEL_LENGTH, 		6,
+							                W_PANEL_VALUE, 			"",
+							                W_PANEL_SENSITIVITY,	0,
+							                W_PANEL_CALLBACK, 		1);
+	W_SET_NUMERIC_VALUE(Tank_Position_Zoff, 0);						                                        
+	W_SET_PANELITEM_HANDLER(Tank_Position_Zoff, "tank_position_handler");	
+
+	Pick_Tank_Position = W_ADD_PANELITEM(Position, W_PANEL_BUTTON, "Pick_Tank_Position");	
+	W_REALIZE_PANELITEM(Pick_Tank_Position,	W_PANEL_ROW, 			4, 
+	                                        W_PANEL_COL, 			0,
+							                W_PANEL_BUTTONIMAGE, 	"点选位置", 
+							                W_PANEL_WIDTH, 			24,
+							                W_PANEL_BUTTONVALUE, 	601,
+							                W_PANEL_CALLBACK, 		1,
+							                W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+	W_SET_PANELITEM_HANDLER(Pick_Tank_Position, "pick_tank_position_handler");
+			         							         														
+	return(Position);
+}
+
+/*
+**用于处理箱柜坐标的输入
+*/
+tank_position_handler(item, event_type, dummy)
+{     
+	if (event_type == W_EVENT_ITEM_LEFT){     
+		if (item == Tank_Position_X | item == Tank_Position_Y | item == Tank_Position_Z){         
+			st = 0;                  
+			trans_abs_ref();
+		}
+		else if ( item == Tank_Position_Xref | item == Tank_Position_Yref | item == Tank_Position_Zref){        
+        x_ref = W_GET_PANELITEM_ARG(Tank_Position_Xref, W_PANEL_VALUE);
+        y_ref = W_GET_PANELITEM_ARG(Tank_Position_Yref, W_PANEL_VALUE);
+        z_ref = W_GET_PANELITEM_ARG(Tank_Position_Zref, W_PANEL_VALUE);
+        st = 0;
+        x_off = W_GET_NUMERIC_VALUE(Tank_Position_Xoff, st);
+        y_off = W_GET_NUMERIC_VALUE(Tank_Position_Yoff, st);
+        z_off = W_GET_NUMERIC_VALUE(Tank_Position_Zoff, st);                
+        coord_ref_to_abs(x_ref,x_off,y_ref,y_off,x_ref,x_off);           
+		}   
+	}   
+	return(0);
+}
+
+/*
+**将相对坐标转换成绝对坐标
+*/
+coord_ref_to_abs(string x_ref,float x_off,string y_ref,float y_off,string Z_ref,float Z_off)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Tank_Position_X, st);
+	y0 = W_GET_NUMERIC_VALUE(Tank_Position_Y, st);
+	z0 = W_GET_NUMERIC_VALUE(Tank_Position_Z, st);
+	return(0);
+}
+
+/*
+**用于处理箱柜在模型中捕捉箱柜的位置
+*/
+pick_tank_position_handler(item, event_type, button_value)
+{
+	/* 获取当前光标点坐标并显示到面板中 */
+	x0 = 0;
+	y0 = 0;
+	z0 = 0;
+   
+	trace_handle = PM_NEW_TRACEP();  
+	PM_GET_CURRENT_LOC(x0,y0,z0);  
+	res = PM_GET_POINT("请选择箱柜中心点位置", trace_handle, x0, y0, z0); 
+	if ( res < 0 ){
+		return(-1);
+	}
+      
+	W_SET_NUMERIC_VALUE(Tank_Position_X, x0);
+	W_SET_NUMERIC_VALUE(Tank_Position_Y, y0);
+	W_SET_NUMERIC_VALUE(Tank_Position_Z, z0);
+   
+	trans_abs_ref();
+   
+	if(Modify_flag){
+		st = PM_UM_OPEN_CHANGE("修改箱柜位置");
+		calculate_tank_para();
+		delete_tank_members();
+		create_tank();             
+		st = PM_UM_CLOSE_CHANGE();           
+	}            
+	return(0);
+}
+
+/*
+**将绝对坐标转换成相对坐标
+*/
+trans_abs_ref()
+{
+	/* 将绝对坐标转换成相对坐标并显示到面板中 */   
+	x_ref = "";
+	y_ref = "";
+	z_ref = "";
+	x_offset = 0;
+	y_offset = 0;
+	z_offset = 0;
+   
+	x0 = 0;
+	y0 = 0;
+	z0 = 0;
+   
+	st = 0;
+   
+	x0 = W_GET_NUMERIC_VALUE(Tank_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Tank_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Tank_Position_Z,st);
+   
+	res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+   
+	if (res == 0){  
+		W_SET_PANELITEM_ARGS(Tank_Position_Xref, W_PANEL_VALUE, x_ref);
+		W_SET_PANELITEM_ARGS(Tank_Position_Yref, W_PANEL_VALUE, y_ref);
+		W_SET_PANELITEM_ARGS(Tank_Position_Zref, W_PANEL_VALUE, z_ref);
+   
+		W_SET_NUMERIC_VALUE(Tank_Position_Xoff, x_offset);
+		W_SET_NUMERIC_VALUE(Tank_Position_Yoff, y_offset);
+		W_SET_NUMERIC_VALUE(Tank_Position_Zoff, z_offset);     
+	}  
+	else if (res == -1){     
+		W_SET_PANELITEM_ARGS(Tank_Position_Xref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Tank_Position_Yref, W_PANEL_VALUE, "Unset");
+		W_SET_PANELITEM_ARGS(Tank_Position_Zref, W_PANEL_VALUE, "Unset");
+   
+		W_SET_NUMERIC_VALUE(Tank_Position_Xoff, 0);
+		W_SET_NUMERIC_VALUE(Tank_Position_Yoff, 0);
+		W_SET_NUMERIC_VALUE(Tank_Position_Zoff, 0); 
+      
+		U_CONFIRM("参考坐标系定义不正确");           
+	}    
+}
+
+/*
+**创建用于旋转箱柜的面板
+*/
+create_rotate_tank_panel(mainform)
+{
+	Orientation = W_ADD_WINDOW(mainform, W_PANEL, "Orientation");	
+	W_REALIZE_WINDOW(Orientation,	W_FRAME_X, 		700,
+									W_FRAME_Y, 		320,
+							        W_FRAME_WIDTH,	100,
+							        W_FRAME_HEIGHT, 130);
+
+	title = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"旋转箱柜");
+
+	seperate_line = W_ADD_PANELITEM(Orientation, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);
+   		                                
+	/* 箱柜旋转轴 */   
+	Tank_Rotate_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Tank_Rotate_X");	
+	W_REALIZE_PANELITEM(Tank_Rotate_X,	W_PANEL_ROW,		1, 
+										W_PANEL_COL,		0,
+							            W_PANEL_LABEL,		"X轴:",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);
+
+	Tank_Rotate_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Tank_Rotate_Y");	
+	W_REALIZE_PANELITEM(Tank_Rotate_Y,	W_PANEL_ROW,		2, 
+										W_PANEL_COL,		0,
+							            W_PANEL_LABEL,		"Y轴:",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);	
+										
+	Tank_Rotate_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Tank_Rotate_Z");	
+	W_REALIZE_PANELITEM(Tank_Rotate_Z,	W_PANEL_ROW,		3, 
+										W_PANEL_COL,		0,
+							            W_PANEL_LABEL, 		"Z轴:",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);	
+
+	/* 箱柜旋转角度 */  
+	Tank_Rotate_Angle_X = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Tank_Rotate_Angle_X");
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Rotate_Angle_X,	W_NUMERIC_FLOAT,
+													0.0, 180.0,
+													"%.1f");	                                                  
+	W_REALIZE_PANELITEM(Tank_Rotate_Angle_X,	W_PANEL_ROW, 		1, 
+												W_PANEL_COL, 		8,
+							                    W_PANEL_LABEL, 		"",
+							                    W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Tank_Rotate_Angle_X, 0.0);	
+
+							               
+	Tank_Rotate_Angle_Y = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Tank_Rotate_Angle_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Rotate_Angle_Y,	W_NUMERIC_FLOAT,
+													0.0, 180.0,	
+													"%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Tank_Rotate_Angle_Y,	W_PANEL_ROW, 		2, 
+												W_PANEL_COL, 		8,
+												W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK,	0);							               
+	W_SET_NUMERIC_VALUE(Tank_Rotate_Angle_Y, 0.0);							               	
+	
+	Tank_Rotate_Angle_Z = W_ADD_PANELITEM(Orientation, W_PANEL_FILL, "Tank_Rotate_Angle_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Rotate_Angle_Z,	W_NUMERIC_FLOAT,
+													0.0, 180.0,	
+													"%.1f");                                                                                                      
+	W_REALIZE_PANELITEM(Tank_Rotate_Angle_Z,	W_PANEL_ROW, 		3, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	6,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);
+	W_SET_NUMERIC_VALUE(Tank_Rotate_Angle_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Tank_Rotate_Angle_X, "check_rotate_angle");
+	W_SET_PANELITEM_HANDLER(Tank_Rotate_Angle_Y, "check_rotate_angle");   
+	W_SET_PANELITEM_HANDLER(Tank_Rotate_Angle_Z, "check_rotate_angle");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	left_rotate_image  = icon_path + "rotateleft16.bmp";
+	right_rotate_image = icon_path + "rotateright16.bmp";
+
+	Rotate_By_X_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_L");
+	
+	W_REALIZE_PANELITEM(Rotate_By_X_L,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);   
+	Rotate_By_X_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_X_R");
+	
+	W_REALIZE_PANELITEM(Rotate_By_X_R,  W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL); 							                  
+	Rotate_By_Y_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_L");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Y_L,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+	Rotate_By_Y_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Y_R");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Y_R,  W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);							                  							                  
+	Rotate_By_Z_L = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_L");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Z_L,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			4,
+							            W_PANEL_LABELIMAGE, 	right_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);   
+	Rotate_By_Z_R = W_ADD_PANELITEM(Orientation, W_PANEL_BUTTON, "Rotate_By_Z_R");
+	
+	W_REALIZE_PANELITEM(Rotate_By_Z_R,  W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			16,
+							            W_PANEL_LABELIMAGE, 	left_rotate_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+							                   							               			         							         														
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_R, "rotate_tank_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_X_L, "rotate_tank_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_R, "rotate_tank_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Y_L, "rotate_tank_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_R, "rotate_tank_handler");
+	W_SET_PANELITEM_HANDLER(Rotate_By_Z_L, "rotate_tank_handler");
+	
+	return(Orientation);
+}
+
+check_rotate_angle(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		angle = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, 1);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+rotate_tank_handler(item, event_type, button_value)
+{
+	st = 0;
+	x0 = W_GET_NUMERIC_VALUE(Tank_Position_X,st);
+	y0 = W_GET_NUMERIC_VALUE(Tank_Position_Y,st);
+	z0 = W_GET_NUMERIC_VALUE(Tank_Position_Z,st);
+
+	set = PM_GET_OBJECTS_IN_GROUP(Tank_Handle);
+         
+	if (item == Rotate_By_X_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Tank_Rotate_Angle_X,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_X_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Tank_Rotate_Angle_X,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "x", set, angle);
+	}
+	else if (item == Rotate_By_Y_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Tank_Rotate_Angle_Y,st);
+		angle = 0 - rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Y_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Tank_Rotate_Angle_Y,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "y", set, angle);
+	}
+	else if (item == Rotate_By_Z_L){
+		rotate_angle = W_GET_NUMERIC_VALUE(Tank_Rotate_Angle_Z,st);
+		angle = 0-rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}
+	else if (item == Rotate_By_Z_R){
+		rotate_angle = W_GET_NUMERIC_VALUE(Tank_Rotate_Angle_Z,st);
+		angle = rotate_angle;
+		Rotate_Set(x0, y0, z0, "z", set, angle);
+	}     
+	return(0);
+}
+
+/*
+**创建用于移动箱柜的面板
+*/
+create_move_tank_panel(mainform)
+{
+	move_tank = W_ADD_WINDOW(mainform, W_PANEL, "move_tank");	
+	W_REALIZE_WINDOW(move_tank,	W_FRAME_X,		700,
+								W_FRAME_Y,		600,
+							    W_FRAME_WIDTH,	100,
+							    W_FRAME_HEIGHT,	200);
+
+	title = W_ADD_PANELITEM(move_tank, W_PANEL_MESSAGE, "title");
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+								W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"移动箱柜");
+
+	seperate_line = W_ADD_PANELITEM(move_tank, W_PANEL_MESSAGE, "seperate_line");
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+										W_PANEL_COL, 		7,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR, 	1);
+		                                 							         
+	/* 箱柜移动轴 */ 
+	Tank_Move_X = W_ADD_PANELITEM(move_tank, W_PANEL_FILL, "Tank_Move_X");	
+	W_REALIZE_PANELITEM(Tank_Move_X,	W_PANEL_ROW, 		1, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"X: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);
+
+	Tank_Move_Y = W_ADD_PANELITEM(move_tank, W_PANEL_FILL, "Tank_Move_Y");	
+	W_REALIZE_PANELITEM(Tank_Move_Y,	W_PANEL_ROW, 		2, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"Y: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE,		"",
+							            W_PANEL_CALLBACK,	0);	
+										
+	Tank_Move_Z = W_ADD_PANELITEM(move_tank, W_PANEL_FILL, "Tank_Move_Z");	
+	W_REALIZE_PANELITEM(Tank_Move_Z,	W_PANEL_ROW, 		3, 
+										W_PANEL_COL, 		0,
+							            W_PANEL_LABEL, 		"Z: ",
+							            W_PANEL_LENGTH, 	0,
+							            W_PANEL_VALUE, 		"",
+							            W_PANEL_CALLBACK,	0);	
+
+   /* 箱柜移动距离 */   
+	Tank_Move_Distance_X = W_ADD_PANELITEM(move_tank, W_PANEL_FILL, "Tank_Move_Distance_X");
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Move_Distance_X,	W_NUMERIC_FLOAT,
+														0.0, 10000.0,
+														"%.0f");	                                                   
+	W_REALIZE_PANELITEM(Tank_Move_Distance_X,	W_PANEL_ROW, 1, 
+												W_PANEL_COL, 8,
+							                    W_PANEL_LABEL, "",
+							                    W_PANEL_LENGTH, 5,
+         							            W_PANEL_VALUE, "0.0",
+         							            W_PANEL_CALLBACK, 1);        							                
+	W_SET_NUMERIC_VALUE(Tank_Move_Distance_X, 0.0);	
+
+							               
+	Tank_Move_Distance_Y = W_ADD_PANELITEM(move_tank, W_PANEL_FILL, "Tank_Move_Distance_Y");	
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Move_Distance_Y,	W_NUMERIC_FLOAT,
+													0.0, 10000.0,	
+													"%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Tank_Move_Distance_Y,	W_PANEL_ROW, 		2, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	5,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK, 	0);							               
+	W_SET_NUMERIC_VALUE(Tank_Move_Distance_Y, 0.0);							               	
+	
+	Tank_Move_Distance_Z = W_ADD_PANELITEM(move_tank, W_PANEL_FILL, "Tank_Move_Distance_Z");	
+	W_CONFIG_NUMERIC_PANELITEM(Tank_Move_Distance_Z,	W_NUMERIC_FLOAT,
+														0.0, 10000.0,	
+														"%.0f");                                                                                                      
+	W_REALIZE_PANELITEM(Tank_Move_Distance_Z,	W_PANEL_ROW, 		3, 
+												W_PANEL_COL, 		8,
+         							            W_PANEL_LABEL, 		"",
+         							            W_PANEL_LENGTH, 	5,
+         							            W_PANEL_VALUE, 		"0.0",
+         							            W_PANEL_CALLBACK,	0);
+	W_SET_NUMERIC_VALUE(Tank_Move_Distance_Z, 0.0);
+   
+	W_SET_PANELITEM_HANDLER(Tank_Move_Distance_X, "check_move_distance");
+	W_SET_PANELITEM_HANDLER(Tank_Move_Distance_Y, "check_move_distance");   
+	W_SET_PANELITEM_HANDLER(Tank_Move_Distance_Z, "check_move_distance");
+      
+	/* 获取图标保存路径 */
+	icon_path = Icon_Path;
+	/* 图标完整文件名（包含路径） */
+	move_right_image  = icon_path + "move_right.bmp";
+	move_left_image = icon_path + "move_left.bmp";
+
+	Move_By_X_N = W_ADD_PANELITEM(move_tank, W_PANEL_BUTTON, "Move_By_X_N");	
+	W_REALIZE_PANELITEM(Move_By_X_N,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE,		move_left_image, 
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);
+										
+	Move_By_X_P = W_ADD_PANELITEM(move_tank, W_PANEL_BUTTON, "Move_By_X_P");	
+	W_REALIZE_PANELITEM(Move_By_X_P,	W_PANEL_ROW, 			1, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL); 
+							                  
+	Move_By_Y_N = W_ADD_PANELITEM(move_tank, W_PANEL_BUTTON, "Move_By_Y_N");	
+	W_REALIZE_PANELITEM(Move_By_Y_N,	W_PANEL_ROW, 			2, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Y_P = W_ADD_PANELITEM(move_tank, W_PANEL_BUTTON, "Move_By_Y_P");	
+	W_REALIZE_PANELITEM(Move_By_Y_P,	W_PANEL_ROW, 			2, 
+										W_PANEL_COL, 			15,
+										W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);							                  
+							                  
+	Move_By_Z_N = W_ADD_PANELITEM(move_tank, W_PANEL_BUTTON, "Move_By_Z_N");	
+	W_REALIZE_PANELITEM(Move_By_Z_N,	W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			3,
+							            W_PANEL_LABELIMAGE, 	move_left_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);   
+
+	Move_By_Z_P = W_ADD_PANELITEM(move_tank, W_PANEL_BUTTON, "Move_By_Z_P");	
+	W_REALIZE_PANELITEM(Move_By_Z_P,    W_PANEL_ROW, 			3, 
+	                                    W_PANEL_COL, 			15,
+							            W_PANEL_LABELIMAGE, 	move_right_image, 
+							            W_PANEL_BUTTONVALUE, 	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);  
+							                   							               			         							         														
+	W_SET_PANELITEM_HANDLER(Move_By_X_P, "move_tank_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_X_N, "move_tank_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_P, "move_tank_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Y_N, "move_tank_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_P, "move_tank_handler");
+	W_SET_PANELITEM_HANDLER(Move_By_Z_N, "move_tank_handler");
+	
+	return(move_tank);
+}
+
+check_move_distance(item, event_type, dummy)
+{
+	if (event_type == W_EVENT_ITEM_LEFT){
+		st = 0;
+		Distance = W_GET_NUMERIC_VALUE(item, st);
+		if (st == -1){
+			W_SET_NUMERIC_VALUE(item, 0.0);
+			dummy = 1;
+			W_SET_PANELITEM_ARGS(item, W_PANEL_KBDFOCUS, dummy);
+			return(0);
+		}
+		return(0);
+	}
+	return(0);
+}
+
+move_tank_handler(item, event_type, button_value)
+{
+	set = PM_GET_OBJECTS_IN_GROUP(Tank_Handle);
+    
+	if (item == Move_By_X_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Tank_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Tank_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Tank_Position_X,x0);
+		trans_abs_ref();
+	}
+	else if (item == Move_By_X_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Tank_Move_Distance_X,st);
+		Move_Set(set, "X", distance);
+		x0 = W_GET_NUMERIC_VALUE(Tank_Position_X,st) + distance;
+		W_SET_NUMERIC_VALUE(Tank_Position_X,x0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Tank_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Tank_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Tank_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Y_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Tank_Move_Distance_Y,st);
+		Move_Set(set, "Y", distance);
+		y0 = W_GET_NUMERIC_VALUE(Tank_Position_Y,st) + distance;
+		W_SET_NUMERIC_VALUE(Tank_Position_Y,y0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_P){
+		st = 0;
+		distance = W_GET_NUMERIC_VALUE(Tank_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Tank_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Tank_Position_Z,z0);
+		trans_abs_ref();      
+	}
+	else if (item == Move_By_Z_N){
+		st = 0;
+		distance = 0 - W_GET_NUMERIC_VALUE(Tank_Move_Distance_Z,st);
+		Move_Set(set, "Z", distance);
+		z0 = W_GET_NUMERIC_VALUE(Tank_Position_Z,st) + distance;
+		W_SET_NUMERIC_VALUE(Tank_Position_Z,z0);
+		trans_abs_ref();       
+	}  
+	return(0);
+}
+
+create_command_panel(mainform)
+{	
+	Command = W_ADD_WINDOW(mainform, W_PANEL, "Command");
+	W_REALIZE_WINDOW(Command,	W_FRAME_X, 		0,
+							    W_FRAME_Y,		730,
+							    W_FRAME_WIDTH,	880,
+							    W_FRAME_HEIGHT,	50);
+
+	title = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "title");
+	
+	W_REALIZE_PANELITEM(title,	W_PANEL_ROW,	0,
+		                        W_PANEL_COL,	0,
+		                        W_PANEL_LABEL,	"命令");
+
+   seperate_line = W_ADD_PANELITEM(Command, W_PANEL_MESSAGE, "seperate_line");
+   
+	W_REALIZE_PANELITEM(seperate_line,	W_PANEL_ROW, 		0,
+	                                    W_PANEL_COL, 		3,
+		                                W_PANEL_LABEL,		"",
+		                                W_PANEL_SEPARATOR,	1);	
+		                                 													
+	Create_Tank = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Create_Tank");
+	
+	W_REALIZE_PANELITEM(Create_Tank,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			0,
+							            W_PANEL_BUTTONIMAGE, 	"创建", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE,	501,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Create_Tank, "create_tank_handler");
+
+	Delete_Tank = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Delete_Tank");
+	
+	W_REALIZE_PANELITEM(Delete_Tank,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			11,
+							            W_PANEL_BUTTONIMAGE, 	"删除", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	503,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Delete_Tank, "delete_tank_handler");
+
+	Browse_Tank = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Browse_Tank");
+	
+	W_REALIZE_PANELITEM(Browse_Tank,	W_PANEL_ROW, 			1, 
+										W_PANEL_COL, 			22,
+							            W_PANEL_BUTTONIMAGE, 	"浏览", 
+							            W_PANEL_WIDTH, 			10,
+							            W_PANEL_BUTTONVALUE, 	504,
+							            W_PANEL_CALLBACK, 		1,
+							            W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Browse_Tank, "browse_tank_handler");
+
+	Undo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Undo");
+	
+	W_REALIZE_PANELITEM(Undo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			33,
+							    W_PANEL_BUTTONIMAGE, 	"Undo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	505,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT, 		W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Undo, "undo_handler");
+
+	Redo = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "Redo");
+	
+	W_REALIZE_PANELITEM(Redo,	W_PANEL_ROW, 			1, 
+	                            W_PANEL_COL, 			44,
+							    W_PANEL_BUTTONIMAGE, 	"Redo", 
+							    W_PANEL_WIDTH, 			10,
+							    W_PANEL_BUTTONVALUE, 	506,
+							    W_PANEL_CALLBACK, 		1,
+							    W_PANEL_LAYOUT,			W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(Redo, "redo_handler");
+				 
+	quit = W_ADD_PANELITEM(Command, W_PANEL_BUTTON, "quit");
+	
+	W_REALIZE_PANELITEM(quit,	W_PANEL_ROW,         1, 
+								W_PANEL_COL,         55,
+								W_PANEL_BUTTONIMAGE, "退出", 
+							    W_PANEL_WIDTH,       10,
+							    W_PANEL_BUTTONVALUE, 507,
+							    W_PANEL_CALLBACK,    1,
+							    W_PANEL_CLOSEBUTTON, 1,
+							    W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+	return(Command);
+}
+
+/*保留1位小数*/
+string_para(float_para)
+{
+    temp = "";
+    S_PRINTF(temp,"%.1f",float_para);
+    return temp;
+}
+
+/*保存设计参数*/
+save_model_size()
+{
+	para = "";
+	if(Tank_Size_A != 0.0){
+		para = para + "A=" + string_para(Tank_Size_A);
+	}
+	if(Tank_Size_B != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//B=" + string_para(Tank_Size_B);
+		}
+		else{
+			para = para + "B=" + string_para(Tank_Size_B);
+		}
+	}	
+	if(Tank_Size_C != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//C=" + string_para(Tank_Size_C);
+		}
+		else{
+			para = para + "C=" + string_para(Tank_Size_C);
+		}
+	}
+	if(Tank_Size_H != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//H=" + string_para(Tank_Size_H);
+		}
+		else{
+			para = para + "H=" + string_para(Tank_Size_H);
+		}
+	}
+	if(Tank_Size_a != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//a=" + string_para(Tank_Size_a);
+		}
+		else{
+			para = para + "a=" + string_para(Tank_Size_a);
+		}
+	}
+	if(Tank_Size_b1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//b1=" + string_para(Tank_Size_b1);
+		}
+		else{
+			para = para + "b1=" + string_para(Tank_Size_b1);
+		}
+	}
+	if(Tank_Size_b2 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//b2=" + string_para(Tank_Size_b2);
+		}
+		else{
+			para = para + "b2=" + string_para(Tank_Size_b2);
+		}
+	}	
+	if(Tank_Size_c1 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//c1=" + string_para(Tank_Size_c1);
+		}
+		else{
+			para = para + "c1=" + string_para(Tank_Size_c1);
+		}
+	}
+	if(Tank_Size_c2 != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//c2=" + string_para(Tank_Size_c2);
+		}
+		else{
+			para = para + "c2=" + string_para(Tank_Size_c2);
+		}
+	}
+	if(Tank_Size_r != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//r=" + string_para(Tank_Size_r);
+		}
+		else{
+			para = para + "r=" + string_para(Tank_Size_r);
+		}
+	}
+	if(Tank_Size_m != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//m=" + string_para(Tank_Size_m);
+		}
+		else{
+			para = para + "m=" + string_para(Tank_Size_m);
+		}
+	}
+	if(Tank_Size_n != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//n=" + string_para(Tank_Size_n);
+		}
+		else{
+			para = para + "n=" + string_para(Tank_Size_n);
+		}
+	}
+	if(Tank_Size_e != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//e=" + string_para(Tank_Size_e);
+		}
+		else{
+			para = para + "e=" + string_para(Tank_Size_e);
+		}
+	}
+	if(Tank_Size_g != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//g=" + string_para(Tank_Size_g);
+		}
+		else{
+			para = para + "g=" + string_para(Tank_Size_g);
+		}
+	}
+	if(Tank_Size_pa != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//pa=" + string_para(Tank_Size_pa);
+		}
+		else{
+			para = para + "pa=" + string_para(Tank_Size_pa);
+		}
+	}
+	if(Tank_Size_pb != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//pb=" + string_para(Tank_Size_pb);
+		}
+		else{
+			para = para + "pb=" + string_para(Tank_Size_pb);
+		}
+	}
+	if(Tank_Size_ha != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//ha=" + string_para(Tank_Size_ha);
+		}
+		else{
+			para = para + "ha=" + string_para(Tank_Size_ha);
+		}
+	}    
+    if(Tank_Size_hc != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//hc=" + string_para(Tank_Size_hc);
+		}
+		else{
+			para = para + "hc=" + string_para(Tank_Size_hc);
+		}
+	}  
+	if(Tank_Size_ea != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//ea=" + string_para(Tank_Size_ea);
+		}
+		else{
+			para = para + "ea=" + string_para(Tank_Size_ea);
+		}
+	}  
+	if(Tank_Size_eb != 0.0){
+		if(STRLEN(para) > 0){
+			para = para + "//eb=" + string_para(Tank_Size_eb);
+		}
+		else{
+			para = para + "eb=" + string_para(Tank_Size_eb);
+		}
+	}      
+	Set_Attribute_Value(Tank_Handle, TankSize, para);
+}
+
+/*读取设计参数*/
+read_model_size()
+{
+	nth = 0;
+	para = PM_GET_OBJDATA(Tank_Handle,nth,TankSize);
+	if(ISSTRING(para)){	
+		/*get seat type & size from parameter of equipment GDL*/
+		flag = 1;
+		while(flag){
+			parameter = STRINGTERM(para,"//");
+			if(parameter != ""){
+				name = STRINGTERM(parameter,"=");
+				value = TAIL(parameter,STRLEN(parameter)-STRLEN(name)-1);
+				if(name == "A"){
+					Tank_Size_A = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_A,Tank_Size_A);
+				}
+				else if(name == "B"){
+					Tank_Size_B = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_B,Tank_Size_B);
+				}
+				else if(name == "C"){
+					Tank_Size_C = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_C,Tank_Size_C);
+				}
+				else if(name == "H"){
+					Tank_Size_H = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_H,Tank_Size_H);
+				}
+				else if(name == "a"){
+					Tank_Size_a = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_a,Tank_Size_a);
+				}
+				else if(name == "b1"){
+					Tank_Size_b1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_b1,Tank_Size_b1);
+				}
+				else if(name == "b2"){
+					Tank_Size_b2 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_b2,Tank_Size_b2);
+				}
+				else if(name == "c1"){
+					Tank_Size_c1 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_c1,Tank_Size_c1);
+				}
+				else if(name == "c2"){
+					Tank_Size_c2 = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_c2,Tank_Size_c2);
+				}
+				else if(name == "r"){
+					Tank_Size_r = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_r,Tank_Size_r);
+				}
+                else if(name == "m"){
+					Tank_Size_m = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_m,Tank_Size_m);
+				}
+                else if(name == "n"){
+					Tank_Size_n = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_n,Tank_Size_n);
+				}
+                else if(name == "e"){
+					Tank_Size_e = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_e,Tank_Size_e);
+				}
+                else if(name == "g"){
+					Tank_Size_g = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_g,Tank_Size_g);
+				}
+                else if(name == "pa"){
+					Tank_Size_pa = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_pa,Tank_Size_pa);
+				}
+                else if(name == "pb"){
+					Tank_Size_pb = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_pb,Tank_Size_pb);
+				}
+                else if(name == "ha"){
+					Tank_Size_ha = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_ha,Tank_Size_ha);
+				}
+                else if(name == "hc"){
+					Tank_Size_hc = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_hc,Tank_Size_hc);
+				}
+                else if(name == "ea"){
+					Tank_Size_ea = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_ea,Tank_Size_ea);
+				}
+                else if(name == "eb"){
+					Tank_Size_eb = String_To_Float(value);
+					W_SET_NUMERIC_VALUE(Tank_Para_eb,Tank_Size_eb);
+				}
+			}
+			else{
+				flag = 0;            
+			}
+			para = TAIL(para,STRLEN(para) - STRLEN(parameter) - 2);        
+		}
+	}
+
+	return(0);
+}
+
+browse_tank_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);	
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);   
+}
+
+delete_tank_handler(item, event_type, button_value)
+{
+	flag = 1;
+	while(flag){
+		tmp = 0;
+		picked_object_handle = PM_PICK_OBJECT("请选择要删除的箱柜", tmp, "STRUCTCMP","BEAM");
+		if (!ISINT(picked_object_handle)){	   
+			/*获取箱柜的名称*/
+			group_handle = PM_GET_OBJECT_GROUP(picked_object_handle,Group_Type_I);
+			if (ISINT(group_handle)){
+				U_CONFIRM("此零件不属于任何箱柜");	      	
+				return(0);
+			}	
+			group_name = PM_GET_OBJDATA(group_handle,0,MMT_TAG_OBJNAME);
+			/* 定义UNDO缓存 */
+			st = PM_UM_OPEN_CHANGE("删除箱柜" + group_name);	 
+      	  
+			/* 删除箱柜零件 */
+			tank_members = PM_GET_OBJECTS_IN_GROUP(group_handle);
+			PM_DELETE_OBJECTS_IN_SET(tank_members, 0);  
+            
+			/* 删除箱柜 */   
+			res = PM_DELETE_OBJECT(group_handle);
+         
+			/* 箱柜删除不成功，撤销相关操作 */
+			if (res == -1){
+				PM_UM_CLOSE_CHANGE();
+				PM_UM_UNDO_LAST_CHANGE();
+				return(0);
+			}        
+			st = PM_UM_CLOSE_CHANGE();  	      	      						
+		} 
+		else{
+			flag = 0;
+		} 
+	}
+   
+	/*箱柜删除成功，进入创建新箱柜状态*/   
+	W_SET_PANELITEM_ARGS(Tank_Name, W_PANEL_VALUE, "Undefined");   
+	W_SET_PANELITEM_ARGS(Modify_Tank, W_PANEL_SENSITIVITY,0);
+	W_SET_PANELITEM_ARGS(Create_Tank, W_PANEL_SENSITIVITY,1);   
+	Modify_flag = 0;
+   
+	return(0);
+}
+
+redo_handler(item, event_type, button_value)
+{
+	res = PM_UM_REDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		tank_name = PM_GET_OBJDATA(Tank_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(tank_name)){ 
+			reload_tank_data(tank_name);
+		}
+	}   
+	return(0);
+}
+
+undo_handler(item, event_type, button_value)
+{
+	res = PM_UM_UNDO_LAST_CHANGE();
+	if (res == -1){
+		U_CONFIRM("已经到了最后一个");
+	}
+	else{
+		tank_name = PM_GET_OBJDATA(Tank_Handle,0,MMT_TAG_OBJNAME);
+		if(ISSTRING(tank_name)){ 
+			reload_tank_data(tank_name);
+		}
+	}
+	return(0);
+}
+
+delete_tank_members()
+{
+	tank_members = PM_GET_OBJECTS_IN_GROUP(Tank_Handle);
+	PM_DELETE_OBJECTS_IN_SET(tank_members, 0); 
+	return(0);   
+}
+
+/*
+**加载
+*/
+load_default_setting()
+{
+	permision = PM_PREPARE_TO_EDIT_SETTINGS();
+	if(permision != 0){
+		U_MESSAGE("用户没有保存共享设置的权限");
+	}
+   
+	/*加载箱柜信息的默认值*/
+	system_name = "";
+	st = GET_STRING_DEFAULT("Tank103", "System_Name", system_name);
+	if(st == 0){
+	    SystemName = system_name;
+		SystemId = PM_GET_SYSTEM_ID(system_name);
+		W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);	   
+	}
+	else{
+		system_name = "Foundation";
+		system_id = PM_GET_SYSTEM_ID(system_name);
+		if(system_id != -1){
+			W_SET_PANELITEM_ARGS(System_Name, W_PANEL_VALUE, system_name);
+			SystemName = system_name;
+			SystemId = system_id;
+		} 	   
+	}
+	
+	/*加载箱柜名称*/
+	description = "";
+	st = GET_STRING_DEFAULT("Tank103", "ModelDescription", description);
+	if(st == 0){
+	    ModelDescription = description;
+		W_SET_PANELITEM_ARGS(Tank_Description, W_PANEL_VALUE, description);
+	}	
+	
+	/*加载箱柜托盘*/
+	planning_unit = "";
+	st = GET_STRING_DEFAULT("Tank103", "Planning_Unit", planning_unit);
+	if(st == 0){
+	    PlanningUnit_ = planning_unit;
+		W_SET_PANELITEM_ARGS(Planning_Unit, W_PANEL_VALUE, planning_unit);
+    }
+	
+	/*加载默认的零件*/
+    part_id = "";
+    st = GET_STRING_DEFAULT("Tank103","Tank_Part1", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part1:   " + descr);
+		W_SET_PANELITEM_ARGS(Tank_Part1, W_PANEL_VALUE, descr);
+        Tank_Part1_Pid = part_id;
+	}  
+    
+    st = GET_STRING_DEFAULT("Tank103","Tank_Part2", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part2:   " + descr);
+		W_SET_PANELITEM_ARGS(Tank_Part2, W_PANEL_VALUE, descr);
+        Tank_Part2_Pid = part_id;
+	} 		  
+
+    st = GET_STRING_DEFAULT("Tank103","Tank_Part3", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part3:   " + descr);
+		W_SET_PANELITEM_ARGS(Tank_Part3, W_PANEL_VALUE, descr);
+        Tank_Part3_Pid = part_id;
+	} 
+
+    st = GET_STRING_DEFAULT("Tank103","Tank_Part4", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part4:   " + descr);
+		W_SET_PANELITEM_ARGS(Tank_Part4, W_PANEL_VALUE, descr);
+        Tank_Part4_Pid = part_id;
+	} 
+
+    st = GET_STRING_DEFAULT("Tank103","Tank_Part5", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part5:   " + descr);
+		W_SET_PANELITEM_ARGS(Tank_Part5, W_PANEL_VALUE, descr);
+        Tank_Part5_Pid = part_id;
+	} 
+
+    st = GET_STRING_DEFAULT("Tank103","Tank_Part6", part_id);
+	if(st == 0){
+		descr = Pid_To_Description(part_id);
+        U_MESSAGE("Part6:   " + descr);
+		W_SET_PANELITEM_ARGS(Tank_Part6, W_PANEL_VALUE, descr);
+        Tank_Part6_Pid = part_id;
+	} 
+    
+	/*load default value of tank size*/
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_A", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_A, size);
+		Tank_Size_A = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_A, 1000.00);
+		Tank_Size_A = 1000.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_A", Tank_Size_A); 
+	}
+	
+   size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_B", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_B, size);
+		Tank_Size_B = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_B, 1000.00);
+		Tank_Size_B = 1000.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_B", Tank_Size_B); 
+	}
+	
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_C", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_C, size);
+		Tank_Size_C = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_C, 1000.00);
+		Tank_Size_C = 1000.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_C", Tank_Size_C); 
+	}
+
+	size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_H", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_H, size);
+		Tank_Size_H = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_H, 500.00);
+		Tank_Size_H = 500.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_H", Tank_Size_H); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_a", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_a, size);
+		Tank_Size_a = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_a, 10.00);
+		Tank_Size_a = 10.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_a", Tank_Size_a); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_b1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_b1, size);
+		Tank_Size_b1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_b1, 10.00);
+		Tank_Size_b1 = 10.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_b1", Tank_Size_b1); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_b2", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_b2, size);
+		Tank_Size_b2 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_b2, 20.00);
+		Tank_Size_b2 = 20.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_b2", Tank_Size_b2); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_c1", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_c1, size);
+		Tank_Size_c1 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_c1, 50.00);
+		Tank_Size_c1 = 50.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_c1", Tank_Size_c1); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_c2", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_c2, size);
+		Tank_Size_c2 = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_c2, 50.00);
+		Tank_Size_c2 = 50.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_c2", Tank_Size_c2); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_ha", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_ha, size);
+		Tank_Size_ha = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_ha, 100.00);
+		Tank_Size_ha = 100.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_ha", Tank_Size_ha); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_hc", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_hc, size);
+		Tank_Size_hc = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_hc, 5.00);
+		Tank_Size_hc = 5.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_hc", Tank_Size_hc); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_pa", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_pa, size);
+		Tank_Size_pa = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_pa, 400.00);
+		Tank_Size_pa = 400.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_pa", Tank_Size_pa); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_pb", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_pb, size);
+		Tank_Size_pb = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_pb, 550.00);
+		Tank_Size_pb = 550.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_pb", Tank_Size_pb); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_e", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_e, size);
+		Tank_Size_e = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_e, 100.00);
+		Tank_Size_e = 100.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_e", Tank_Size_e); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_g", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_g, size);
+		Tank_Size_g = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_g, 100.00);
+		Tank_Size_g = 100.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_g", Tank_Size_g); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_m", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_m, size);
+		Tank_Size_m = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_m, 250.00);
+		Tank_Size_m = 250.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_m", Tank_Size_m); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_n", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_n, size);
+		Tank_Size_n = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_n, 80.00);
+		Tank_Size_n = 80.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_n", Tank_Size_n); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_r", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_r, size);
+		Tank_Size_r = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_r, 50.00);
+		Tank_Size_r = 50.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_r", Tank_Size_r); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_ea", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_ea, size);
+		Tank_Size_ea = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_ea, 750.00);
+		Tank_Size_ea = 750.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_ea", Tank_Size_ea); 
+	}	
+
+    size = 0.0;
+	st = GET_FLOAT_DEFAULT("Tank103", "Tank_Para_eb", size);
+	if(st == 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_eb, size);
+		Tank_Size_eb = size;
+	}	
+	else if (st != 0){
+		W_SET_NUMERIC_VALUE(Tank_Para_eb, 700.00);
+		Tank_Size_eb = 700.00;	  
+		SET_FLOAT_DEFAULT("Tank103", "Tank_Para_eb", Tank_Size_eb); 
+	}	
+    
+	return(0);
+}
+
+initialize()
+{
+    /* 获取当前光标点坐标并显示到面板中 */
+    /* get the current position and display value of coordinate */
+    x0 = 0;
+    y0 = 0;
+    z0 = 0;   
+    PM_GET_CURRENT_LOC(x0, y0, z0);   
+    W_SET_NUMERIC_VALUE(Tank_Position_X, x0);
+    W_SET_NUMERIC_VALUE(Tank_Position_Y, y0);
+    W_SET_NUMERIC_VALUE(Tank_Position_Z, z0);
+   
+    /* 将绝对坐标转换成相对坐标并显示到面板中 */
+    /* convert abstract coordinate value into reference and display on panel */
+    x_ref = "";
+    y_ref = "";
+    z_ref = "";
+    x_offset = 0;
+    y_offset = 0;
+    z_offset = 0;
+
+    Tank_X0 = x0;
+    Tank_Y0 = y0;
+    Tank_Z0 = z0;
+   
+    res = GetReferenceCoords( x0, y0, z0, x_ref, x_offset, y_ref, y_offset, z_ref, z_offset);
+    if (res == 0){   
+        W_SET_PANELITEM_ARGS(Tank_Position_Xref, W_PANEL_VALUE, x_ref);
+        W_SET_PANELITEM_ARGS(Tank_Position_Yref, W_PANEL_VALUE, y_ref);
+        W_SET_PANELITEM_ARGS(Tank_Position_Zref, W_PANEL_VALUE, z_ref);
+
+        W_SET_NUMERIC_VALUE(Tank_Position_Xoff, x_offset);
+        W_SET_NUMERIC_VALUE(Tank_Position_Yoff, y_offset);
+        W_SET_NUMERIC_VALUE(Tank_Position_Zoff, z_offset);      
+    }
+    else if (res == -1){     
+        W_SET_PANELITEM_ARGS(Tank_Position_Xref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Tank_Position_Yref, W_PANEL_VALUE, "Unset");
+        W_SET_PANELITEM_ARGS(Tank_Position_Zref, W_PANEL_VALUE, "Unset");
+
+        W_SET_NUMERIC_VALUE(Tank_Position_Xoff, 0);
+        W_SET_NUMERIC_VALUE(Tank_Position_Yoff, 0);
+        W_SET_NUMERIC_VALUE(Tank_Position_Zoff, 0); 
+        U_CONFIRM("参考坐标系定义不正确");           
+    }
+    
+    W_SET_PANELITEM_ARGS(Modify_Tank, W_PANEL_SENSITIVITY,0);
+    Modify_flag = 0;
+
+    Part11 = A_ALLOC(15);
+    Part12 = A_ALLOC(15);
+    Part13 = A_ALLOC(15);
+    Part14 = A_ALLOC(15);   
+    Part21 = A_ALLOC(15);
+    Part22 = A_ALLOC(15);
+    Part23 = A_ALLOC(15);
+    Part31 = A_ALLOC(15);
+    Part32 = A_ALLOC(15);
+    Part33 = A_ALLOC(15);
+    Part34 = A_ALLOC(15);
+    Part41 = A_ALLOC(15);
+    Part42 = A_ALLOC(15);
+    Part43 = A_ALLOC(15);
+    Part44 = A_ALLOC(15);
+    Part45 = A_ALLOC(15);
+    Part51 = A_ALLOC(15);
+    Part52 = A_ALLOC(15);
+    Part61 = A_ALLOC(15);
+    Part62 = A_ALLOC(15);
+    Part63 = A_ALLOC(15);
+    Part64 = A_ALLOC(15);
+    load_default_setting();
+    return(0);
+}
+
+main()
+{
+	mainform  = create_top_frame();	
+	Panel_1 = create_template_panel(mainform);
+	Panel_2 = create_info_panel(mainform);
+	Panel_3 = create_material_panel(mainform);
+	Panel_4 = create_command_panel(mainform);
+	Panel_5 = create_parameter_panel(mainform);
+	Panel_6 = create_position_panel(mainform);
+	Panel_7 = create_rotate_tank_panel(mainform);
+	Panel_8 = create_move_tank_panel(mainform);
+	initialize();	
+	MainWindow = mainform;
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}

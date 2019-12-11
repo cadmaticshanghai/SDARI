@@ -1,0 +1,1464 @@
+/* $Id: ReportPipeHoleList.mac,v1.0.0 2019/07/30 Jack.Leng $ */
+
+/*
+**	这个程序用于生成管子开孔表.
+*/
+
+#include "include/dmutil.h"
+#include "include/win.h"
+#include "include/win_panel.h"
+#include "include/PmMgeTags.h"
+#include "include/pm.h"
+#include "include/pm_errors.h"
+#include "include/dm_errors.h"
+#include "include/pm_drawings.h"
+#include "include/pm_core_tags.h"
+#include "include/array.mac"
+#include "include/cos.h"
+#include "include/dw.h"
+#include "include/pm_annot.h"
+#include "include/dm_cos_schema.h"
+#include "include/geoutils.h"
+#include "include/PmPipingUtils.h"
+#include "opt/pm/EloTools/include/viewutilsELO.h"
+#include "include/g2d_ext2df.h"
+#include "include/quants.h"
+#include "include/pi_math.mac" 
+#include "include/pi.h"
+
+global int  Debug = 1; 
+
+#include "$MarineToolkit/Piping/ReportPipeHoleList.h"
+#include "$MarineToolkit/Include/String_Utility.h"
+#include "$MarineToolkit/Include/Common_Utility.h"
+#include "$MarineToolkit/Include/Grid_Utility.h"
+#include "$MarineToolkit/Include/Math_Utility.h"
+#include "$MarineToolkit/Include/Piping_Utility.h"
+
+/*
+**define size of array
+*/
+
+#define  Report_Column_Number 13
+
+/*
+**定义界面语言
+**define interface language
+*/
+global handle  BlockName,PlanningUnit,Virtual_HoleName;
+global handle  DisplayGrid;
+global handle  NULL_HANDLE = 0;
+global int     Grid_SelectedItem = 0;
+global int     Grid_SortColumn = -1;
+global int     Grid_SortDirection = 1;
+global handle  Virtual_Hole_List;            /*虚拟孔handle列表*/
+global int     Virtual_Hole_Number=0;        /*虚拟孔数量*/
+global handle  Report_Info;			       /*报表信息列表*/
+global handle  Report_Objects;              /*保存报表行对应的虚拟孔*/
+global int     Report_Row_Number = 0;	       /*报表行数*/
+global handle  High_Light_List;             /*模型加亮列表*/
+global handle  Selected_Rows;               /*选择的行*/
+global handle  Selected_Objects;
+global int     Selected_Objects_Number = 0;
+global int     AutoScale = 0;
+global int     AutoHighLight = 0;
+global handle  MainWindow;
+global handle  Grid_Title;
+global int     Maximum_Report_Row_Number = 1000;
+global handle  Report_Path,Report_Template;
+global string  DataFileName = "C:\\TEMP\\pipe_holelist_report.txt";
+global string  DefFileName = "\\Piping\\hole_type.def";
+
+
+/*
+**初始化相关对象
+*/
+init()
+{	
+	Report_Info = alloc_2darray(1,1);
+	Report_Objects = A_ALLOC(1);
+    Selected_Rows  = A_ALLOC(1);
+
+	/*初始化模型集合*/
+	Virtual_Hole_List = PM_INIT_SET();
+
+	/*初始化加亮模型集合*/
+	High_Light_List = PM_INIT_SET();
+	
+	/*初始化选中的模型集合*/
+	Selected_Objects = PM_INIT_SET();
+	
+	W_SET_PANELITEM_ARGS(Report_Path, W_PANEL_VALUE, "C:/TEMP/");
+	
+	W_SET_PANELITEM_ARGS(Report_Template, W_PANEL_VALUE, "P:/报表模板/管子开孔表.xlsx");
+}
+
+init0()
+{	
+	Grid_Title = A_ALLOC(Report_Column_Number, "STRING");
+	A_PUT(Grid_Title,0,"分段");
+	A_PUT(Grid_Title,1,"托盘");
+	A_PUT(Grid_Title,2,"管段名");
+	A_PUT(Grid_Title,3,"开孔规格");
+	A_PUT(Grid_Title,4,"坐标X1");
+	A_PUT(Grid_Title,5,"坐标Y1");
+	A_PUT(Grid_Title,6,"坐标Z1");
+    A_PUT(Grid_Title,7,"坐标X2");
+	A_PUT(Grid_Title,8,"坐标Y2");
+	A_PUT(Grid_Title,9,"坐标Z2");
+    A_PUT(Grid_Title,10,"开孔面");
+	A_PUT(Grid_Title,11,"开孔类型");
+    A_PUT(Grid_Title,12,"备注信息");
+}
+
+/*
+**Get the selected objects in grid
+*/
+get_selected_items(handle wobj)
+{
+	PM_SETOP_SUB(Selected_Objects, Selected_Objects);
+	selected_rows = W_GET_WINDOW_ARG( wobj, W_LISTW_MSVALUE );
+	total_lines = STRLEN(selected_rows);
+    A_FREE(Selected_Rows);
+    Selected_Rows = A_ALLOC(total_lines);
+    
+	k = 0;
+	for (i = 0; i < total_lines; i = i + 1){
+		temp_string = SUBSTRING(selected_rows,i);
+		flag = HEAD(temp_string,1);
+		if (flag == "1"){
+			W_SET_WINDOW_ARGS( wobj, W_LISTW_ROW, i);
+			selected_row = W_GET_WINDOW_ARG( wobj, W_LISTW_ITEMID );	
+			model_handle = A_GET(Report_Objects, selected_row);	
+			PM_ADD_OBJECT_TO_SET(model_handle,Selected_Objects);
+            A_PUT(Selected_Rows,k,selected_row);
+			k = k + 1;
+		}
+	}
+	Selected_Objects_Number = k;
+	return (0);
+}
+
+model_list_mode(item, event_type, selection)
+{
+	if (selection == 0){
+		Model_Add_Mode = 0;
+	}
+	else{
+		Model_Add_Mode = 1;
+	}
+	return(0);
+}
+
+/*
+**get information of hole stored in array 'Virtual_Hole_List' and save in array 'ReportInfo'；
+*/
+get_report_info()
+{
+    /*define a temperary array for report information*/
+	report = alloc_2darray(2000,Report_Column_Number);
+	holes = A_ALLOC(2000);
+
+	row_number = 0;
+	for (i = 0; i < Virtual_Hole_Number; i = i + 1;){
+		hole = PM_GET_MEMBER_IN_SET(Virtual_Hole_List, i);	
+		/* get hole information and save to local array */
+		get_hole_info(hole, report, row_number, holes);
+	}	
+    
+	/*save report information to global array*/
+	Report_Row_Number = row_number;
+    free_2darray(Report_Info);    
+    Report_Info = alloc_2darray(Report_Row_Number,Report_Column_Number);
+    A_FREE(Report_Objects);
+    Report_Objects = A_ALLOC(Report_Row_Number);
+	for(i=0;i<row_number;i=i+1;){
+        for(j=0;j<Report_Column_Number;j=j+1;){
+	      value = get_2darray(report,i,j);
+	      put_2darray(Report_Info, i, j, value);	
+        }
+        hole = A_GET(holes,i);
+        A_PUT(Report_Objects,i,hole);
+	}
+	A_FREE(holes);
+
+	free_2darray(report);	
+	return(0);
+}
+
+/*get hole part information*/
+get_hole_info(hole,report,row_number,holes)
+{
+    /*分段*/
+    block_name = get_block_name(hole);
+    /*管段的托盘作为虚拟孔托盘*/
+    planning_unit = get_planning_unit(hole);
+    /*管件号*/
+    spool_name = get_spool_name(hole); 
+    /*通过mdl文件解析开孔规格,开孔坐标*/
+    description = ""; face = "";x1 = ""; y1 = ""; z1 = ""; x2 = ""; y2 = ""; z2 = "";
+    relocate(hole,description, face, x1,y1,z1, x2,y2,z2);
+    /*开孔类型*/
+    hole_type = get_hole_type(hole);
+    /*虚拟孔备注信息*/
+    remark = get_hole_remark(hole);
+    
+    put_2darray(report,row_number,0,block_name);
+    put_2darray(report,row_number,1,planning_unit);        
+    put_2darray(report,row_number,2,spool_name);
+    put_2darray(report,row_number,3,description);
+    put_2darray(report,row_number,4,x1);
+    put_2darray(report,row_number,5,y1);
+    put_2darray(report,row_number,6,z1);
+    put_2darray(report,row_number,7,x2);
+    put_2darray(report,row_number,8,y2);
+    put_2darray(report,row_number,9,z2);
+    put_2darray(report,row_number,10,face);
+    put_2darray(report,row_number,11,hole_type);
+    put_2darray(report,row_number,12,remark);
+    
+    A_PUT(holes,row_number,hole);
+    row_number = row_number + 1; 
+    return(0);
+} 
+
+get_block_name(hole)
+{
+    block_name = "Unset";
+    /*测试发现需要将语句执行2次才能提取到数据*/
+    value = PM_GET_OBJDATA(hole,0,MMT_TAG_OBJECT_IN_BLOCK);
+    value = PM_GET_OBJDATA(hole,0,MMT_TAG_OBJECT_IN_BLOCK);
+    if(ISSTRING(value)){
+        block_name = value;
+    }
+    return (block_name);
+}
+
+/* 虚拟孔的托盘为其所属的管段的托盘 */
+get_planning_unit(hole)
+{
+    planning_unit = "";
+    xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+    res = PM_GET_BBOX_OF_OBJECT(hole, xmin, xmax, ymin, ymax, zmin, zmax); 
+    pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 3);
+    if(!ISINT(pipes)){
+        parti = PM_GET_MEMBER_IN_SET(pipes,0);
+        /* 获取管段的托盘 */
+        planning_unit = get_planning_unit_from_part(parti);
+        return(planning_unit);
+    }
+	return(planning_unit);
+}
+
+/* 管件号 */
+get_spool_name(hole)
+{
+    spool_name = "";
+    clearance = 20;
+    xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+    res = PM_GET_BBOX_OF_OBJECT(hole, xmin, xmax, ymin, ymax, zmin, zmax); 
+    xmin = xmin - clearance;
+    ymin = ymin - clearance;
+    zmin = zmin - clearance;
+    xmax = xmax + clearance;
+    ymax = ymax + clearance;
+    zmax = zmax + clearance;
+    pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 3);
+    if(!ISINT(pipes)){
+        spool_number = PM_NR_MEMBERS_IN_SET(pipes);        
+        for(i=0;i<spool_number;i=i+1;){
+            parti = PM_GET_MEMBER_IN_SET(pipes,i);
+            value = get_spool_name_from_part(parti);
+            if(ISSTRING(value)){
+                isfind = string_find(spool_name, value);
+                if(!isfind){
+                    spool_name = spool_name + value + ",";
+                }
+            }
+        }
+    }
+    if(spool_name!=""){
+        spool_name = HEAD(spool_name, STRLEN(spool_name)-1);
+    }
+    return(spool_name);
+}
+
+/*是否为空的组*/
+is_null_group(group_handle)
+{
+    parts = PM_GET_OBJECTS_IN_GROUP(group_handle);
+    if(!ISINT(parts)){
+        part_number = PM_NR_MEMBERS_IN_SET(parts);
+        U_MESSAGE("part_number="+ITOASCII(part_number));
+    }
+}
+
+/* 备注信息（现场孔/预开孔） */
+get_hole_remark(hole)
+{
+    remark = "";
+    value = PM_GET_OBJDATA(hole,0, Tag_Hole_Stage);
+    if(ISSTRING(value)){
+        remark = value;
+    }
+    else{
+        remark = "预开孔";
+        Set_Attribute_Value(hole,Tag_Hole_Stage,remark);
+    }
+    return(remark);
+}
+
+/* 开孔类型 */
+get_hole_type(hole)
+{
+    hole_type = "";
+    value = PM_GET_OBJDATA(hole,0, Tag_Hole_Type);
+    if(ISSTRING(value)){
+        hole_type = value;
+    }
+    else{
+        hole_type = get_hole_type_def(hole);
+        if(hole_type!=""){
+            Set_Attribute_Value(hole,Tag_Hole_Type,hole_type);
+        }
+    }
+    return(hole_type);
+}
+
+/* 开孔类型缺省值 */
+get_hole_type_def(hole)
+{
+    hole_type = "";
+    max_flag = -10000;
+    xmin = 0; xmax = 0; ymin = 0; ymax = 0; zmin = 0; zmax = 0;
+    res = PM_GET_BBOX_OF_OBJECT(hole, xmin, xmax, ymin, ymax, zmin, zmax); 
+    pipes = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 3);
+    if(!ISINT(pipes)){
+        spool_number = PM_NR_MEMBERS_IN_SET(pipes);
+        for(i=0;i<spool_number;i=i+1;){
+            spooli = PM_GET_MEMBER_IN_SET(pipes,i);
+            spool_handle = PM_GET_OBJECT_GROUP(spooli,0);	                   /* 获取管段的handle */
+            if(!ISINT(spool_handle)){	
+                brans = PM_GET_OBJECTS_IN_GROUP(spool_handle);
+                if(!ISINT(brans)){
+                    bran_number = PM_NR_MEMBERS_IN_SET(brans);
+                    for(j=0;j<bran_number;j=j+1;){
+                        bran = PM_GET_MEMBER_IN_SET(brans,j);
+                        if(!ISINT(bran)){
+                            part_number = PM_NR_PARTS_IN_PIPE(bran);
+                            for(nth=1;nth<=part_number;nth=nth+1;){  
+                                part_obj_id = PM_GET_OBJDATA(bran,nth,MMT_TAG_OBJID);
+                                part_handle = PM_FIND_BY_OBJID(part_obj_id);   /* 获取管段零件的handle */
+                                
+                                flagj=0;typej="";
+                                get_hole_type_def_value(part_handle,flagj,typej);
+                                if(flagj>max_flag){
+                                    hole_type = typej;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    /*套管腹板漏水口等标准件*/
+    comps = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 2);
+    if(!ISINT(comps)){
+        comp_number = PM_NR_MEMBERS_IN_SET(comps);
+        for(i=0;i<comp_number;i=i+1;){
+            part_handle = PM_GET_MEMBER_IN_SET(comps,i);
+            
+            flagi=0; typei="";
+            get_hole_type_def_value(part_handle,flagi,typei);
+            if(flagi>max_flag){
+                hole_type = typei;
+            }
+        }
+    }
+    
+    /*多联腹板或挡水圈*/
+    comps = Search_Models_Intersect_Box(xmin,ymin,zmin,xmax,ymax,zmax, 4);
+    if(!ISINT(comps)){
+        comp_number = PM_NR_MEMBERS_IN_SET(comps);
+        for(i=0;i<comp_number;i=i+1;){
+            part_handle = PM_GET_MEMBER_IN_SET(comps,i);
+            if(part_handle!=hole){
+                /* penetration_name = PM_GET_OBJDATA(part_handle,1, Tag_Penetration_Name);  */
+                penetration_type = PM_GET_OBJDATA(part_handle,1, ".bv");
+                if(penetration_type!=""){
+                    hole_type = penetration_type + "孔";
+                }
+            }
+        }
+    }
+    return(hole_type);
+}
+
+/* 查找配置文件 */
+/* 200,PENETRATION,漏水口,漏水口孔 */
+get_hole_type_def_value(part_handle,hole_flag,hole_type)
+{
+    max_flag = -10000;
+    part_type = get_component_type(part_handle);
+    part_desc = get_component_desc(part_handle);
+
+    srcroot = SYS_GETENV("MarineToolkit");
+	file_path = F_BUILD_PATHNAME(srcroot, DefFileName);
+    if(!F_EXIST(file_path)){
+        U_MESSAGE("文配置件" + file_path + "不存在");
+        return(-1);
+    }
+    f = F_OPEN_FILE(file_path, "r");
+    if( f < 0 ){
+		U_MESSAGE("Cannot open file <"+file_path+">");
+		return(-1);
+	}
+    
+    /*文件行数*/
+    file_lines = F_NR_LINES(f);
+    F_CLOSE_FILE(f);
+    
+    line_val = "";
+    vector = DM_VECTOR_CREATE();
+    f = F_OPEN_FILE(file_path,"r");
+    for( i=0; i<file_lines; i=i+1; ){
+        F_READ_LINE(f, line_val);
+        if(HEAD(line_val,1)!="#"){
+            string_split(line_val,",",vector);
+            typei = DM_VECTOR_GET(vector, 1); 
+            if(typei == part_type){
+                desc_key = DM_VECTOR_GET(vector, 2); 
+                if(trim(desc_key)==""){
+                    desc_key = "*";
+                }
+                check_desc = PATTERN_MATCH(part_desc, desc_key);
+                if(check_desc){
+                    flagi = string_to_int(DM_VECTOR_GET(vector, 0));
+                    if(flagi>max_flag){
+                        max_flag = flagi;
+                        hole_flag = max_flag;
+                        hole_type = DM_VECTOR_GET(vector, 3);
+                    }
+                }
+            }
+        }
+    }
+    F_CLOSE_FILE(f);
+    DM_VECTOR_DELETE(vector); 
+}
+
+/* 部件描述 */
+get_component_desc(part_handle)
+{
+    descr = "";
+	part_id = PM_GET_OBJDATA(part_handle,1, "pid");  
+    if(ISSTRING(part_id)){
+        descr = DM_PARTID_DATA(part_id, "DE");
+    }
+    return(descr);
+}
+
+/*部件类型*/
+get_component_type(part_handle)
+{
+	part_id = PM_GET_OBJDATA(part_handle,1, "pid");  
+    if(ISINT(part_id)){
+        return("");
+    }
+	sort_code = DM_PARTID_DATA(part_id, "sor");   
+	key_word = DM_PARTID_DATA(part_id,"KW");
+	gt = DM_PARTID_DATA(part_id,"GT");
+
+	/* 1. 先通过Geometry type判断零件类型*/
+	if(gt == "1"){
+		mth = PM_GET_OBJDATA(part_handle, 1, MMT_TAG_METHOD);
+		if(ISSTRING(mth)){
+			if(mth == "$B"){
+				return("BEND"); 
+			}                         
+		} 
+		else{ 
+			return("TUBE");
+		}		
+	}
+	else if(gt == "2"){
+		return("ELBOW");
+	}
+	else if(gt == "6" | gt == "11" | gt == "12"){
+		if(PATTERN_MATCH(key_word, "*[Ee][Ll][Bb][Oo][Ww]*")){		
+			return("ELBOW");
+		}	
+	}
+	else if(gt == "7"){
+		if(PATTERN_MATCH(key_word, "*[Tt][Ee][Ee]*")){		
+			return("TEE");
+		}	
+	}
+	else if(gt == "8"){		
+		return("CROSS");	
+	}
+	else{	
+		/* 2. Geometry type无法区分零件类型，则通过keyword做进一步的判断 */
+		if(key_word != ""){
+			if(PATTERN_MATCH(key_word, "*[Pp][Ii][Pp][Ee]*") | PATTERN_MATCH(key_word, "*[Tt][Uu][Bb][Ee]*")){
+				mth = PM_GET_OBJDATA(part_handle, 1, MMT_TAG_METHOD);
+				if(ISSTRING(mth)){
+					if(mth == "$B"){
+						return("BEND"); 
+					}                         
+				} 
+				else{ 
+					return("TUBE");
+				}
+			}
+			else if(PATTERN_MATCH(key_word, "*[Ee][Ll][Bb][Oo][Ww]*") | PATTERN_MATCH(key_word, "*[Bb][Ee][Nn][Dd]*")){
+				return("ELBOW");     
+			}
+			else if(PATTERN_MATCH(key_word, "*[Ff][Ll][Aa][Nn][Gg][Ee]*") & 
+				 !PATTERN_MATCH(key_word, "*[Bb][Ll][Ii][Nn][Dd]*") & 
+				 !PATTERN_MATCH(key_word, "*[Bb][Uu][Ll][Kk][Hh][Ee][Aa][Dd]*") &
+				 !PATTERN_MATCH(key_word, "*[Pp][Ee][Nn][Ee][Tt][Rr][Aa][Tt][Ii][Oo][Nn]*")){
+					return("FLANGE");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Ff][Ll][Aa][Nn][Gg][Ee]*") & 
+				  PATTERN_MATCH(key_word, "*[Bb][Ll][Ii][Nn][Dd]*")){
+				return("BLIND FLANGE");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Pp][Ee][Nn][Ee][Tt][Rr][Aa][Tt][Ii][Oo][Nn]*")){
+				return("PENETRATION");
+			} 
+			else if(PATTERN_MATCH(key_word, "*[Ff][Ll][Aa][Nn][Gg][Ee]*") & 
+				  PATTERN_MATCH(key_word, "*[Bb][Ll][Ii][Nn][Dd]*")){ 
+				return("PENETRATION");
+			}   
+			else if(PATTERN_MATCH(key_word, "*[Tt][Ee][Ee]*")){
+				return("TEE");
+			} 
+			else if(PATTERN_MATCH(key_word, "*[Bb][Rr][Aa][Nn][Cc][Hh]*")){
+				return("TEE");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Bb][Oo][Ll][Tt]*")){
+				return("BOLT");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Uu][Nn][Ii][Oo][Nn]*")){
+				return("UNION");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Cc][Ll][Aa][Mm][Pp]*")){
+				return("CLAMP");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Nn][Ii][Pp][Pp][Ll][Ee]*")){
+				return("NIPPLE");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Cc][Oo][Uu][Pp][Ll][Ii][Nn][Gg]*") | 
+				  PATTERN_MATCH(key_word, "*[Cc][Oo][Uu][Pp][Ll][Ee][Rr]*") |
+				  PATTERN_MATCH(key_word, "*[Cc][Ll][Rr][Ii][Nn][Gg]*")){
+				return("COUPLING");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Ss][Cc][Uu][Pp][Pp][Pp][Ee][Rr]*")){
+				return("SCUPPER");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Rr][Ee][Dd][Uu][Cc][Ee][Rr]*")){
+				return("REDUCER");
+			}     
+			else if(PATTERN_MATCH(key_word, "*[Ss][Tt][Rr][Aa][Ii][Nn][Ee][Rr]*")){
+				return("STRAINER");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Ss][Uu][Cc][Tt][Ii][Oo][Nn]*")){
+				return("SUCTION");
+			}  
+			else if(PATTERN_MATCH(key_word, "*[Oo][Rr][Ii][Ff][Ii][Cc][Ee]*")){
+				return("ORIFICE");     
+			} 
+			else if(PATTERN_MATCH(key_word, "*[Gg][Uu][Aa][Gg][Ee]*")){
+				return("GAUGE");      
+			}
+			else if(PATTERN_MATCH(key_word, "*[Nn][Ii][Pp][Pp][Ll][Ee]*")){
+				return("NIPPLE");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Ss][Ii][Gg][Hh][Tt]*")){
+				return("SIGHT GLASS");
+			}    
+			else if(PATTERN_MATCH(key_word, "*[Ss][Ll][Ee][Ee][Vv][Ee]*")){
+				return("SLEEVE");      
+			}
+			else if(PATTERN_MATCH(key_word, "*[Vv][Aa][Ll][Vv][Ee]*")){
+				return("VALVE");
+			}
+			else if(PATTERN_MATCH(key_word, "*[Ff][Ii][Ll][Tt][Ee][Rr]*")){
+				return("FILTER");
+			} 
+			else{
+				/* 3. 如果还无法区分零件类型，则通过零件的sort code进行判断*/
+				if(sort_code !=""){
+					if(ISSTRING(sort_code)){
+						sort = String_To_Int(sort_code);
+						if(sort>=10 & sort<=18){
+							mth = PM_GET_OBJDATA(part_handle, 1, MMT_TAG_METHOD);
+							if(ISSTRING(mth)){
+								if(mth == "$B"){
+									return("BEND"); 
+								}                         
+							} 
+							else{
+								return("TUBE");
+							}         
+						}
+						else if(sort>=20 & sort<=28){
+							return("ELBOW");
+						}
+						else if(sort>=30 & sort<=48){
+							return("REDUCER");
+						}
+						else if(sort>=50 & sort<=58){
+							return("TEE");
+						}
+						else if(sort==60){
+							return("CLAMP");
+						}
+						else if(sort>=70 & sort<=78){
+							return("CAP");
+						}
+						else if(sort>=80 & sort<=88){
+							return("CROSS");
+						}
+						else if(sort>=90 & sort<=98){
+							return("T-DRILL");
+						}
+						else if(sort>=100 & sort<=138){
+							return("FLANGE");
+						}
+						else if(sort>=190 & sort<=198){
+							return("SLEEVE");
+						}
+						else if(sort>=250 & sort<=258){
+							return("PENETRATION");
+						}
+						else if(sort>=300 & sort<=308){
+							return("CAP");
+						}
+						else if(sort>=400 & sort<=404){
+							return("PLUG");
+						}
+						else if(sort>=410 & sort<=414){
+							return("SOCKET");
+						}
+						else if(sort>=410 & sort<=424){
+							return("SOCKET");
+						}
+						else if(sort>=430 & sort<=444){
+							return("NIPPLE");
+						}
+						else if(sort>=450 & sort<=464){
+							return("UNION");
+						}
+						else if(sort>=470 & sort<=474){
+							return("ELBOW");
+						}
+						else if(sort>=480 & sort<=484){
+							return("TEE");
+						}
+						else if(sort>=490 & sort<=494){
+							return("CROSS");
+						}
+						else{
+							return("OTHER");
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+/*
+**将全局变量object_prod_info中保存的生产信息显示到列表中；
+**根据全局变量Grid_SortColumn，Grid_SortDirection保存的信息对显示列表进行排序；
+*/
+publish_model_info()
+{
+	/* 将报表信息显示到窗口中 */	
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_DELETEROWS, -1); 
+	for (i = 0; i < Report_Row_Number; i = i + 1;){
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0);
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_INSERTROWS, 1);
+		for ( j = 0; j < Report_Column_Number; j = j + 1;){
+			Value = get_2darray(Report_Info,i,j);
+			if (ISSTRING(Value)){
+				W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 0, W_LISTW_COLUMN, j, W_LISTW_STRING, Value);
+			}
+		}		
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ITEMID, i);		
+	}
+	
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_ROW, 1);
+	
+	/* 自动调整列宽度 Adjust the width of column automatically*/
+	for (i=0; i < Report_Column_Number; i = i + 1;){
+		W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_COLUMN, i, W_LISTW_COLUMNWIDTH, -1);
+	}
+	
+	/* 对生产信息列表进行排序 */
+	W_SET_WINDOW_ARGS(DisplayGrid, W_LISTW_COLUMN, Grid_SortColumn, W_LISTW_SORT, Grid_SortDirection);
+}
+/*
+**创建顶层窗体
+**Create Top frame
+*/
+create_top_frame()
+{
+	mainform = W_INIT_FRAME();
+	W_REALIZE_WINDOW(mainform,  W_FRAME_TITLE, "管子开孔表",
+                                W_FRAME_RESIZABLE,  W_RESIZE_HORIZONTALLY);	
+	return(mainform);
+}
+
+/*
+**创建显示报表内容的格栅
+*/
+create_grid(main_form)
+{
+	wobj = W_ADD_WINDOW(main_form, W_MULTISELECT, "DisplayGrid");
+	W_REALIZE_WINDOW(wobj,  W_FRAME_RIGHT_OF,    "BlockName",
+                            W_FRAME_BELOW,       "panel_upperpart",
+                            W_LISTW_COLUMNS,     Report_Column_Number,
+                            W_FRAME_SCROLLBAR,   W_SCROLLBAR_RIGHTEDGE,
+                            W_LISTW_HEADER_MODE, W_LISTW_HEADER_BUTTONS,
+                            W_FRAME_RESIZABLE,   W_RESIZE_HORIZONTALLY,
+                            W_LISTW_MODE_REPORT, 0,
+                            W_FRAME_COLS,        73, 
+                            W_FRAME_ROWS,        17,
+                            W_LISTW_CALLBACK,    1);						   
+	W_SET_WINDOW_HANDLER(wobj, "grid_handler");
+	
+	/*
+	**设置格栅的列标题
+	*/	
+	set_column_title(wobj, Grid_Title, Report_Column_Number);				
+	return(wobj);
+}
+
+quit_handler(item, event_type, button_value)
+{
+	exit();
+	U_MESSAGE("退出管子开孔表窗口");
+	return(99);
+}
+
+grid_handler(window, event_type, row, column, item_id)
+{  	
+	if (event_type == W_EVENT_ITEM_SELECTED) {
+		/* 处理格栅的排序 */
+		if (row < 0 & column >= 0) {
+			sort_grid(column,window);
+		}		
+		else if(row >= 0 & column == 0){		
+			/* 获取选中的模型 */				
+			get_selected_items(DisplayGrid);			
+			auto_highlight();
+			auto_scale_model();			
+		}		
+	}	
+	/* 处理双击数据行的事件 */
+	else if (event_type == W_EVENT_ITEM_DOUBLECLICKED) {	
+		/* 获取选中的模型 */			
+		get_selected_items(DisplayGrid);			
+		auto_highlight();
+		auto_scale_model();	
+        modify_info_handler(0, 0, 0);		
+	}
+	return(0);
+}
+
+auto_highlight()
+{
+	/* 处理模型加亮 */
+	if (AutoHighLight == 1){
+		/* 将已经加亮的模型恢复原来的颜色 */
+		hole_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < hole_number; i = i + 1){
+			hole = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+            PM_HIGHLIGHT_OBJECT(hole,FALSE);
+
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);
+		PM_FREE_SET(temp);
+		
+		/* 加亮选中的模型 */
+		hole_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+		for (i = 0; i < hole_number; i = i + 1){
+			hole = PM_GET_MEMBER_IN_SET(Selected_Objects,i);
+            PM_HIGHLIGHT_OBJECT(hole,TRUE);
+			PM_ADD_OBJECT_TO_SET(hole,High_Light_List);			
+		}
+	}
+}
+
+auto_scale_model()
+{
+	/* 处理模型自动缩放 */
+	if (AutoScale == 1){				
+		hole_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+		if (hole_number == 1){
+			hole = PM_GET_MEMBER_IN_SET(Selected_Objects,0);
+			auto_scale_hole(hole);
+		}
+	}
+}
+
+/*将指定的虚拟孔自动放大到整个视口*/
+auto_scale_hole(hole)
+{
+    hole_set = PM_INIT_SET();
+    PM_ADD_OBJECT_TO_SET(hole, hole_set);
+
+	next = 0;
+	while(TRUE){
+		source = "";
+		status = 0;
+		view_name = PM_GET_NAME_OF_NEXT_VIEW(source, next, status);
+		if(ISINT(view_name)){
+            PM_FREE_SET(hole_set);
+			return(0);
+		}
+		else{
+			if(status == 1){
+				flag = 0;
+				view_handle = PM_GET_HANDLE_OF_OPENED_VIEW(view_name,flag);
+				if (!ISINT(view_handle)){
+                    umin = 0;
+                    umax = 0;
+                    vmin = 0;
+                    vmax = 0;
+                    wmin = 0;
+                    wmax = 0;
+                    result = Get_Bbox_Of_Model_Set_In_View(hole_set, view_handle, umin, umax, vmin, vmax, wmin, wmax);
+                    if(umin != umax){
+                        umin = umin - 300;
+                        umax = umax + 300;
+                        PM_SET_VIEW_PARAMETERS(view_handle,"WINDOW",umin,umax, vmin,vmax);
+                    }
+
+				}
+			}
+		}
+	}
+    PM_FREE_SET(hole_set);
+	return(0);
+}
+
+sort_grid(column,window)
+{
+	/* A column header was clicked; sort the items */
+	if (Grid_SortColumn == column) {
+		if (Grid_SortDirection == 0) {
+			Grid_SortDirection = 1;
+		}
+		else {
+			Grid_SortDirection = 0;
+		}
+	}
+	else {
+		Grid_SortDirection = 1;
+	}
+	Grid_SortColumn = column;
+	if(Grid_SortColumn == 3){
+        W_SET_WINDOW_ARGS(window, W_LISTW_COLUMN, column, W_LISTW_SORT, Grid_SortDirection);
+	}
+}
+
+modify_info_handler(item, event_type, button_value)
+{
+	/* check if already select objects in list */
+	penetration_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (penetration_number <= 0){
+		U_CONFIRM("请先选择虚拟孔");
+		return(0);
+	}
+	/*定义菜单信息*/   
+	tag_number = 2;
+	tag_description = A_ALLOC(tag_number);
+	A_PUT(tag_description,0,"开孔类型");
+	A_PUT(tag_description,1,"备注信息");
+	
+	tags = A_ALLOC(tag_number);
+	A_PUT(tags,0,Tag_Hole_Type);
+	A_PUT(tags,1,Tag_Hole_Stage);
+
+    /*映射相应的列*/
+	maps = A_ALLOC(tag_number);
+	A_PUT(maps,0,11);
+	A_PUT(maps,1,12);
+
+	/* get column number of item that will be modified */
+	si = 1;
+	s = DM_CALL_SCRIPT("macro/Select.mac","U_Select","选择要修改的生产信息",tag_number,tag_description,si);
+	if ( s < 0 ){
+		return(0);
+	}
+
+	attribute_tag  = A_GET( tags, s);
+	attribute_name = A_GET( tag_description, s);
+    
+    first_select_row_index = A_GET(Selected_Rows,0);
+    column_number  = A_GET( maps, s);
+    old_value = get_2darray(Report_Info, first_select_row_index, column_number);
+
+	/* get new value */
+	U_INIT_DIALOG(" 请输入新的属性值 ");
+	dialog_handle = U_SET_STR(attribute_name,old_value,25);
+	if( U_DIALOG() < 0 ){
+		return(0);
+	}
+	new_val = U_GET_STR(dialog_handle);
+	if (new_val == ""){
+		U_CONFIRM("输入为空值");
+		return(0);
+	}
+
+	/* assign new value to selected objects */
+	for (i = 0; i < penetration_number; i = i + 1){
+		hole = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+        row_index = A_GET(Selected_Rows,i);
+        hole_name = get_2darray(Report_Info, row_index, 2);
+		access = Get_Object_Access_Status(hole);
+		if(access == "CheckOutByMe"){
+			Set_Attribute_Value(hole, attribute_tag, new_val);		
+		}
+		else{
+			U_CONFIRM("你没有虚拟孔<"+ hole_name +">的修改权限");		
+		}
+	}
+	
+	/* refresh data grid */
+	get_report_info();
+	publish_model_info();
+
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
+}
+
+model_browsing_handler(item, event_type, button_value)
+{
+	W_UNMAP_FRAME(MainWindow);	
+	selected_model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	if (selected_model_number > 0){
+		current_model = PM_GET_MEMBER_IN_SET(High_Light_List, 0);
+		parts = PM_GET_OBJECTS_IN_GROUP(current_model);
+		part = PM_GET_MEMBER_IN_SET( parts, 0);
+		x0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGX);
+		y0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGY);
+		z0 = PM_GET_OBJDATA(part, 0, MMT_TAG_COGZ);
+		x = SCAN_QUANT(1,x0);
+		y = SCAN_QUANT(1,y0);
+		z = SCAN_QUANT(1,z0);
+		PM_SET_CURRENT_LOC(x, y, z);	
+	}
+	nth_part = 0;
+	PM_PICK_OBJECT("浏览模型",nth_part);
+	W_MAP_FRAME(MainWindow);
+}
+
+search_model(item, event_type, button_value)
+{   
+	/* Get the hole struct parts */
+	temp_list = PM_INIT_SET();
+    query = PM_INIT_QUERY("STRUCTCMP");
+	parts = PM_EXECUTE_QUERY(query);
+	if (!ISINT(parts)){
+		part_number = PM_NR_MEMBERS_IN_SET(parts);
+		for (i = 0; i < part_number; i = i + 1;){
+			part_handle = PM_GET_MEMBER_IN_SET(parts, i);
+            system = PM_GET_OBJDATA(part_handle, 0, "sys");
+            if(ISSTRING(system)){
+                if(system==System_1){
+                    /* U_MESSAGE("system = "+system); */
+                    result = PM_ADD_OBJECT_TO_SET(part_handle,temp_list);
+                }
+            }
+		}
+	}
+	
+	part_number = PM_NR_MEMBERS_IN_SET(temp_list);
+	if (part_number <= 0){
+		return 0;
+	}
+	
+	filter_model(temp_list);
+	
+	/* put the result to the array 'Virtual_Hole_List' */
+    PM_FREE_SET(Virtual_Hole_List);
+    Virtual_Hole_List = PM_INIT_SET();		
+	Virtual_Hole_List = PM_COPY_SET(temp_list); 	
+
+	Virtual_Hole_Number = PM_NR_MEMBERS_IN_SET(Virtual_Hole_List);
+	if (Virtual_Hole_Number <= 0){
+		PM_FREE_SET(temp_list);
+		return 0;
+	}
+	
+	PM_FREE_SET(temp_list);
+	/* get penetration information and publish to grid */
+	get_report_info();
+	publish_model_info();
+}
+
+filter_model(models)
+{
+	/* 获取过滤条件 Get filter conditions*/
+	block_name = W_GET_PANELITEM_ARG(BlockName, W_PANEL_VALUE);
+	planning_unit = W_GET_PANELITEM_ARG(PlanningUnit, W_PANEL_VALUE);
+    spool_name = W_GET_PANELITEM_ARG(Virtual_HoleName, W_PANEL_VALUE);
+	temp = PM_INIT_SET();
+	
+	/* 过滤掉不符合条件的模型 */
+	hole_number = PM_NR_MEMBERS_IN_SET(models);
+	for (i = 0; i < hole_number; i = i + 1;){
+		hole = PM_GET_MEMBER_IN_SET(models, i);	
+
+        model_block_name = get_block_name(hole);
+        if(model_block_name == "Unset"){
+            model_block_name = "*";
+        }
+        model_planning_unit = get_planning_unit(hole);
+        if(model_planning_unit == "Unset"){
+            model_planning_unit = "*";
+        }
+        model_spool_name = get_spool_name(hole);
+        if(model_spool_name == "Unset"){
+            model_spool_name = "*";
+        }
+        
+        check_block = PATTERN_MATCH(model_block_name, block_name);
+		check_planning_unit = PATTERN_MATCH(model_planning_unit, planning_unit);
+		check_name =  PATTERN_MATCH(model_spool_name, spool_name);
+		if(check_block & check_planning_unit & check_name){	
+		    PM_ADD_OBJECT_TO_SET(hole,temp);
+	    }				
+	}
+	PM_SETOP_SUB(models,models);
+	PM_SETOP_OR(models,temp);
+	PM_FREE_SET(temp);
+	return(0);
+}
+
+options_selected(item, event_type, dummy)
+{
+	s = W_GET_PANELITEM_ARG(item, W_PANEL_VALUE);
+	if ( s == "00" ){
+		AutoHighLight = 0;
+		AutoScale = 0;	
+		/* 将已经加亮的模型恢复原来的颜色 */
+		model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			Highlight_Object(model,FALSE);
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);	
+		PM_FREE_SET(temp);		
+	}
+	else if( s == "10"){
+		AutoHighLight = 1;
+		AutoScale = 0;	
+	}
+	else if( s == "11"){
+		AutoHighLight = 1;
+		AutoScale = 1;	
+	}
+	else if( s == "01"){
+		AutoHighLight = 0;
+		AutoScale = 1;
+		/* 将已经加亮的模型恢复原来的颜色 */
+		model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+		for (i = 0 ; i < model_number; i = i + 1){
+			model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+			Highlight_Object(model,FALSE);
+		}
+		temp = PM_INIT_SET();
+		High_Light_List = PM_COPY_SET(temp);
+		PM_FREE_SET(temp);
+	}		
+	return(0);
+}
+
+create_panel_upperpart(mainform)
+{
+	panel_upperpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_upperpart");
+	W_REALIZE_WINDOW(panel_upperpart,   W_FRAME_X, 0,
+                                        W_FRAME_Y, 0,
+                                        W_FRAME_ROWS, 2,
+                                        W_FRAME_COLS, 70);
+							            	
+	BlockName = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "BlockName");
+	W_REALIZE_PANELITEM(BlockName, W_PANEL_ROW, 0, 
+	                                W_PANEL_COL, 0,
+                                    W_PANEL_LABEL, "分段:  ",
+                                    W_PANEL_LENGTH, 8,
+                                    W_PANEL_VALUE, "*",
+                                    W_PANEL_CALLBACK, 1);
+
+	PlanningUnit = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "PlanningUnit");
+	W_REALIZE_PANELITEM(PlanningUnit,   W_PANEL_ROW,      0, 
+	                                    W_PANEL_COL,      15,
+                                        W_PANEL_LABEL,    "托盘:  ",
+                                        W_PANEL_LENGTH,   8,
+                                        W_PANEL_VALUE,    "*",
+                                        W_PANEL_CALLBACK, 3);
+
+	Virtual_HoleName = W_ADD_PANELITEM(panel_upperpart, W_PANEL_FILL, "Virtual_HoleName");
+	W_REALIZE_PANELITEM(Virtual_HoleName,    W_PANEL_ROW,      0, 
+	                                    W_PANEL_COL,      30,
+							                  W_PANEL_LABEL,    "名称:  ",
+							                  W_PANEL_LENGTH,   8,
+							                  W_PANEL_VALUE,    "*",
+							                  W_PANEL_CALLBACK, 3);
+                                              
+	Search_Model = W_ADD_PANELITEM(panel_upperpart, W_PANEL_BUTTON, "Search_Model");
+	W_REALIZE_PANELITEM(Search_Model,   W_PANEL_ROW, 	     0, 
+                                        W_PANEL_COL,         45,
+                                        W_PANEL_BUTTONIMAGE, "查找", 
+                                        W_PANEL_WIDTH,       8,
+                                        W_PANEL_BUTTONVALUE, 210,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+                                        
+	Options = W_ADD_PANELITEM(panel_upperpart, W_PANEL_TOGGLE, "options");
+	W_REALIZE_PANELITEM(Options,    W_PANEL_ROW, 1, W_PANEL_COL, 50,
+                                    W_PANEL_LABEL, "",
+                                    W_PANEL_CHOICESTRING, "自动加亮    ",
+                                    W_PANEL_CHOICESTRING, "自动缩放    ",
+                                    W_PANEL_VALUE, "00",
+                                    W_PANEL_CHOICESTYLE,	W_STYLE_PUSHBUTTONS,
+                                    W_PANEL_CALLBACK, 1);			
+                                    
+	W_SET_PANELITEM_HANDLER(Search_Model, "search_model");
+	W_SET_PANELITEM_HANDLER(Options, "options_selected");
+	return(panel_upperpart);
+}
+
+create_panel_underpart(mainform)
+{	
+	panel_underpart = W_ADD_WINDOW(mainform, W_PANEL, "panel_underpart");
+	W_REALIZE_WINDOW(panel_underpart,   W_FRAME_X, 0,  W_FRAME_Y, 0);
+
+	Report_Template = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Template");
+	W_REALIZE_PANELITEM(Report_Template,W_PANEL_ROW, 20, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "报表模板:     ",
+                                        W_PANEL_LENGTH, 49,
+                                        W_PANEL_VALUE, "*",
+                                        W_PANEL_SENSITIVITY, 0,
+                                        W_PANEL_CALLBACK, 1);
+
+	select_template = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_template");
+	W_REALIZE_PANELITEM(select_template,W_PANEL_ROW, 	     20, 
+	                                    W_PANEL_COL,         61,
+                                        W_PANEL_BUTTONIMAGE, "选择模板", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							                     
+
+	Report_Path = W_ADD_PANELITEM(panel_underpart, W_PANEL_FILL, "Report_Path");
+	W_REALIZE_PANELITEM(Report_Path,    W_PANEL_ROW, 21, 
+                                        W_PANEL_COL, 0,
+                                        W_PANEL_LABEL, "保存路径:     ",
+                                        W_PANEL_LENGTH, 49,
+                                        W_PANEL_VALUE, "*",
+                                        W_PANEL_SENSITIVITY, 0,
+                                        W_PANEL_CALLBACK, 1);	
+							                     
+	select_path = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "select_path");
+	W_REALIZE_PANELITEM(select_path,    W_PANEL_ROW, 	      21, 
+                                        W_PANEL_COL,         61,
+                                        W_PANEL_BUTTONIMAGE, "选择路径", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);						                     
+							                  
+	export_report = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "export_report");
+	W_REALIZE_PANELITEM(export_report,  W_PANEL_ROW, 	      22, 
+	                                    W_PANEL_COL,         0,
+                                        W_PANEL_BUTTONIMAGE, "导出报表", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);							    
+
+	restore_default = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "restore_default");
+	W_REALIZE_PANELITEM(restore_default,   W_PANEL_ROW, 	    22, 
+	                                       W_PANEL_COL,         12,
+							               W_PANEL_BUTTONIMAGE, "恢复默认值", 
+							               W_PANEL_WIDTH,       10,
+							               W_PANEL_BUTTONVALUE, 202,
+							               W_PANEL_CALLBACK,    1,
+							               W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+                                           
+	model_browsing = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "model_browsing");
+	W_REALIZE_PANELITEM(model_browsing, W_PANEL_ROW, 	      22, 
+	                                    W_PANEL_COL,         49,
+                                        W_PANEL_BUTTONIMAGE, "模型浏览", 
+                                        W_PANEL_WIDTH,       10,
+                                        W_PANEL_BUTTONVALUE, 202,
+                                        W_PANEL_CALLBACK,    1,
+                                        W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);
+ 
+	quit = W_ADD_PANELITEM(panel_underpart, W_PANEL_BUTTON, "quit");
+	W_REALIZE_PANELITEM(quit,   W_PANEL_ROW, 	     22, 
+	                            W_PANEL_COL,         61,
+                                W_PANEL_BUTTONIMAGE, "退出", 
+                                W_PANEL_WIDTH,       10,
+                                W_PANEL_BUTTONVALUE, 207,
+                                W_PANEL_CALLBACK,    1,
+                                W_PANEL_CLOSEBUTTON, 1,
+                                W_PANEL_LAYOUT,      W_LAYOUT_HORIZONTAL);	
+							 
+	W_SET_PANELITEM_HANDLER(quit, "quit_handler");
+    W_SET_PANELITEM_HANDLER(restore_default, "restore_default_handler");
+	W_SET_PANELITEM_HANDLER(model_browsing, "model_browsing_handler");
+	W_SET_PANELITEM_HANDLER(export_report, "export_to_excel");
+	W_SET_PANELITEM_HANDLER(select_path, "select_path_handler");
+	W_SET_PANELITEM_HANDLER(select_template, "select_template_handler");
+	return(panel_underpart);
+}
+
+restore_default_handler(item, event_type, button_value)
+{
+	/* check if already select objects in list */
+	hole_number = PM_NR_MEMBERS_IN_SET(Selected_Objects);
+	if (hole_number <= 0){
+		U_CONFIRM("请先选择开孔记录");
+		return(0);
+	}
+
+	/* 恢复默认值 */
+	for (i = 0; i < hole_number; i = i + 1){
+		hole = PM_GET_MEMBER_IN_SET(Selected_Objects, i);
+		access = Get_Object_Access_Status(hole);
+		if(access == "CheckOutByMe"){
+            hole_type = get_hole_type_def(hole);
+            if(hole_type!=""){
+                Set_Attribute_Value(hole,Tag_Hole_Type,hole_type);
+            }
+		}
+		else{
+			U_CONFIRM("你没有所选孔的修改权限");		
+		}
+	}
+    
+	/* refresh data grid */
+	get_report_info();
+	publish_model_info();
+
+	temp = PM_INIT_SET();
+	Selected_Objects = PM_COPY_SET(temp);
+	PM_FREE_SET(temp);
+}
+
+select_path_handler(item, event_type, dummy)
+{
+    path = U_GET_DIRECTORY("选择报表保存路径","C:/TEMP/","",0);
+    if(ISSTRING(path)){
+        W_SET_PANELITEM_ARGS(Report_Path,W_PANEL_VALUE,path+"/");
+    }
+}
+
+select_template_handler(item, event_type, dummy)
+{
+    flag = 0;
+    template = U_GET_FILENAME("请选择模板文件", "P:\\报表模板\\","管子开孔表.xlsx", "Excel File(*.xlsx)\nExcel File(*.xlsx)\nAll Files(*.*)",2 ,flag);
+    if(ISSTRING(template)){
+        W_SET_PANELITEM_ARGS(Report_Template,W_PANEL_VALUE,template);
+    }
+}
+
+export_to_excel(item, event_type, dummy)
+{
+    random_string = get_random_string();
+    DataFileName = "C:\\TEMP\\pipe_holelist_report"+random_string+".txt";
+	if ( F_EXIST(DataFileName) ){
+		check = F_DELETE_FILE(DataFileName);
+		if (check == -1){
+			U_MESSAGEBOX("请先关闭文件" + DataFileName, U_MB_ERROR, U_MB_OK, U_MB_OK);
+			return(-1);
+		}
+	}
+	
+	flag = F_CREATE_FILE(DataFileName);
+	if (flag == -1){
+		U_CONFIRM("用户对文件:" + DataFileName + "所在路径没有写权限" );
+		return(-1);
+	}
+
+	file = F_OPEN_FILE(DataFileName,"w");
+	
+    /* 获取模板文件 */
+    unix_tmp_path = W_GET_PANELITEM_ARG(Report_Template,W_PANEL_VALUE);
+	if(!F_EXIST(unix_tmp_path)){
+		msg = "模板文件 <" + unix_tmp_path + "> 不存在";
+		U_CONFIRM(msg);
+		return(-1);
+	}
+    /* 模板文件后缀名 */
+    unix_tmp_suffix = SEARCH(unix_tmp_path, ".");
+	
+	/* 获取.NET程序路径 */
+	unix_exe_path = SYS_GETENV("MarineToolkit") + "\\NET_Programs\\SDARI_Hvac_Report.exe";
+
+	/*获取报表文件(excel)名称*/
+	U_INIT_DIALOG("请输入报表文件名称");
+	name_f = U_SET_STR("Excel文件名:", "", 20);
+	if(U_DIALOG() < 0){
+		return(0);
+	}
+	doc_name = U_GET_STR(name_f);
+	if(doc_name == ""){
+		msg = "文件名不能为空";
+		U_MESSAGEBOX(msg, U_MB_WARNING, U_MB_OK, U_OK);
+		return(0);
+	}
+	
+	/*获取报表文件的保存路径*/
+	unix_rep_path = W_GET_PANELITEM_ARG(Report_Path,W_PANEL_VALUE);
+	if(!F_EXIST(unix_rep_path)){
+		msg = "路径 <" + unix_rep_path + "> 不存在";
+		U_MESSAGEBOX(msg, U_MB_ERROR, U_MB_OK, U_OK);
+		return(-1);
+	}	
+	
+	unix_rep_file = unix_rep_path + doc_name + unix_tmp_suffix;
+	
+	win_tmp_path = S_REPLACE(unix_tmp_path, "/", "\\");
+	win_exe_path = S_REPLACE(unix_exe_path, "/", "\\");
+	win_rep_file = S_REPLACE(unix_rep_file, "/", "\\");
+	write_to_temp_file(file);
+	F_CLOSE_FILE(file);
+
+	cmd = win_exe_path + " " + win_tmp_path + " " + DataFileName + " " + win_rep_file;
+	SYS_EXEC_CMND(cmd);	
+	return(0);
+}
+
+write_to_temp_file(file)
+{    
+	/*项目信息*/
+    res = Get_Project_Attribute(Tag_Project_Number);
+    if (!ISSTRING(res)){
+        project_number = "";
+    }else{
+        project_number = res;
+    }
+/*     res = Get_Project_Attribute(Tag_Project_Description);
+    if (!ISSTRING(res)){
+        project_descr = "";
+    }else{
+        project_descr = res;
+    } */
+    project_descr = "";
+    
+    planning_unit = W_GET_PANELITEM_ARG(PlanningUnit, W_PANEL_VALUE);
+	U_INIT_DIALOG("请输入托盘信息");
+    s_f1 = U_SET_STR("托盘号:", planning_unit, 18);
+    s_f2 = U_SET_STR("图  号:", "", 18);
+    if(U_DIALOG()<0){
+        U_MESSAGE("用户取消操作");
+        return(0);
+    }
+    planning_unit = U_GET_STR(s_f1);
+    drawing_number= U_GET_STR(s_f2);
+
+    info = "管子开孔表" + ",#" + project_number + ",#" + project_descr + ",#" + planning_unit + ",#" + drawing_number + ",#";
+   	F_WRITE_STR(file,info);
+   	F_WRITE_NEWLINE(file);	
+
+    /*托盘表信息*/
+    info = "Table,#管子开孔表" + ",#5,#1,#13";
+    F_WRITE_STR(file,info);
+    F_WRITE_NEWLINE(file);	
+    
+    for(i=0;i<Report_Row_Number;i=i+1;){   
+        info = "Line,#"+ ITOASCII(i+1) + ",#";
+        W_SET_WINDOW_ARGS(DisplayGrid,W_LISTW_ROW,i);
+        item_id = W_GET_WINDOW_ARG(DisplayGrid,W_LISTW_ITEMID);
+        for(k=2;k<Report_Column_Number;k=k+1;){
+            value = get_2darray(Report_Info,item_id,k);
+            if(k == 100){
+                /*报表模板中有合并的单元格，在此补空值*/
+                info = info + value + ",# ,#";
+            }
+            else{
+                info = info + value + ",#";
+            }
+        }
+        F_WRITE_STR(file,info);
+        F_WRITE_NEWLINE(file);
+    }
+    return(0);   
+}
+
+get_random_string()
+{
+   time = GET_TIME();
+   date_string = CNV_DATE(time,2);
+   time_sring = TRANS(CNV_TIME(time,1),":","-");
+   random_string = date_string + "-" + time_sring; 
+   return random_string;
+}
+
+set_column_title(handle wobj, column_titles, column_number)
+{
+	for (i = 0; i < column_number; i = i + 1;){
+		title = A_GET(column_titles,i);
+		if (ISSTRING(title)){
+			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_HEADER, title);
+			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_COLUMNWIDTH,-1);
+			W_SET_WINDOW_ARGS(wobj, W_LISTW_COLUMN, i, W_LISTW_ITEMTYPE, W_LISTW_STRING_COLUMN); 
+		}
+		else {
+			return(0);
+		}
+	}
+	return(0);
+}
+
+main()
+{
+    init0();
+	mainform  = create_top_frame();
+	Panel_upperpart = create_panel_upperpart(mainform);
+	DisplayGrid = create_grid(mainform);
+	Panel_underpart = create_panel_underpart(mainform);
+	init();
+	MainWindow = mainform;
+	
+	W_MAP_FRAME(mainform);
+	W_RUN_FRAME(mainform);
+	W_UNMAP_FRAME(mainform);
+	W_DESTROY_FRAME(mainform);
+}
+
+exit()
+{
+	/* 将已经加亮的模型恢复原来的颜色 */
+	model_number = PM_NR_MEMBERS_IN_SET(High_Light_List);
+	for (i = 0 ; i < model_number; i = i + 1){
+        model = PM_GET_MEMBER_IN_SET(High_Light_List,i);
+        members = PM_GET_OBJECTS_IN_GROUP(model);
+        member_number = PM_NR_MEMBERS_IN_SET(members);
+        for(i=0;i<member_number;i=i+1;){
+            model_group = PM_GET_MEMBER_IN_SET(members,i);
+            Highlight_Object(model_group,FALSE);
+        }
+	}
+	PM_FREE_SET(Virtual_Hole_List);
+	PM_FREE_SET(High_Light_List);
+	PM_FREE_SET(Selected_Objects);
+	A_FREE(Report_Objects);
+	free_2darray(Report_Info);
+}
